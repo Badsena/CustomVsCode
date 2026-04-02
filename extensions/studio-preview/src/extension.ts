@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
 import { PreviewManager } from './webview/PreviewManager';
 import { SidebarProvider } from './providers/SidebarProvider';
 import { ProjectDetector } from './core/ProjectDetector';
-import { getQuestionHtml, QuestionData } from './webview/questionTemplate';
+import { submitData } from './services/axios/submissions';
 
 let isProcessing = false;
 let globalPreviewManager: PreviewManager | undefined;
@@ -102,19 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
     const openCmd = vscode.commands.registerCommand('amypo.openSimpleBrowser',
         () => vscode.commands.executeCommand('amypo.toggleBrowser'));
 
-    const refreshCmd = vscode.commands.registerCommand('amypo.refreshBrowser',
-        () => previewManager.navigate('refresh'));
-
-    const submitCmd = vscode.commands.registerCommand('amypo.submitTest', async () => {
-        if (previewManager.currentTest) {
-            const { testPath, testId } = previewManager.currentTest;
-            await submitEduTest(testPath, testId);
-        } else {
-            vscode.window.showInformationMessage('No active test to submit.');
-        }
-    });
-
-    context.subscriptions.push(toggleCmd, openCmd, refreshCmd, submitCmd, autoReloadListener,
+    context.subscriptions.push(toggleCmd, openCmd, autoReloadListener,
         {
             dispose: () => {
                 previewManager.dispose();
@@ -139,27 +127,14 @@ export function activate(context: vscode.ExtensionContext) {
                     const test_type = params.get('test_type');
                     const allocation_id = params.get('allocation_id');
                     const token = params.get('testId');
-                    const _module_id = params.get('_module_id') ?? "";
-                    const _mode = params.get('_mode') ?? "development";
+                    const module_id = params.get('module_id') ?? "";
+                    const mode = params.get('mode') ?? "development";
 
                     if (!allocation_id || !test_type || !token) {
                         vscode.window.showErrorMessage('Invalid test URL!');
                         return;
                     }
 
-                } else if (isSubmitTest) {
-                    const params = new URLSearchParams(uri.query);
-                    const testId = params.get('testId');
-
-                    if (!previewManager.currentTest) {
-                        vscode.window.showErrorMessage('No active test found to submit.');
-                        return;
-                    }
-
-                    await submitEduTest(
-                        previewManager.currentTest.testPath,
-                        testId || previewManager.currentTest.testId
-                    );
                 }
             }
         })
@@ -167,47 +142,163 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.executeCommand('setContext', 'amypo.browserOpen', false);
 
-    // ✅ CRITICAL: Resume pending test after extension host restart
-    // When _startEduTest opens a folder, the extension host restarts.
-    // We saved the test info to globalState BEFORE the restart.
-    // Now we pick it up and finish the flow: fetch question → render → show submit.
-    const pendingTest = context.globalState.get<{
-        testPath: string;
-        questionUrl: string;
-        testId: string | null;
-        token: string | null;
-    }>('pendingEduTest');
+    // vscode.commands.executeCommand('amypo-sidebar.focus');
 
-    if (pendingTest) {
-        console.log('[Amypo EduTech] Resuming pending test:', pendingTest);
-        // Clear immediately so we don't loop on next activation
-        context.globalState.update('pendingEduTest', undefined);
+    // To start test
+    const test_type = 0;
+    const allocation_id = 4092;
+    const token = '285393|5LWOidzOUKt6FCGTGF3AL01njTK94YWw3noOdHEP7f4b4a3c';
+    const moduleId = 996;
+    const mode = "development";
+    const API_URL = "https://1102amy21.amypo.ai/api";
+    const getTestDetails = async (): Promise<void> => {
+        try {
+            let resp = null
 
-        // Delay to let VS Code fully render the Explorer with the new folder
-        setTimeout(async () => {
-            try {
-                vscode.window.setStatusBarMessage(`$(sync~spin) Amypo: Loading Question...`, 5000);
-                // Fetch question data from API with Bearer token
-                const questionData = await fetchQuestion(pendingTest.questionUrl, pendingTest.token);
+            if (allocation_id && test_type) {
+                let payload = {}
+                if (moduleId) {
+                    payload = {
+                        allocate_id: allocation_id,
+                        test_type: test_type,
+                        module_id: moduleId,
+                    }
+                } else {
+                    payload = {
+                        allocate_id: allocation_id,
+                        test_type: test_type,
+                    }
+                }
+                const endpoint =
+                    test_type == 2
+                        ? `${API_URL}/sandbox/fetch_link_test_details`
+                        : `${API_URL}/sandbox/fetch_test_details`
+                resp = await submitData(payload, endpoint, 0)
 
-                // Show question in a dedicated webview panel
-                showQuestionPanel(context, questionData);
+                console.log('test details resp:', resp)
 
-                // Set test context so Submit button appears in sidebar
-                previewManager.currentTest = {
-                    testPath: pendingTest.testPath,
-                    testId: pendingTest.testId
-                };
-                previewManager.refreshStatus();
+                if (resp?.status !== 200 || !resp?.data) {
+                    console.warn('No test details found.')
+                    return
+                }
 
-                vscode.window.showInformationMessage(
-                    '✅ Test loaded! Write your code and click Submit when ready.'
-                );
-            } catch (err) {
-                console.error('[Amypo EduTech] Failed to load question:', err);
-                vscode.window.showErrorMessage(`Failed to load question: ${err}`);
+                const allocation = resp.data.allocation ?? {}
+                const test = resp.data.test ?? {}
+                const couse_details = resp.data.couse_details ?? {}
+                const topic_details = resp.data.topic_details ?? {}
+
+                setDialogueTestDetails((prev) => ({
+                    ...prev,
+                    courseName: couse_details?.course_name ?? 'N/A',
+                }))
+
+                const courseDetails = {
+                    course_name: couse_details?.course_name ?? 'N/A',
+                    topic_name: topic_details?.topic_name ?? 'N/A',
+                    module_name: test?.module_name ?? 'N/A',
+                    course_type: couse_details?.type ?? 0,
+                    test_type:
+                        test_type == 0
+                            ? 'Practice'
+                            : 'Assessment',
+                }
+                setUserCourseInfo((prev) => ({
+                    ...prev,
+                    courseInfo: courseDetails,
+                }))
+
+                console.log('allocation', allocation)
+
+                setAllocationData(allocation)
+
+                setDialogBox(1)
+
+                // Normalize proctoring
+                let proctoringData = []
+                const rawProctor = allocation?.proctoring
+                if (rawProctor != null) {
+                    if (typeof rawProctor === 'string') {
+                        try {
+                            proctoringData = JSON.parse(rawProctor)
+                        } catch (e) {
+                            console.error('Invalid proctoring JSON:', e)
+                            proctoringData = []
+                        }
+                    } else {
+                        proctoringData = rawProctor
+                    }
+                }
+
+                if (isAfterNow(allocation?.course_start_date)) {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        expiry: 1,
+                    }))
+                } else if (isBeforeNow(allocation?.course_end_date)) {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        expiry: 2,
+                    }))
+                } else if (isAfterNow(allocation?.topic_start_date)) {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        expiry: 3,
+                    }))
+                } else if (isBeforeNow(allocation?.topic_end_date)) {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        expiry: 4,
+                    }))
+                }
+
+                if (searchParamsDatas?.testType == 0) {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        testName: test?.module_name ?? 'N/A',
+                    }))
+
+                    if (couse_details?.language) {
+                        await getLanguageDetails(
+                            JSON.parse(couse_details?.language),
+                        )
+                    }
+
+                    // set coding_eval_count here
+                    setProctoringDatas((prev: any) => ({
+                        ...prev,
+                        coding_eval_count: test?.coding_eval_count
+                            ? Number(test?.coding_eval_count)
+                            : 0,
+                    }))
+                } else {
+                    setDialogueTestDetails((prev) => ({
+                        ...prev,
+                        testName: test?.testName ?? 'N/A',
+                    }))
+
+                    // Modules setup
+                    const modules = Array.isArray(test?.test_modules)
+                        ? test.test_modules
+                        : []
+                    if (modules.length == 0) {
+                        console.log('No TestModule Found')
+                        return
+                    }
+
+                    console.log('modules', modules)
+
+                    setTestModule(modules)
+                }
+                setProctoring(proctoringData ?? null)
+
+                return
             }
-        }, 2000);
+        } catch (error: any) {
+            console.error(error)
+            if (error?.response?.data?.status === 404) {
+                console.log(error?.response?.data?.message)
+            }
+        }
     }
 }
 
@@ -285,90 +376,7 @@ async function _startEduTest(
     });
 }
 
-/**
- * Fetch question data from EduTech API with Bearer token authentication.
- */
-async function fetchQuestion(apiUrl: string, token: string | null): Promise<QuestionData> {
-    const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    };
 
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(apiUrl, { headers });
-
-    if (!response.ok) {
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
-    }
-
-    const json = await response.json() as any;
-
-    // Handle wrapped responses like { data: { ... } } or { question: { ... } }
-    return json.data || json.question || json.result || json;
-}
-
-/**
- * Show fetched question in a dedicated VS Code webview panel.
- */
-function showQuestionPanel(
-    context: vscode.ExtensionContext,
-    question: QuestionData
-) {
-    const panel = vscode.window.createWebviewPanel(
-        'amypoQuestion',
-        `📝 ${question.title || 'Test Question'}`,
-        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            localResourceRoots: [context.extensionUri]
-        }
-    );
-
-    panel.webview.html = getQuestionHtml(panel.webview, question);
-
-    console.log('[Amypo EduTech] Question panel opened:', question.title);
-}
-
-async function submitEduTest(testPath: string, testId: string | null) {
-    await vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: 'Submitting test...',
-        cancellable: false
-    }, async (progress) => {
-
-        // Push to GitHub
-        progress.report({ message: 'Pushing code to GitHub...' });
-        try {
-            await execAsync('git add .', { cwd: testPath });
-            await execAsync('git commit -m "Test submission - Amypo Coder"', { cwd: testPath });
-            await execAsync('git push', { cwd: testPath });
-        } catch (err) {
-            console.error('[Amypo] Git push failed:', err);
-            vscode.window.showErrorMessage('Failed to push code to GitHub. Please try again.');
-        }
-
-        progress.report({ message: 'Notifying portal...' });
-
-        // Notify API
-        try {
-            await fetch('https://your-edutech-api.com/submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ testId, status: 'submitted' })
-            });
-        } catch (err) {
-            console.error('[Amypo] API notification failed:', err);
-        }
-
-        vscode.window.showInformationMessage(
-            '🎉 Test submitted successfully!'
-        );
-    });
-}
 
 export function deactivate() {
     if (globalPreviewManager) globalPreviewManager.dispose();

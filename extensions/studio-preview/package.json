@@ -20,7 +20,8 @@
 	"icon": "logo.png",
 	"main": "./out/extension.js",
 	"activationEvents": [
-		"onUri"
+		"onUri",
+		"*"
 	],
 	"capabilities": {
 		"untrustedWorkspaces": {
@@ -106,5 +107,8 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/muruganatham/Amypocoder.git"
+	},
+	"dependencies": {
+		"axios": "^1.14.0"
 	}
 }
