@@ -8,11 +8,14 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 import { PreviewManager } from './webview/PreviewManager';
 import { SidebarProvider } from './providers/SidebarProvider';
+import { EduModal } from './webview/EduModal';
 import { ProjectDetector } from './core/ProjectDetector';
 import { submitData } from './services/axios/submissions';
 
 let isProcessing = false;
 let globalPreviewManager: PreviewManager | undefined;
+let globalSidebarProvider: SidebarProvider | undefined;
+let pendingTestData: any = null;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('[Amypo Browser] Activating…');
@@ -26,6 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
         projectDetector,
         previewManager
     );
+    globalSidebarProvider = sidebarProvider;
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -33,6 +37,8 @@ export function activate(context: vscode.ExtensionContext) {
             sidebarProvider
         )
     );
+
+    // Modal interaction is now handled via callback in getTestDetails
 
     /**
      * amypo.toggleBrowser
@@ -112,29 +118,33 @@ export function activate(context: vscode.ExtensionContext) {
 
     // ✅ Amypo EduTech - Handle URL Protocol
     // amypo://starttest?repo=...&question=...
+    // ✅ Amypo EduTech - Date Helpers
+    const isAfterNow = (dateStr: string | undefined) => dateStr ? new Date(dateStr) > new Date() : false;
+    const isBeforeNow = (dateStr: string | undefined) => dateStr ? new Date(dateStr) < new Date() : false;
+
+    // ✅ Amypo EduTech - Handle URL Protocol
+    // amypo://starttest?repo=...&question=...
     context.subscriptions.push(
         vscode.window.registerUriHandler({
             handleUri: async (uri: vscode.Uri) => {
                 vscode.window.setStatusBarMessage(`$(sync~spin) Amypo EduTech: URI Received...`, 5000);
-                console.log('[Amypo EduTech] URI received:', uri.toString(), 'Path:', uri.path, 'Authority:', uri.authority);
+                console.log('[Amypo EduTech] URI received:', uri.toString());
 
-                const isStartTest = uri.path === '/starttest' || uri.path === '/starttest/' || uri.authority === 'starttest';
-                const isSubmitTest = uri.path === '/submittest' || uri.path === '/submittest/' || uri.authority === 'submittest';
+                const params = new URLSearchParams(uri.query);
+                const isStartTest = uri.path.includes('starttest') || uri.authority === 'starttest';
+                const isSubmitTest = uri.path.includes('submittest') || uri.authority === 'submittest';
 
                 if (isStartTest) {
-                    vscode.window.showInformationMessage('🚀 Amypo: Starting EduTech Test...');
-                    const params = new URLSearchParams(uri.query);
-                    const test_type = params.get('test_type');
-                    const allocation_id = params.get('allocation_id');
+                    const allocationId = params.get('allocation_id');
+                    const testType = params.get('test_type');
                     const token = params.get('testId');
-                    const module_id = params.get('module_id') ?? "";
-                    const mode = params.get('mode') ?? "development";
+                    const moduleId = params.get('module_id');
 
-                    if (!allocation_id || !test_type || !token) {
-                        vscode.window.showErrorMessage('Invalid test URL!');
-                        return;
+                    if (allocationId && testType && token) {
+                        await getTestDetails(Number(allocationId), Number(testType), token, moduleId ? Number(moduleId) : undefined);
+                    } else {
+                        vscode.window.showErrorMessage('Amypo: Invalid Test URI parameters.');
                     }
-
                 }
             }
         })
@@ -142,164 +152,141 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.executeCommand('setContext', 'amypo.browserOpen', false);
 
-    // vscode.commands.executeCommand('amypo-sidebar.focus');
-
-    // To start test
-    const test_type = 0;
-    const allocation_id = 4092;
-    const token = '285393|5LWOidzOUKt6FCGTGF3AL01njTK94YWw3noOdHEP7f4b4a3c';
-    const moduleId = 996;
-    const mode = "development";
+    // ✅ Amypo EduTech - Fetch and Process Test Details
     const API_URL = "https://1102amy21.amypo.ai/api";
-    const getTestDetails = async (): Promise<void> => {
+
+    const fetchAdpUrl = async () => {
+        console.log('[Amypo EduTech] fetchAdpUrl triggered');
+        // Placeholder for ADP URL fetching logic
+    };
+
+    const getLanguageDetails = async (langIds: number[], token: string): Promise<string[]> => {
         try {
-            let resp = null
+            const payload = { langIds };
+            const endpoint = `${API_URL}/language_by_ids`;
+            const resp = await submitData(payload, endpoint, 0, token);
 
-            if (allocation_id && test_type) {
-                let payload = {}
-                if (moduleId) {
-                    payload = {
-                        allocate_id: allocation_id,
-                        test_type: test_type,
-                        module_id: moduleId,
-                    }
-                } else {
-                    payload = {
-                        allocate_id: allocation_id,
-                        test_type: test_type,
-                    }
-                }
-                const endpoint =
-                    test_type == 2
-                        ? `${API_URL}/sandbox/fetch_link_test_details`
-                        : `${API_URL}/sandbox/fetch_test_details`
-                resp = await submitData(payload, endpoint, 0)
-
-                console.log('test details resp:', resp)
-
-                if (resp?.status !== 200 || !resp?.data) {
-                    console.warn('No test details found.')
-                    return
-                }
-
-                const allocation = resp.data.allocation ?? {}
-                const test = resp.data.test ?? {}
-                const couse_details = resp.data.couse_details ?? {}
-                const topic_details = resp.data.topic_details ?? {}
-
-                setDialogueTestDetails((prev) => ({
-                    ...prev,
-                    courseName: couse_details?.course_name ?? 'N/A',
-                }))
-
-                const courseDetails = {
-                    course_name: couse_details?.course_name ?? 'N/A',
-                    topic_name: topic_details?.topic_name ?? 'N/A',
-                    module_name: test?.module_name ?? 'N/A',
-                    course_type: couse_details?.type ?? 0,
-                    test_type:
-                        test_type == 0
-                            ? 'Practice'
-                            : 'Assessment',
-                }
-                setUserCourseInfo((prev) => ({
-                    ...prev,
-                    courseInfo: courseDetails,
-                }))
-
-                console.log('allocation', allocation)
-
-                setAllocationData(allocation)
-
-                setDialogBox(1)
-
-                // Normalize proctoring
-                let proctoringData = []
-                const rawProctor = allocation?.proctoring
-                if (rawProctor != null) {
-                    if (typeof rawProctor === 'string') {
-                        try {
-                            proctoringData = JSON.parse(rawProctor)
-                        } catch (e) {
-                            console.error('Invalid proctoring JSON:', e)
-                            proctoringData = []
-                        }
-                    } else {
-                        proctoringData = rawProctor
-                    }
-                }
-
-                if (isAfterNow(allocation?.course_start_date)) {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        expiry: 1,
-                    }))
-                } else if (isBeforeNow(allocation?.course_end_date)) {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        expiry: 2,
-                    }))
-                } else if (isAfterNow(allocation?.topic_start_date)) {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        expiry: 3,
-                    }))
-                } else if (isBeforeNow(allocation?.topic_end_date)) {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        expiry: 4,
-                    }))
-                }
-
-                if (searchParamsDatas?.testType == 0) {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        testName: test?.module_name ?? 'N/A',
-                    }))
-
-                    if (couse_details?.language) {
-                        await getLanguageDetails(
-                            JSON.parse(couse_details?.language),
-                        )
-                    }
-
-                    // set coding_eval_count here
-                    setProctoringDatas((prev: any) => ({
-                        ...prev,
-                        coding_eval_count: test?.coding_eval_count
-                            ? Number(test?.coding_eval_count)
-                            : 0,
-                    }))
-                } else {
-                    setDialogueTestDetails((prev) => ({
-                        ...prev,
-                        testName: test?.testName ?? 'N/A',
-                    }))
-
-                    // Modules setup
-                    const modules = Array.isArray(test?.test_modules)
-                        ? test.test_modules
-                        : []
-                    if (modules.length == 0) {
-                        console.log('No TestModule Found')
-                        return
-                    }
-
-                    console.log('modules', modules)
-
-                    setTestModule(modules)
-                }
-                setProctoring(proctoringData ?? null)
-
-                return
+            if (resp?.status !== 200 || !resp?.data) {
+                console.error('[Amypo EduTech] Failed to fetch language details.');
+                return [];
             }
-        } catch (error: any) {
-            console.error(error)
-            if (error?.response?.data?.status === 404) {
-                console.log(error?.response?.data?.message)
+
+            console.log('[Amypo EduTech] Language details:', resp.data);
+
+            const languages: string[] = [];
+            for (const lang_data of resp.data) {
+                const langId = Number(lang_data?.language_id);
+                if ([1002, 1003, 1004, 1005].includes(langId)) {
+                    await fetchAdpUrl();
+                }
+                languages.push(lang_data?.language_name || 'Unknown');
             }
+            return languages;
+        } catch (error) {
+            console.error('[Amypo EduTech] Error fetching languages:', error);
+            return [];
         }
-    }
+    };
+
+    const getTestDetails = async (allocation_id: number, test_type: number, token: string, moduleId?: number): Promise<void> => {
+        try {
+            vscode.window.setStatusBarMessage(`$(sync~spin) Amypo: Fetching test details...`, 10000);
+
+            let payload: any = {
+                allocate_id: allocation_id,
+                test_type: test_type,
+            };
+            if (moduleId) {
+                payload.module_id = moduleId;
+            }
+
+            const endpoint = test_type == 2
+                ? `${API_URL}/sandbox/fetch_link_test_details`
+                : `${API_URL}/sandbox/fetch_test_details`;
+
+            const resp = await submitData(payload, endpoint, 0, token);
+            console.log('[Amypo EduTech] Test details response:', resp);
+
+            if (resp?.status !== 200 || !resp?.data) {
+                vscode.window.showWarningMessage('Amypo: No test details found.');
+                return;
+            }
+
+            const allocation = resp.data.allocation ?? {};
+            const test = resp.data.test ?? {};
+            const course_details = resp.data.couse_details ?? {};
+            const topic_details = resp.data.topic_details ?? {};
+
+            // Log details (instead of React setters)
+            console.log('[Amypo EduTech] Course Name:', course_details?.course_name);
+
+            const courseInfo = {
+                course_name: course_details?.course_name ?? 'N/A',
+                topic_name: topic_details?.topic_name ?? 'N/A',
+                module_name: (test_type == 0 ? test?.module_name : test?.testName) ?? 'N/A',
+                course_type: course_details?.type ?? 0,
+                test_type: test_type == 0 ? 'Practice' : 'Assessment',
+            };
+
+            // ✅ Save test details for "Start Test" confirmation
+            pendingTestData = {
+                repo_url: test?.repo_url || test?.project_link,
+                question_url: test?.question_url || test?.question_link,
+                test_id: String(test?.id || allocation_id),
+                folder: test?.folder || '',
+                token: token
+            };
+
+            // Check Expiry
+            if (isAfterNow(allocation?.course_start_date)) {
+                vscode.window.showWarningMessage('Amypo: This course has not started yet.');
+            } else if (isBeforeNow(allocation?.course_end_date)) {
+                vscode.window.showWarningMessage('Amypo: This course has already expired.');
+            }
+
+            // Fetch Languages if Practice (test_type == 0)
+            let languages: string[] = [];
+            if (test_type == 0 && course_details?.language) {
+                try {
+                    const langIds = JSON.parse(course_details.language);
+                    if (Array.isArray(langIds)) {
+                        languages = await getLanguageDetails(langIds, token);
+                    }
+                } catch (e) {
+                    console.error('[Amypo EduTech] Error parsing languages:', e);
+                }
+            }
+
+            // Update courseInfo with languages
+            const finalCourseInfo = {
+                ...courseInfo,
+                languages: languages
+            };
+
+            // ✅ Show Centered Modal Popup instead of Sidebar update
+            EduModal.show(context, finalCourseInfo, async () => {
+                if (!pendingTestData) {
+                    vscode.window.showErrorMessage('Amypo: No test data found to start.');
+                    return;
+                }
+                const { repo_url, question_url, test_id, folder, token } = pendingTestData;
+                await _startEduTest(context, repo_url, question_url || '', test_id, folder || '', token);
+                pendingTestData = null;
+            });
+
+        } catch (error: any) {
+            console.error('[Amypo EduTech] Error fetching test details:', error);
+            vscode.window.showErrorMessage('Amypo: Failed to fetch test details.');
+        }
+    };
+
+    // ✅ Static Trigger: Load test automatically on startup
+    const staticAllocationId = 4092;
+    const staticTestType = 0;
+    const staticToken = '285393|5LWOidzOUKt6FCGTGF3AL01njTK94YWw3noOdHEP7f4b4a3c';
+    const staticModuleId = 996;
+
+    getTestDetails(staticAllocationId, staticTestType, staticToken, staticModuleId);
 }
 
 async function _startEduTest(

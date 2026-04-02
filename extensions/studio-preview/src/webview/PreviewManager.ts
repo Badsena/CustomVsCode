@@ -27,16 +27,16 @@ export class PreviewManager {
             this._terminalDataListener = (vscode.window as any).onDidWriteTerminalData((e: any) => {
                 // 1. Strip ANSI escape sequences (colors, cursors) that break text matching
                 const cleanText = e.data.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
-                
+
                 // 2. Safely capture localhost, 127.0.0.1, 0.0.0.0, and IPv6 [::1]
                 const match = cleanText.match(/(?:(?:http:\/\/)?localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):(\d{2,5})/i);
-                
+
                 if (match && match[1]) {
                     const port = parseInt(match[1], 10);
                     if (!this._dynamicPorts.has(port)) {
                         const isFirstPort = this._dynamicPorts.size === 0;
                         this._dynamicPorts.add(port);
-                        
+
                         if (!this._currentProjects.some(p => p.port === port)) {
                             this._currentProjects.push({
                                 type: 'dynamic',
@@ -46,14 +46,14 @@ export class PreviewManager {
                                 startCommand: '',
                                 label: 'Sniffed Port :' + port
                             });
-                            
+
                             if (this._panel) {
                                 // Instantly update the browser dropdown picker
                                 this._panel.webview.postMessage({
                                     type: 'updateProjects',
                                     projects: this._currentProjects
                                 });
-                                
+
                                 // 3. Super UX: Auto-navigate the browser immediately if this is the first server they started!
                                 if (isFirstPort) {
                                     this.navigate(`http://localhost:${port}`);

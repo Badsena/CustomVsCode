@@ -69,7 +69,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <meta charset="UTF-8">
             <meta http-equiv="Content-Security-Policy"
                 content="default-src 'none';
-                         script-src 'nonce-${nonce}' 'sha256-YDYk6qh6//XEUq0GJZhRzYYGN7W6nsHfg/PPFxCzl2U=';
+                         script-src 'nonce-${nonce}';
                          style-src ${cspSource} 'unsafe-inline';">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Amypo</title>
@@ -81,7 +81,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 }
                 html, body {
                     height: 100%;
-                    overflow: hidden; /* ✅ Stops ResizeObserver loop */
+                    overflow: hidden;
                 }
                 body {
                     padding: 10px;
@@ -109,7 +109,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     margin-bottom: 10px;
                 }
                 #btn-submit {
-                    display: none; /* ✅ Hidden by default, shown via JS */
+                    display: none;
                     background: #4caf50;
                     color: white;
                 }
@@ -155,3 +155,4 @@ function getNonce() {
     }
     return text;
 }
+
