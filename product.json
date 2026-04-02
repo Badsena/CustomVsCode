@@ -1,0 +1,106 @@
+{
+	"nameShort": "AmypoCoder",
+	"nameLong": "AmypoCoder",
+	"authenticationProviders": {
+		"github": {
+			"scopes": ["user:email", "repo"]
+		}
+	},
+	"applicationName": "amypocoder",
+	"debugExtensionId": "ms-vscode.js-debug",
+	"enabledApiProposals": [
+		"portAutoForward"
+	],
+
+	"dataFolderName": ".amypo-coder",
+	"win32MutexName": "amypocoder",
+	"licenseName": "MIT",
+	"licenseUrl": "https://github.com/amypo-coder/amypo-coder/blob/main/LICENSE.txt",
+	"serverLicenseUrl": "https://github.com/amypo-coder/amypo-coder/blob/main/LICENSE.txt",
+	"serverGreeting": [],
+	"serverLicense": [],
+	"serverLicensePrompt": "",
+	"serverApplicationName": "amypo-coder-server",
+	"serverDataFolderName": ".amypo-coder-server",
+	"tunnelApplicationName": "",
+	"tunnelApplicationConfig": null,
+	"win32DirName": "AmypoCoder",
+	"win32NameVersion": "AmypoCoder",
+	"win32RegValueName": "AmypoCoder",
+	"enableTelemetry": false,
+	"extensionSignatureVerification": false,
+	"trustedExtensionPublishers": [
+		"amypo-coder",
+		"amypo"
+	],
+	"trustedExtensionAuthors": [
+		"amypo-coder",
+		"amypo"
+	],
+	"updateUrl": "https://raw.githubusercontent.com/muruganatham/Amypocoder/main/updates",
+	"quality": "stable",
+	"win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}}",
+	"win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}}",
+	"win32x64UserAppId": "{{CC6B787D-37A0-49E8-AE24-8559A032BE0C}}",
+	"win32arm64UserAppId": "{{3AEBF0C8-F733-4AD4-BADE-FDB816D53D7B}}",
+	"win32AppUserModelId": "amypo.coder",
+	"win32ShellNameShort": "AmypoCoder",
+	"win32TunnelServiceMutex": "amypocoder-tunnelservice",
+	"win32TunnelMutex": "amypocoder-tunnel",
+	"darwinBundleIdentifier": "com.amypo.coder",
+	"darwinProfileUUID": "47827DD9-4734-49A0-AF80-7E19B11495CC",
+	"darwinProfilePayloadUUID": "CF808BE7-53F3-46C6-A7E2-7EDB98A5E959",
+	"linuxIconName": "amypo-coder",
+	"licenseFileName": "LICENSE.txt",
+	"reportIssueUrl": "https://github.com/amypo-coder/amypo-coder/issues/new",
+	"nodejsRepository": "https://nodejs.org",
+	"urlProtocol": "amypo",
+	"extensionsGallery": {
+		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+		"cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
+		"itemUrl": "https://marketplace.visualstudio.com/items",
+		"controlUrl": "https://az764295.vo.msecnd.net/extensions/marketplace.json",
+		"recommendationsUrl": "https://az764295.vo.msecnd.net/extensions/workspaceRecommendations.json.gz",
+		"resourceUrlTemplate": "https://{publisher}.vscode-unpkg.net/{publisher}/{name}/{version}/{path}"
+	},
+	"webviewContentExternalBaseUrlTemplate": "",
+	"builtInExtensions": [
+		{
+			"name": "ms-vscode.js-debug",
+			"version": "2022.8.1217",
+			"repo": "https://github.com/microsoft/vscode-js-debug"
+		}
+	],
+	"webBuiltInExtensions": [],
+	"extensionTips": {
+		"dsznajder.es7-react-js-snippets": "ES7+ React/Redux/React-Native snippets",
+		"esbenp.prettier-vscode": "Code formatter using prettier",
+		"dbaeumer.vscode-eslint": "Integrates ESLint JavaScript into VS Code.",
+		"humao.rest-client": "REST Client for VS Code",
+		"vscjava.vscode-java-pack": "Extension Pack for Java",
+		"redhat.java": "Language Support for Java(TM) by Red Hat",
+		"vscjava.vscode-java-debug": "Debugger for Java",
+		"vscjava.vscode-maven": "Maven for Java"
+	},
+	"extensionImportantTips": {
+		"dsznajder.es7-react-js-snippets": {
+			"name": "ES7+ React Snippets",
+			"pattern": "**/*.{js,jsx,ts,tsx}"
+		},
+		"redhat.java": {
+			"name": "Java Support",
+			"pattern": "**/*.java"
+		}
+	},
+	"configBasedExtensionTips": {
+		"prettier": {
+			"configPath": ".prettierrc",
+			"recommendations": {
+				"esbenp.prettier-vscode": {
+					"name": "Prettier",
+					"isDefault": true
+				}
+			}
+		}
+	}
+}

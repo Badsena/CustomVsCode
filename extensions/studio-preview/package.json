@@ -1,0 +1,110 @@
+{
+	"name": "amypo-browser",
+	"displayName": "Amypo Browser",
+	"description": "High-performance Dev Server Manager with Integrated Toggle Preview & Pin Browsing.",
+	"version": "1.1.0",
+	"enabledApiProposals": [
+		"terminalDataWriteEvent"
+	],
+	"publisher": "AMYPO",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"extensionKind": [
+		"workspace"
+	],
+	"icon": "logo.png",
+	"main": "./out/extension.js",
+	"activationEvents": [
+		"onUri"
+	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "amypo.toggleBrowser",
+				"title": "Toggle Amypo Browser",
+				"category": "Amypo",
+				"icon": "$(browser)"
+			},
+			{
+				"command": "amypo.openSimpleBrowser",
+				"title": "Open Amypo Browser",
+				"category": "Amypo",
+				"icon": "$(browser)"
+			},
+			{
+				"command": "amypo.refreshBrowser",
+				"title": "Refresh Amypo Browser",
+				"category": "Amypo",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "amypo.stopServer",
+				"title": "Stop Amypo Dev Server",
+				"category": "Amypo",
+				"icon": "$(close)"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "amypo-container",
+					"title": "Amypo Browser",
+					"icon": "logo.svg"
+				}
+			]
+		},
+		"views": {
+			"amypo-container": [
+				{
+					"type": "webview",
+					"id": "amypo-sidebar",
+					"name": "Amypo Browser",
+					"icon": "logo.svg"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "amypo.toggleBrowser",
+					"when": "view == amypo-sidebar && !amypo.browserOpen",
+					"group": "navigation"
+				},
+				{
+					"command": "amypo.refreshBrowser",
+					"when": "view == amypo-sidebar && amypo.browserOpen",
+					"group": "navigation"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "amypo.toggleBrowser",
+				"key": "ctrl+shift+b",
+				"mac": "cmd+shift+b",
+				"when": "!terminalFocus"
+			}
+		]
+	},
+	"scripts": {
+		"compile": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.mjs compile-extension:studio-preview ./tsconfig.json",
+		"watch": "node ../../node_modules/gulp/bin/gulp.js --gulpfile ../../build/gulpfile.extensions.mjs watch-extension:studio-preview"
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/muruganatham/Amypocoder.git"
+	}
+}

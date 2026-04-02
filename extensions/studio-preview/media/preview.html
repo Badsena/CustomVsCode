@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src *; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
+  <style>
+    :root {
+      --accent: #0078D4;
+      --border: var(--vscode-widget-border);
+    }
+    body { 
+      margin: 0; 
+      font-family: var(--vscode-font-family);
+      background: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+      overflow: hidden;
+    }
+    .tab-bar {
+      display: flex;
+      background: var(--vscode-editorGroupHeader-tabsBackground);
+      border-bottom: 1px solid var(--border);
+      padding: 4px 4px 0 4px;
+      height: 35px;
+      box-sizing: border-box;
+    }
+    .tab {
+      padding: 6px 16px;
+      background: var(--vscode-tab-inactiveBackground);
+      color: var(--vscode-tab-inactiveForeground);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      cursor: pointer;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-right: 2px;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .tab.active {
+      background: var(--vscode-tab-activeBackground);
+      color: var(--vscode-tab-activeForeground);
+      border-top: 1px solid var(--accent);
+      font-weight: 600;
+    }
+    .add-tab {
+      padding: 4px 10px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      opacity: 0.6;
+    }
+    .add-tab:hover { opacity: 1; color: var(--accent); }
+
+    .toolbar {
+      display: flex;
+      background: var(--vscode-editorGroupHeader-tabsBackground);
+      padding: 8px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      gap: 6px;
+    }
+    .address-bar-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .address-bar-container:focus-within {
+      border-color: var(--accent);
+    }
+    .protocol {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-right: 4px;
+    }
+    input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--vscode-input-foreground);
+      outline: none;
+      font-size: 13px;
+      height: 24px;
+    }
+    .nav-btn {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: none;
+      padding: 6px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .nav-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
+    .nav-btn svg { fill: currentColor; }
+
+    .view-container {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 83px);
+      background: #ffffff; /* Native browser white */
+    }
+    iframe {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border: none;
+      display: none;
+    }
+    iframe.active { display: block; }
+
+    .welcome-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #333; /* Dark text on white background */
+      text-align: center;
+      padding: 20px;
+    }
+    .welcome-screen.active { display: flex; }
+    .welcome-screen h2 { margin-bottom: 8px; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <div class="tab-bar">
+    <div id="tab-1" class="tab active" onclick="switchTab(1)">🏠 Local Dev</div>
+    <div id="tab-2" class="tab" style="display:none" onclick="switchTab(2)">🌐 Live Web</div>
+    <div id="plus-btn" class="add-tab" onclick="enableSecondTab()" title="Open External Browser">+</div>
+  </div>
+
+  <div class="toolbar">
+    <button class="nav-btn" onclick="back()" title="Back">
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M11.354 1.646l.708.708L5.707 8l6.355 5.646-.708.708L4.293 8z"/></svg>
+    </button>
+    <button class="nav-btn" onclick="forward()" title="Forward">
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4.646 1.646l-.708.708L10.293 8 3.938 13.646l.708.708L11.707 8z"/></svg>
+    </button>
+    <button class="nav-btn" onclick="reload()" title="Reload">
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 2c-1.333 0-2.6.467-3.6 1.333L3 2v5h5L6.333 5.333C7.133 4.467 8.267 4 9.5 4c2.5 0 4.5 2 4.5 4.5S12 13 9.5 13c-1.6 0-3.067-.867-3.867-2.133l-1.333.667C5.133 13.133 7.2 14.5 9.5 14.5c3.333 0 6-2.667 6-6s-2.667-6-6-6z"/></svg>
+    </button>
+    
+    <div class="address-bar-container">
+      <span id="protocol" class="protocol">http://</span>
+      <input id="url" value="${url.replace('http://', '')}" spellcheck="false" />
+    </div>
+  </div>
+
+  <div class="view-container">
+    <iframe id="frame-1" class="active" src="${url}"></iframe>
+    <iframe id="frame-2" src="about:blank"></iframe>
+    <div id="welcome-screen" class="welcome-screen">
+      <h2>External Preview Ready</h2>
+      <p>Type any <strong>https://</strong> URL in the address bar above.<br>
+      <small>(Note: Some sites like Google/Facebook don't allow embedding)</small></p>
+    </div>
+  </div>
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+    const tab1 = document.getElementById('tab-1');
+    const tab2 = document.getElementById('tab-2');
+    const plusBtn = document.getElementById('plus-btn');
+    const frame1 = document.getElementById('frame-1');
+    const frame2 = document.getElementById('frame-2');
+    const welcome = document.getElementById('welcome-screen');
+    const input = document.getElementById('url');
+    const protocol = document.getElementById('protocol');
+
+    let activeTab = 1;
+    let secondTabEnabled = false;
+
+    function switchTab(n) {
+        activeTab = n;
+        tab1.classList.toggle('active', n === 1);
+        tab2.classList.toggle('active', n === 2);
+        frame1.classList.toggle('active', n === 1);
+        
+        if (n === 2) {
+            if (secondTabEnabled && frame2.src !== 'about:blank') {
+                frame2.classList.add('active');
+                welcome.classList.remove('active');
+                updateUI(frame2.src);
+            } else {
+                frame2.classList.remove('active');
+                welcome.classList.add('active');
+                updateUI('https://');
+            }
+        } else {
+            frame2.classList.remove('active');
+            welcome.classList.remove('active');
+            updateUI(frame1.src);
+        }
+    }
+
+    function updateUI(fullUrl) {
+        if (fullUrl.startsWith('https://')) {
+            protocol.innerText = 'https://';
+            input.value = fullUrl.replace('https://', '');
+        } else {
+            protocol.innerText = 'http://';
+            input.value = fullUrl.replace('http://', '');
+        }
+    }
+
+    function enableSecondTab() {
+        secondTabEnabled = true;
+        tab2.style.display = 'flex';
+        plusBtn.style.display = 'none';
+        switchTab(2);
+    }
+
+    function load() {
+        const frame = activeTab === 1 ? frame1 : frame2;
+        let p = protocol.innerText;
+        let val = input.value.trim();
+        
+        if (activeTab === 1) {
+            // Secure navigation guard for localhost
+            if (!val.includes('localhost') && !val.includes('127.0.0.1')) {
+                alert('Amypo Local tab is reserved for project server only.');
+                return;
+            }
+        }
+
+        const target = p + val;
+        frame.src = target;
+        if (activeTab === 2) {
+            welcome.classList.remove('active');
+            frame.classList.add('active');
+        }
+    }
+
+    function back() { try { (activeTab === 1 ? frame1 : frame2).contentWindow.history.back(); } catch(e) {} }
+    function forward() { try { (activeTab === 1 ? frame1 : frame2).contentWindow.history.forward(); } catch(e) {} }
+    function reload() { 
+        const f = (activeTab === 1 ? frame1 : frame2);
+        const curr = f.src;
+        f.src = 'about:blank';
+        setTimeout(() => f.src = curr, 10);
+    }
+
+    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') load(); });
+  </script>
+</body>
+</html>

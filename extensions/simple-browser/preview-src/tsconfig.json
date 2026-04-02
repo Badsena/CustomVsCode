@@ -1,0 +1,18 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": { "types": ["node", "mocha"],
+		"rootDir": ".",
+		"outDir": "./dist/",
+		"jsx": "react",
+		"lib": [
+			"ES2024",
+			"DOM",
+			"DOM.Iterable"
+		],
+		"typeRoots": [
+			"../node_modules/@types"
+		]
+	}
+}
+
+

@@ -1,0 +1,383 @@
+[
+    {
+        "name":  "bat",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "clojure",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "coffeescript",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "configuration-editing",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "cpp",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "csharp",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "css",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "css-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "dart",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "debug-auto-launch",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "debug-server-ready",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "diff",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "docker",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "dotenv",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "emmet",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "extension-editing",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "fsharp",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "git",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "git-base",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "github",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "github-authentication",
+        "version":  "0.0.2"
+    },
+    {
+        "name":  "go",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "groovy",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "grunt",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "gulp",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "handlebars",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "hlsl",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "html",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "html-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "ini",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "ipynb",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "jake",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "java",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "javascript",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "json",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "json-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "julia",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "latex",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "less",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "log",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "lua",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "make",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "markdown",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "markdown-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "markdown-math",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "media-preview",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "merge-conflict",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "mermaid-chat-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "microsoft-authentication",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "builtin-notebook-renderers",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "npm",
+        "version":  "1.0.1"
+    },
+    {
+        "name":  "objective-c",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "perl",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "php",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "php-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "powershell",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "prompt",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "pug",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "python",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "r",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "razor",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "references-view",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "restructuredtext",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "ruby",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "rust",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "scss",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "search-result",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "shaderlab",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "shellscript",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "simple-browser",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "sql",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "swift",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "terminal-suggest",
+        "version":  "1.0.1"
+    },
+    {
+        "name":  "theme-abyss",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-defaults",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-kimbie-dark",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-monokai",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-monokai-dimmed",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-quietlight",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-red",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "vscode-theme-seti",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-solarized-dark",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-solarized-light",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "theme-tomorrow-night-blue",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "tunnel-forwarding",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "typescript",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "typescript-language-features",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "vb",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "vscode-api-tests",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "vscode-colorize-perf-tests",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "vscode-colorize-tests",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "vscode-test-resolver",
+        "version":  "0.0.1"
+    },
+    {
+        "name":  "xml",
+        "version":  "10.0.0"
+    },
+    {
+        "name":  "yaml",
+        "version":  "10.0.0"
+    },
+    {
+        "name": "ms-vscode.js-debug",
+        "version": "2022.8.1217",
+        "repo": "https://github.com/microsoft/vscode-js-debug"
+    }
+]

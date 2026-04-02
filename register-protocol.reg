@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\amypo]
+@="URL:Amypo Coder"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\amypo\DefaultIcon]
+@="\"C:\\Users\\Admin\\Documents\\CustomVsCode\\.build\\electron\\AmypoCoder.exe\",0"
+
+[HKEY_CLASSES_ROOT\amypo\shell]
+
+[HKEY_CLASSES_ROOT\amypo\shell\open]
+
+[HKEY_CLASSES_ROOT\amypo\shell\open\command]
+@="\"C:\\Users\\Admin\\Documents\\CustomVsCode\\.build\\electron\\AmypoCoder.exe\" --open-url \"%1\""

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "outDir": "./out",
+    "sourceMap": false
+  },
+  "exclude": [
+    "out",
+    "node_modules"
+  ]
+}

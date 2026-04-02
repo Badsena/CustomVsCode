@@ -1,0 +1,21 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": { "types": ["node", "mocha"],
+		"rootDir": "./src",
+		"outDir": "./out",
+		"skipLibCheck": true
+	},
+	"exclude": [
+		"node_modules",
+		".vscode-test"
+	],
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.d.ts"
+	]
+}
+
+
+
+
+
