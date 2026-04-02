@@ -12,7 +12,7 @@ export class EduModal {
 		this._panel = vscode.window.createWebviewPanel(
 			'eduModal',
 			'Amypo: Test Ready',
-			{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
+			{ viewColumn: (-4 as any) as vscode.ViewColumn, preserveFocus: false },
 			{
 				enableScripts: true,
 				localResourceRoots: [context.extensionUri],
@@ -62,17 +62,18 @@ export class EduModal {
             <style>
                 body {
                     margin: 0;
-                    padding: 0;
-                    width: 100vw;
-                    height: 100vh;
+                    padding: 24px;
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    background: rgba(0, 0, 0, 0.7);
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    min-height: 100%;
+                    background: transparent;
+                    color: var(--vscode-editor-foreground);
+                    font-family: var(--vscode-font-family);
                 }
                 #modal-content {
-                    background: white;
+                    background: var(--vscode-editorWidget-background, white);
+                    color: var(--vscode-editorWidget-foreground, #2d3436);
                     border-radius: 16px;
                     width: 90%;
                     max-width: 400px;
@@ -159,6 +160,9 @@ export class EduModal {
             </div>
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
+
+                // Close modal on click outside (if desired, but workbench handles it via ESC)
+
                 document.getElementById('cancel').onclick = () => vscode.postMessage({ command: 'cancel' });
                 document.getElementById('start').onclick = () => vscode.postMessage({ command: 'startTest' });
             </script>

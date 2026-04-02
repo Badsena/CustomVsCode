@@ -17,7 +17,7 @@ import { WebviewIconPath, WebviewInput } from '../../contrib/webviewPanel/browse
 import { IWebViewShowOptions, IWebviewWorkbenchService } from '../../contrib/webviewPanel/browser/webviewWorkbenchService.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
 import { GroupLocation, GroupsOrder, IEditorGroup, IEditorGroupsService, preferredSideBySideGroupDirection } from '../../services/editor/common/editorGroupsService.js';
-import { ACTIVE_GROUP, IEditorService, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, IEditorService, MODAL_GROUP, PreferredGroup, SIDE_GROUP } from '../../services/editor/common/editorService.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
@@ -215,6 +215,10 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 
 		if (showOptions.viewColumn === SIDE_GROUP) {
 			return SIDE_GROUP;
+		}
+
+		if (showOptions.viewColumn === MODAL_GROUP) {
+			return MODAL_GROUP;
 		}
 
 		if (showOptions.viewColumn >= 0) {
