@@ -146,6 +146,9 @@ export class PreviewManager {
                         await vscode.env.openExternal(vscode.Uri.parse(message.url));
                     }
                     break;
+                case 'openDevTools':
+                    await vscode.commands.executeCommand('workbench.action.webview.openDeveloperTools');
+                    break;
                 // ✅ Handle open folder from empty state
                 case 'openFolder':
                     await vscode.commands.executeCommand('workbench.action.files.openFolder');

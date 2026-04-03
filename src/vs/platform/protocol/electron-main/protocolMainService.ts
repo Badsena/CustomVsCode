@@ -8,6 +8,7 @@ import { Disposable, IDisposable, toDisposable } from '../../../base/common/life
 import { COI, FileAccess, Schemas, CacheControlheaders, DocumentPolicyheaders } from '../../../base/common/network.js';
 import { basename, extname, normalize } from '../../../base/common/path.js';
 import { isLinux } from '../../../base/common/platform.js';
+import { getMediaOrTextMime } from '../../../base/common/mime.js';
 import { TernarySearchTree } from '../../../base/common/ternarySearchTree.js';
 import { URI } from '../../../base/common/uri.js';
 import { generateUuid } from '../../../base/common/uuid.js';
@@ -102,6 +103,16 @@ export class ProtocolMainService extends Disposable implements IProtocolMainServ
 			} else {
 				headers = COI.getHeadersFromQuery(request.url);
 			}
+		}
+
+		// Explicitly set Content-Type to avoid issues on Windows where the 
+		// system's MIME type registry might be incorrect or missing for some types.
+		const mime = getMediaOrTextMime(path);
+		if (mime) {
+			headers = {
+				...headers,
+				'Content-Type': mime
+			};
 		}
 
 		// In OSS, evict resources from the memory cache in the renderer process

@@ -66,38 +66,62 @@ export class ProjectDetector {
 
         // ── FRONTEND ────────────────────────────────────────────────────────
         if (deps['react-scripts'] || deps['react']) {
-            found.push({ type: 'react', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: 'npm start', label: 'React UI' });
+            found.push({ type: 'react', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: deps['react-scripts'] ? 'npm start' : 'npm run dev', label: 'React UI' });
         } else if (deps['vue-cli'] || deps['@vue/cli-service'] || deps['vue']) {
-            found.push({ type: 'vue', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: 'npm run serve', label: 'Vue UI' });
+            found.push({ type: 'vue', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: deps['@vue/cli-service'] ? 'npm run serve' : 'npm run dev', label: 'Vue UI' });
+        } else if (deps['svelte'] || this._hasFile(dirPath, 'svelte.config.js')) {
+            found.push({ type: 'svelte', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 5173, startCommand: 'npm run dev', label: 'Svelte UI' });
         } else if (this._hasFile(dirPath, 'angular.json')) {
             found.push({ type: 'angular', category: 'frontend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 4200, startCommand: 'npx ng serve', label: 'Angular UI' });
         } else if (this._hasFile(dirPath, 'index.html')) {
-            // HTML / Static (live-server fallback if no framework)
             found.push({ type: 'static', category: 'frontend', rootPath: dirPath, port: 5500, startCommand: 'npx live-server --port=5500', label: 'Static UI' });
         }
 
         // ── BACKEND ─────────────────────────────────────────────────────────
-        if (this._hasFile(dirPath, 'server.js')) {
-            found.push({ type: 'node', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: 'node server.js', label: 'Node API' });
-        } else if (this._hasFile(dirPath, 'app.js')) {
-            found.push({ type: 'node', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: 'node app.js', label: 'Node API' });
+        if (this._hasFile(dirPath, 'server.js') || this._hasFile(dirPath, 'app.js') || deps['express']) {
+            const entry = this._hasFile(dirPath, 'server.js') ? 'server.js' : (this._hasFile(dirPath, 'app.js') ? 'app.js' : 'index.js');
+            found.push({ type: 'node', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: `node ${entry}`, label: 'Node API' });
         }
         
-        if (this._hasFile(dirPath, 'app.py')) {
-            found.push({ type: 'python', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 5000, startCommand: 'python app.py', label: 'Python API' });
+        if (this._hasFile(dirPath, 'app.py') || this._hasFile(dirPath, 'main.py')) {
+            const file = this._hasFile(dirPath, 'app.py') ? 'app.py' : 'main.py';
+            const isFastApi = deps['fastapi'] || (await this._containsText(path.join(dirPath, file), 'FastAPI'));
+            found.push({ 
+                type: isFastApi ? 'fastapi' : 'python', category: 'backend', 
+                rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? (isFastApi ? 8000 : 5000), 
+                startCommand: isFastApi ? `uvicorn ${file.split('.')[0]}:app --reload` : `python ${file}`, 
+                label: isFastApi ? 'FastAPI' : 'Python API' 
+            });
         } else if (this._hasFile(dirPath, 'manage.py')) {
             found.push({ type: 'django', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8000, startCommand: 'python manage.py runserver', label: 'Django API' });
+        }
+
+        if (this._hasFile(dirPath, 'go.mod') || this._hasFile(dirPath, 'main.go')) {
+            found.push({ type: 'go', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: 'go run .', label: 'Go API' });
         }
 
         if (this._hasFile(dirPath, 'pom.xml')) {
             found.push({ type: 'java', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: 'mvn spring-boot:run', label: 'Spring Boot API' });
         }
         
-        if (this._hasFile(dirPath, 'index.php')) {
-            found.push({ type: 'php', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: 'php -S localhost:8080', label: 'PHP Server' });
+        if (this._hasFile(dirPath, 'artisan')) {
+            found.push({ type: 'laravel', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8000, startCommand: 'php artisan serve', label: 'Laravel API' });
+        } else if (this._hasFile(dirPath, 'index.php') || this._hasFile(dirPath, 'Gemfile')) {
+            if (this._hasFile(dirPath, 'Gemfile')) {
+                found.push({ type: 'rails', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 3000, startCommand: 'bundle exec rails server', label: 'Rails API' });
+            } else {
+                found.push({ type: 'php', category: 'backend', rootPath: dirPath, port: this._readPortFromEnv(dirPath) ?? 8080, startCommand: 'php -S localhost:8080', label: 'PHP Server' });
+            }
         }
 
         return found;
+    }
+
+    private async _containsText(filepath: string, text: string): Promise<boolean> {
+        try {
+            const content = await fs.promises.readFile(filepath, 'utf8');
+            return content.includes(text);
+        } catch { return false; }
     }
  
     public async resolveUrl(info: ProjectInfo): Promise<string> {

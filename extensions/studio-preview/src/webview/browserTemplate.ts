@@ -15,7 +15,7 @@ export function getBrowserTemplate(
     const hasBackend  = projects.some(p => p.category === 'backend');
 
     // ✅ Decide initial mode
-    const initialMode = hasFrontend ? 'frontend' : hasBackend ? 'backend' : 'web';
+    const initialMode = hasFrontend ? 'frontend' : hasBackend ? 'backend' : 'frontend';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -100,6 +100,24 @@ export function getBrowserTemplate(
     #browser-frame { position: absolute; inset: 0; border: none; width: 100%; height: 100%; display: block; }
     #loading-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--vscode-editor-background); opacity: 1; transition: opacity 0.3s; pointer-events: none; }
     #loading-overlay.hidden { opacity: 0; }
+
+    /* ✅ New Dev Tools Button Styling */
+    #btn-devtools {
+      display: flex; align-items: center; gap: 6px;
+      margin-left: 8px; padding: 2px 8px;
+      height: 24px; border-radius: 4px;
+      border: 1px solid var(--vscode-panel-border, #444);
+      background: var(--vscode-editor-background);
+      color: var(--vscode-descriptionForeground);
+      font-size: 10px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s;
+    }
+    #btn-devtools:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+      color: var(--vscode-foreground);
+      border-color: var(--vscode-focusBorder);
+    }
+    #btn-devtools svg { color: var(--vscode-icon-foreground); }
   </style>
 </head>
 <body>
@@ -122,17 +140,20 @@ export function getBrowserTemplate(
     </div>
 
     <div id="mode-tabs">
-      <!-- ✅ Tabs hidden/shown based on detected projects -->
       <button class="mode-tab ${initialMode === 'frontend' ? 'active' : ''} ${!hasFrontend ? 'hidden' : ''}"
         data-mode="frontend">⚡ Frontend</button>
       <button class="mode-tab ${initialMode === 'backend' ? 'active' : ''} ${!hasBackend ? 'hidden' : ''}"
         data-mode="backend">🔧 Backend</button>
-      <!-- ✅ Web tab always visible -->
-      <button class="mode-tab ${initialMode === 'web' ? 'active' : ''}"
-        data-mode="web">🌐 Web</button>
     </div>
 
     <div id="status-indicator">⚪ Initializing</div>
+
+    <button id="btn-devtools" class="hidden" title="Open Webview DevTools">
+      Dev Tools
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M10.707 11.293l3.293-3.293-3.293-3.293-.707.707 2.586 2.586-2.586 2.586.707.707zM5.293 4.707L2 8l3.293 3.293.707-.707L3.414 8l2.586-2.586-.707-.707z"/>
+      </svg>
+    </button>
 
     <button class="nav-btn" id="btn-pin" style="margin-left: 8px;" title="Pin Tab">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
@@ -179,7 +200,6 @@ export function getBrowserTemplate(
 
     function updateChips(url = '') {
       chipBox.innerHTML = '';
-      if (currentMode === 'web') return;
       const filtered = localProjects.filter(p => p.category === currentMode);
       filtered.forEach(p => {
         const chip = document.createElement('div');
@@ -192,7 +212,7 @@ export function getBrowserTemplate(
       });
     }
 
-    // ✅ Show/hide tabs dynamically when projects update
+    // ✅ Show/hide tabs and DevTools dynamically when projects update
     function updateTabVisibility() {
       const hasFrontend = localProjects.some(p => p.category === 'frontend');
       const hasBackend  = localProjects.some(p => p.category === 'backend');
@@ -201,6 +221,20 @@ export function getBrowserTemplate(
         .classList.toggle('hidden', !hasFrontend);
       document.querySelector('[data-mode="backend"]')
         .classList.toggle('hidden', !hasBackend);
+
+      updateDevToolsVisibility();
+    }
+
+    function updateDevToolsVisibility() {
+      const devToolsBtn = document.getElementById('btn-devtools');
+      const hasFrontend = localProjects.some(p => p.category === 'frontend');
+      
+      // ✅ Only show in Frontend mode when a frontend server is detected
+      if (currentMode === 'frontend' && hasFrontend) {
+        devToolsBtn.classList.remove('hidden');
+      } else {
+        devToolsBtn.classList.add('hidden');
+      }
     }
 
     frame.addEventListener('load', () => {
@@ -212,6 +246,7 @@ export function getBrowserTemplate(
     document.getElementById('btn-refresh').addEventListener('click', () => { navigateTo(frame.src); });
     document.getElementById('btn-external').addEventListener('click', () => { vscode.postMessage({ type: 'openExternal', url: frame.src }); });
     document.getElementById('btn-pin').addEventListener('click', () => { vscode.postMessage({ type: 'pin' }); });
+    document.getElementById('btn-devtools').addEventListener('click', () => { vscode.postMessage({ type: 'openDevTools' }); });
     document.getElementById('btn-back').addEventListener('click', () => { try { frame.contentWindow.history.back(); } catch {} });
     urlBar.addEventListener('keydown', (e) => { if (e.key === 'Enter') { navigateTo(urlBar.value.trim()); } });
 
@@ -222,28 +257,18 @@ export function getBrowserTemplate(
         tab.classList.add('active');
         currentMode = tab.dataset.mode;
 
-        if (currentMode === 'web') {
+        urlBar.placeholder = 'localhost:3000...';
+        const relevant = localProjects.filter(p => p.category === currentMode);
+        if (relevant.length > 0) {
+          navigateTo('http://localhost:' + relevant[0].port);
+          statusInd.className = 'running';
+          statusInd.innerHTML = '🟢 Running';
+        } else {
           urlBar.value = '';
-          urlBar.placeholder = 'Enter web URL...';
-          urlBar.focus();
           chipBox.innerHTML = '';
           frame.src = 'about:blank';
-          statusInd.className = '';
-          statusInd.innerHTML = '🌐 Web Mode';
-        } else {
-          urlBar.placeholder = 'localhost:3000...';
-          const relevant = localProjects.filter(p => p.category === currentMode);
-          if (relevant.length > 0) {
-            navigateTo('http://localhost:' + relevant[0].port);
-            statusInd.className = 'running';
-            statusInd.innerHTML = '🟢 Running';
-          } else {
-            urlBar.value = '';
-            chipBox.innerHTML = '';
-            frame.src = 'about:blank';
-            statusInd.className = 'stopped';
-            statusInd.innerHTML = '🔴 Not Detected';
-          }
+          statusInd.className = 'stopped';
+          statusInd.innerHTML = '🔴 Not Detected';
         }
       });
     });

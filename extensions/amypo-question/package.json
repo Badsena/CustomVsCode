@@ -1,0 +1,64 @@
+{
+  "name": "amypo-question",
+  "displayName": "Amypo Question Panel",
+  "description": "Integrated Question Panel for Coding Problems.",
+  "version": "1.0.0",
+  "publisher": "AMYPO",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "icon": "logo.png",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "amypo.openQuestion",
+        "title": "Open Question Panel",
+        "category": "Amypo",
+        "icon": "$(question)"
+      },
+      {
+        "command": "amypo.minimizeQuestion",
+        "title": "Minimize Question Panel",
+        "icon": "$(chrome-minimize)"
+      },
+      {
+        "command": "amypo.maximizeQuestion",
+        "title": "Maximize Question Panel",
+        "icon": "$(chrome-maximize)"
+      }
+    ],
+
+    "menus": {
+      "editor/title": [
+        {
+          "command": "amypo.minimizeQuestion",
+          "when": "webviewId == 'amypoQuestion'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "amypo.maximizeQuestion",
+          "when": "webviewId == 'amypoQuestion'",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "amypo.openQuestion",
+          "when": "true"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
+    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0"
+  }
+}
