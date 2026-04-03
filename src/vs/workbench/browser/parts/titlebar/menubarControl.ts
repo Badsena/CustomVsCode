@@ -33,7 +33,7 @@ import { IHostService } from '../../../services/host/browser/host.js';
 import { BrowserFeatures } from '../../../../base/browser/canIUse.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { IsMacNativeContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { OpenRecentAction } from '../../actions/windowActions.js';
@@ -105,6 +105,7 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	order: 7
 });
 
+/*
 MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	submenu: MenuId.MenubarHelpMenu,
 	title: {
@@ -114,7 +115,9 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	},
 	order: 8
 });
+*/
 
+/*
 MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	submenu: MenuId.MenubarPreferencesMenu,
 	title: {
@@ -125,6 +128,7 @@ MenuRegistry.appendMenuItem(MenuId.MenubarMainMenu, {
 	when: IsMacNativeContext,
 	order: 9
 });
+*/
 
 export abstract class MenubarControl extends Disposable {
 

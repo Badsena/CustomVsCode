@@ -17,7 +17,7 @@ import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../plat
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { InputFocusedContext, IsMacNativeContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { InputFocusedContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -234,6 +234,7 @@ class PreferencesActionsContribution extends Disposable implements IWorkbenchCon
 						when: null,
 						primary: KeyMod.CtrlCmd | KeyCode.Comma,
 					},
+/*
 					menu: [{
 						id: MenuId.GlobalActivity,
 						group: '2_configuration',
@@ -243,6 +244,7 @@ class PreferencesActionsContribution extends Disposable implements IWorkbenchCon
 						group: '2_configuration',
 						order: 2
 					}],
+*/
 				});
 			}
 			run(accessor: ServicesAccessor, args: string | IOpenSettingsActionOptions) {
@@ -473,11 +475,13 @@ class PreferencesActionsContribution extends Disposable implements IWorkbenchCon
 				super({
 					id: SETTINGS_EDITOR_COMMAND_FILTER_ONLINE,
 					title: nls.localize({ key: 'miOpenOnlineSettings', comment: ['&& denotes a mnemonic'] }, "&&Online Services Settings"),
+/*
 					menu: {
 						id: MenuId.MenubarPreferencesMenu,
 						group: '3_settings',
 						order: 1,
 					}
+*/
 				});
 			}
 			run(accessor: ServicesAccessor) {
@@ -1465,6 +1469,7 @@ registerEditorContribution(SettingsEditorContribution.ID, SettingsEditorContribu
 
 // Preferences menu
 
+/*
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	title: nls.localize({ key: 'miPreferences', comment: ['&& denotes a mnemonic'] }, "&&Preferences"),
 	submenu: MenuId.MenubarPreferencesMenu,
@@ -1472,3 +1477,4 @@ MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	order: 2,
 	when: IsMacNativeContext.toNegated() // on macOS native the preferences menu is separate under the application menu
 });
+*/

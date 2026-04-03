@@ -8,7 +8,7 @@ import { IRemoteAgentService, remoteConnectionLatencyMeasurer } from '../../../s
 import { RunOnceScheduler, retry } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
-import { MenuId, IMenuService, MenuItemAction, MenuRegistry, registerAction2, Action2, SubmenuItemAction, IMenu } from '../../../../platform/actions/common/actions.js';
+import { MenuId, IMenuService, MenuItemAction, registerAction2, Action2, SubmenuItemAction, IMenu } from '../../../../platform/actions/common/actions.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { StatusbarAlignment, IStatusbarService, IStatusbarEntryAccessor, IStatusbarEntry } from '../../../services/statusbar/browser/statusbar.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
@@ -218,6 +218,7 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 				}
 				run = () => that.hostService.openWindow({ forceReuseWindow: true, remoteAuthority: null });
 			}));
+/*
 			if (this.remoteAuthority) {
 				MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 					group: '6_close',
@@ -228,6 +229,7 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 					order: 3.5
 				});
 			}
+*/
 		}
 
 		if (this.extensionGalleryService.isEnabled()) {

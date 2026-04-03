@@ -50,11 +50,13 @@ export class CloseWindowAction extends Action2 {
 				linux: { primary: KeyMod.Alt | KeyCode.F4, secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyW] },
 				win: { primary: KeyMod.Alt | KeyCode.F4, secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyW] }
 			},
+/*
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '6_close',
 				order: 4
 			}
+*/
 		});
 	}
 

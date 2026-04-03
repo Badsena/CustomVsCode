@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../nls.js';
+import { localize2 } from '../../../nls.js';
 import { ITelemetryData } from '../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService, WorkbenchState, IWorkspaceFolder, hasWorkspaceFileExtension } from '../../../platform/workspace/common/workspace.js';
 import { IWorkspaceEditingService } from '../../services/workspaces/common/workspaceEditing.js';
@@ -11,7 +11,7 @@ import { IEditorService } from '../../services/editor/common/editorService.js';
 import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { ADD_ROOT_FOLDER_COMMAND_ID, ADD_ROOT_FOLDER_LABEL, PICK_WORKSPACE_FOLDER_COMMAND_ID, SET_ROOT_FOLDER_COMMAND_ID } from './workspaceCommands.js';
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { MenuRegistry, MenuId, Action2, registerAction2 } from '../../../platform/actions/common/actions.js';
+import { Action2, registerAction2 } from '../../../platform/actions/common/actions.js';
 import { EmptyWorkspaceSupportContext, EnterMultiRootWorkspaceSupportContext, OpenFolderWorkspaceSupportContext, WorkbenchStateContext, WorkspaceFolderCountContext } from '../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../platform/instantiation/common/instantiation.js';
 import { IHostService } from '../../services/host/browser/host.js';
@@ -336,6 +336,7 @@ registerAction2(DuplicateWorkspaceInNewWindowAction);
 
 // --- Menu Registration
 
+/*
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	group: '2_open',
 	command: {
@@ -435,3 +436,4 @@ MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	order: 3,
 	when: ContextKeyExpr.and(WorkbenchStateContext.isEqualTo('workspace'), EmptyWorkspaceSupportContext)
 });
+*/

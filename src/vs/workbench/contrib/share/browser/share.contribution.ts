@@ -39,7 +39,7 @@ const targetMenus = [
 	MenuId.SCMResourceContextShare,
 	MenuId.OpenEditorsContextShare,
 	MenuId.EditorTitleContextShare,
-	MenuId.MenubarShare,
+	// MenuId.MenubarShare,
 	// MenuId.EditorLineNumberContext, // todo@joyceerhl add share
 	MenuId.ExplorerContextShare
 ];

@@ -34,7 +34,7 @@ for %%A in (%*) do (
 )
 
 :: Launch Code
-%CODE% . --disable-gpu %DISABLE_TEST_EXTENSION% %*
+%CODE% --disable-gpu --in-process-gpu --disable-gpu-sandbox --disable-software-rasterizer --enable-unsafe-swiftshader . --new-window %DISABLE_TEST_EXTENSION% %*
 goto end
 
 :builtin
