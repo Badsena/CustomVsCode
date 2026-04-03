@@ -146,6 +146,17 @@ export class Workbench extends Layout {
 				const dialogService = accessor.get(IDialogService);
 				const notificationService = accessor.get(INotificationService) as NotificationService;
 				const markdownRendererService = accessor.get(IMarkdownRendererService);
+				
+				// Force default settings for Amypo Coder
+				const currentActivityBarLocation = configurationService.getValue('workbench.activityBar.location');
+				if (currentActivityBarLocation === 'top' || currentActivityBarLocation === 'hidden') {
+					configurationService.updateValue('workbench.activityBar.location', 'default');
+				}
+				
+				const currentStartupEditor = configurationService.getValue('workbench.startupEditor');
+				if (currentStartupEditor === 'none') {
+					configurationService.updateValue('workbench.startupEditor', 'welcomePage');
+				}
 
 				// Set code block renderer for markdown rendering
 				markdownRendererService.setDefaultCodeBlockRenderer(instantiationService.createInstance(EditorMarkdownCodeBlockRenderer));

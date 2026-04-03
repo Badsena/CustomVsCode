@@ -3,36 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './share.css';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Codicon } from '../../../../base/common/codicons.js';
-import { MarkdownString } from '../../../../base/common/htmlContent.js';
-import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { localize } from '../../../../nls.js';
+import { MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { Severity } from '../../../../platform/notification/common/notification.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { WorkspaceFolderCountContext } from '../../../common/contextkeys.js';
-import { Extensions, IWorkbenchContributionsRegistry } from '../../../common/contributions.js';
-import { ShareProviderCountContext, ShareService } from './shareService.js';
+import { ShareService } from './shareService.js';
 import { IShareService } from '../common/share.js';
-import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
+import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 
 const targetMenus = [
 	MenuId.EditorContextShare,
@@ -81,6 +63,7 @@ class ShareWorkbenchContribution extends Disposable {
 			this._disposables = new DisposableStore();
 		}
 
+		/*
 		this._disposables.add(
 			registerAction2(class ShareAction extends Action2 {
 				static readonly ID = 'workbench.action.share';
@@ -143,6 +126,7 @@ class ShareWorkbenchContribution extends Disposable {
 				}
 			})
 		);
+		*/
 
 		const actions = this.shareService.getShareActions();
 		for (const menuId of targetMenus) {
@@ -155,7 +139,7 @@ class ShareWorkbenchContribution extends Disposable {
 }
 
 registerSingleton(IShareService, ShareService, InstantiationType.Delayed);
-const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(Extensions.Workbench);
+const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 workbenchContributionsRegistry.registerWorkbenchContribution(ShareWorkbenchContribution, LifecyclePhase.Eventually);
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
