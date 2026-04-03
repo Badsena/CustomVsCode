@@ -12,51 +12,37 @@
   ],
   "main": "./out/extension.js",
   "icon": "logo.png",
-  "activationEvents": [],
+  "activationEvents": [
+    "onUri",
+    "*"
+  ],
   "contributes": {
-    "commands": [
-      {
-        "command": "amypo.openQuestion",
-        "title": "Open Question Panel",
-        "category": "Amypo",
-        "icon": "$(question)"
-      },
-      {
-        "command": "amypo.minimizeQuestion",
-        "title": "Minimize Question Panel",
-        "icon": "$(chrome-minimize)"
-      },
-      {
-        "command": "amypo.maximizeQuestion",
-        "title": "Maximize Question Panel",
-        "icon": "$(chrome-maximize)"
-      }
-    ],
-
-    "menus": {
-      "editor/title": [
+    "viewsContainers": {
+      "activitybar": [
         {
-          "command": "amypo.minimizeQuestion",
-          "when": "webviewId == 'amypoQuestion'",
-          "group": "navigation@1"
-        },
-        {
-          "command": "amypo.maximizeQuestion",
-          "when": "webviewId == 'amypoQuestion'",
-          "group": "navigation@2"
+          "id": "amypo-sidebar",
+          "title": "Amypo",
+          "icon": "logo.svg"
         }
-      ],
-      "commandPalette": [
+      ]
+    },
+    "views": {
+      "amypo-sidebar": [
         {
-          "command": "amypo.openQuestion",
-          "when": "true"
+          "type": "webview",
+          "id": "amypoEduView",
+          "name": "Amypo EduTech",
+          "icon": "logo.svg"
         }
       ]
     }
   },
   "scripts": {
-    "compile": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
-    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch"
+    "compile": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
+    "watch": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch"
+  },
+  "dependencies": {
+    "axios": "^1.14.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0"

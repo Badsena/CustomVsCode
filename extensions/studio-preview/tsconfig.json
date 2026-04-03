@@ -2,9 +2,11 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"noUnusedLocals": false,
-			"rootDir": "./src",
+		"rootDir": "./src",
 		"outDir": "./out",
-		"types": ["node"]
+		"types": [
+			"node"
+		]
 	},
 	"include": [
 		"src/**/*",

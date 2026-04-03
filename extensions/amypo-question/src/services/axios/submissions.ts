@@ -26,8 +26,6 @@ async function storeError(url: string, error: any): Promise<void> {
 
 function getSafeToken(token: string | undefined): string {
     if (!token || token.length < 2) return '';
-    // If it looks like it's quoted, strip quotes.
-    // Otherwise return as is.
     if (token.startsWith('"') && token.endsWith('"')) {
         return token.substring(1, token.length - 1);
     }
@@ -35,7 +33,7 @@ function getSafeToken(token: string | undefined): string {
 }
 
 export async function fetchData(endpoint: any): Promise<any> {
-    const rawToken = ''; // This should probably be retrieved from a secure store or parameter
+    const rawToken = '';
     const token = getSafeToken(rawToken);
 
     try {
