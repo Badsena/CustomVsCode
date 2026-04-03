@@ -47,8 +47,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IFileIconTheme, IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
-import { OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
+import { IWorkspaceContextService, WorkbenchState, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
+// import { OpenFolderAction } from '../../../browser/actions/workspaceActions.ts';
 import { ResourceListDnDHandler } from '../../../browser/dnd.js';
 import { ResourceLabels } from '../../../browser/labels.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
@@ -1648,7 +1648,7 @@ export class SearchView extends ViewPane {
 
 		let query: ITextQuery;
 		try {
-			query = this.queryBuilder.text(content, folderResources.map(folder => folder.uri), options);
+			query = this.queryBuilder.text(content, folderResources.map((folder: IWorkspaceFolder) => folder.uri), options);
 		} catch (err) {
 			onQueryValidationError(err);
 			return;
@@ -2150,6 +2150,7 @@ export class SearchView extends ViewPane {
 	}
 
 	private showSearchWithoutFolderMessage(): void {
+		/*
 		this.searchWithoutFolderMessageElement = this.clearMessage();
 
 		const textEl = dom.append(this.searchWithoutFolderMessageElement,
@@ -2161,6 +2162,7 @@ export class SearchView extends ViewPane {
 				this.commandService.executeCommand(OpenFolderAction.ID).catch(err => errors.onUnexpectedError(err));
 			}, this.hoverService));
 		dom.append(textEl, openFolderButton.element);
+		*/
 	}
 
 	private showEmptyStage(forceHideMessages = false): void {

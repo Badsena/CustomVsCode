@@ -15,9 +15,7 @@ import { coalesce, equals } from '../../../../base/common/arrays.js';
 import { Delayer, Throttler } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
-import { splitRecentLabel } from '../../../../base/common/labels.js';
 import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILink, LinkedText } from '../../../../base/common/linkedText.js';
 import { parse } from '../../../../base/common/marshalling.js';
@@ -38,7 +36,6 @@ import { ContextKeyExpr, ContextKeyExpression, IContextKeyService, RawContextKey
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ILabelService, Verbosity } from '../../../../platform/label/common/label.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { Link } from '../../../../platform/opener/browser/link.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
@@ -48,9 +45,7 @@ import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } fro
 import { firstSessionDateStorageKey, ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
 import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { defaultButtonStyles, defaultKeybindingLabelStyles, defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
-import { IWindowOpenable } from '../../../../platform/window/common/window.js';
 import { IWorkspaceContextService, UNKNOWN_EMPTY_WINDOW_WORKSPACE } from '../../../../platform/workspace/common/workspace.js';
-import { IRecentFolder, IRecentWorkspace, IRecentlyOpened, IWorkspacesService, isRecentFolder, isRecentWorkspace } from '../../../../platform/workspaces/common/workspaces.js';
 import { OpenRecentAction } from '../../../browser/actions/windowActions.js';
 import { OpenFileFolderAction, OpenFolderAction, OpenFolderViaWorkspaceAction } from '../../../browser/actions/workspaceActions.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
@@ -114,7 +109,7 @@ type GettingStartedActionEvent = {
 	argument: string | undefined;
 };
 
-type RecentEntry = (IRecentFolder | IRecentWorkspace) & { id: string };
+
 
 const REDUCED_MOTION_KEY = 'workbench.welcomePage.preferReducedMotion';
 export class GettingStartedPage extends EditorPane {
@@ -130,7 +125,7 @@ export class GettingStartedPage extends EditorPane {
 
 	// Ensure that the these are initialized before use.
 	// Currently initialized before use in buildCategoriesSlide and scrollToCategory
-	private recentlyOpened!: Promise<IRecentlyOpened>;
+	// private recentlyOpened!: Promise<IRecentlyOpened>;
 	private gettingStartedCategories!: IResolvedWalkthrough[];
 
 	private currentWalkthrough: IResolvedWalkthrough | undefined;
@@ -147,7 +142,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private contextService: IContextKeyService;
 
-	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
+	// private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
 
@@ -187,8 +182,6 @@ export class GettingStartedPage extends EditorPane {
 		@IEditorGroupsService private readonly groupsService: IEditorGroupsService,
 		@IContextKeyService contextService: IContextKeyService,
 		@IQuickInputService private quickInputService: IQuickInputService,
-		@IWorkspacesService private readonly workspacesService: IWorkspacesService,
-		@ILabelService private readonly labelService: ILabelService,
 		@IHostService private readonly hostService: IHostService,
 		@IWebviewService private readonly webviewService: IWebviewService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
@@ -237,11 +230,11 @@ export class GettingStartedPage extends EditorPane {
 		this._register(this.gettingStartedService.onDidAddWalkthrough(rerender));
 		this._register(this.gettingStartedService.onDidRemoveWalkthrough(rerender));
 
-		this.recentlyOpened = this.workspacesService.getRecentlyOpened();
-		this._register(workspacesService.onDidChangeRecentlyOpened(() => {
-			this.recentlyOpened = workspacesService.getRecentlyOpened();
-			this.refreshRecentlyOpened();
-		}));
+		// this.recentlyOpened = this.workspacesService.getRecentlyOpened();
+		// this._register(workspacesService.onDidChangeRecentlyOpened(() => {
+		// 	this.recentlyOpened = workspacesService.getRecentlyOpened();
+		// 	this.refreshRecentlyOpened();
+		// }));
 
 		this._register(this.gettingStartedService.onDidChangeWalkthrough(category => {
 			const ourCategory = this.gettingStartedCategories.find(c => c.id === category.id);
@@ -928,7 +921,13 @@ export class GettingStartedPage extends EditorPane {
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
 		const startList = this.buildStartList();
-		const recentList = this.buildRecentlyOpenedList();
+		const slogan = $('.getting-started-slogan', {
+			style: 'margin-top: 24px; font-size: 1.25em; line-height: 1.4; color: var(--vscode-descriptionForeground); opacity: 0.9; padding: 0 20px;'
+		},
+			$('div', { style: 'font-weight: 600; margin-bottom: 8px;' }, localize('welcomePage.sloganTitle', "Amypo Coder: Your Path to Programming Excellence.")),
+			$('div', { style: 'font-size: 0.9em; opacity: 0.8;' }, localize('welcomePage.sloganSubtitle', "Master Your Skills with Every Line of Code."))
+		);
+		// const recentList = this.buildRecentlyOpenedList();
 		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 		const footer = $('.footer', {},
@@ -952,12 +951,10 @@ export class GettingStartedPage extends EditorPane {
 
 		const layoutRecentList = () => {
 			if (this.container.classList.contains('noWalkthroughs')) {
-				recentList.setLimit(10);
 				reset(leftColumn, startList.getDomElement());
-				reset(rightColumn, recentList.getDomElement());
+				reset(rightColumn, slogan);
 			} else {
-				recentList.setLimit(5);
-				reset(leftColumn, startList.getDomElement(), recentList.getDomElement());
+				reset(leftColumn, startList.getDomElement(), slogan);
 			}
 		};
 
@@ -1015,113 +1012,22 @@ export class GettingStartedPage extends EditorPane {
 		this.setSlide('categories');
 	}
 
+
+	/*
 	private buildRecentlyOpenedList(): GettingStartedIndexList<RecentEntry> {
-		const renderRecent = (recent: RecentEntry) => {
-			let fullPath: string;
-			let windowOpenable: IWindowOpenable;
-			let resourceUri: URI;
-			if (isRecentFolder(recent)) {
-				windowOpenable = { folderUri: recent.folderUri };
-				fullPath = recent.label || this.labelService.getWorkspaceLabel(recent.folderUri, { verbose: Verbosity.LONG });
-				resourceUri = recent.folderUri;
-			} else {
-				fullPath = recent.label || this.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
-				windowOpenable = { workspaceUri: recent.workspace.configPath };
-				resourceUri = recent.workspace.configPath;
-			}
-
-			const { name, parentPath } = splitRecentLabel(fullPath);
-
-			const li = $('li');
-			const link = $('button.button-link');
-
-			link.innerText = name;
-			link.title = fullPath;
-			link.setAttribute('aria-label', localize('welcomePage.openFolderWithPath', "Open folder {0} with path {1}", name, parentPath));
-			link.addEventListener('click', e => {
-				this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'openRecent', argument: undefined, walkthroughId: this.currentWalkthrough?.id });
-				this.hostService.openWindow([windowOpenable], {
-					forceNewWindow: e.ctrlKey || e.metaKey,
-					remoteAuthority: recent.remoteAuthority || null // local window if remoteAuthority is not set or can not be deducted from the openable
-				});
-				e.preventDefault();
-				e.stopPropagation();
-			});
-			li.appendChild(link);
-
-			const span = $('span');
-			span.classList.add('path');
-			span.classList.add('detail');
-			span.innerText = parentPath;
-			span.title = fullPath;
-			li.appendChild(span);
-
-			const deleteButton = $('a.codicon.codicon-close.hide-category-button.recently-opened-delete-button', {
-				'tabindex': 0,
-				'role': 'button',
-				'title': localize('welcomePage.removeRecent', "Remove from Recently Opened"),
-				'aria-label': localize('welcomePage.removeRecentAriaLabel', "Remove {0} from Recently Opened", name),
-			});
-			const handleDelete = async (e: Event) => {
-				e.preventDefault();
-				e.stopPropagation();
-				await this.workspacesService.removeRecentlyOpened([resourceUri]);
-			};
-			deleteButton.addEventListener('click', handleDelete);
-			deleteButton.addEventListener('keydown', async e => {
-				const event = new StandardKeyboardEvent(e);
-				if (event.keyCode === KeyCode.Enter || event.keyCode === KeyCode.Space) {
-					await handleDelete(e);
-				}
-			});
-			li.appendChild(deleteButton);
-
-			return li;
-		};
-
-		if (this.recentlyOpenedList) { this.recentlyOpenedList.dispose(); }
-
-		const recentlyOpenedList = this.recentlyOpenedList = new GettingStartedIndexList(
-			{
-				title: localize('recent', "Recent"),
-				klass: 'recently-opened',
-				limit: 5,
-				empty: $('.empty-recent', {},
-					localize('noRecents', "You have no recent folders,"),
-					$('button.button-link', { 'x-dispatch': 'openFolder' }, localize('openFolder', "open a folder")),
-					localize('toStart', "to start.")),
-
-				more: $('.more', {},
-					$('button.button-link',
-						{
-							'x-dispatch': 'showMoreRecents',
-							title: localize('show more recents', "Show All Recent Folders {0}", this.getKeybindingLabel(OpenRecentAction.ID))
-						}, localize('showAll', "More..."))),
-				renderElement: renderRecent,
-				contextService: this.contextService
-			});
-
-		recentlyOpenedList.onDidChange(() => this.registerDispatchListeners());
-		this.recentlyOpened.then(({ workspaces }) => {
-			const workspacesWithID = this.filterRecentlyOpened(workspaces);
-
-			const updateEntries = () => {
-				recentlyOpenedList.setEntries(workspacesWithID);
-			};
-
-			updateEntries();
-			recentlyOpenedList.register(this.labelService.onDidChangeFormatters(() => updateEntries()));
-		}).catch(onUnexpectedError);
-
-		return recentlyOpenedList;
+...
 	}
+	*/
 
+	/*
 	private filterRecentlyOpened(workspaces: (IRecentFolder | IRecentWorkspace)[]): RecentEntry[] {
 		return workspaces
 			.filter(recent => !this.workspaceContextService.isCurrentWorkspace(isRecentWorkspace(recent) ? recent.workspace : recent.folderUri))
 			.map(recent => ({ ...recent, id: isRecentWorkspace(recent) ? recent.workspace.id : recent.folderUri.toString() }));
 	}
+	*/
 
+	/*
 	private refreshRecentlyOpened(): void {
 		if (!this.recentlyOpenedList) {
 			return;
@@ -1132,6 +1038,7 @@ export class GettingStartedPage extends EditorPane {
 			this.recentlyOpenedList?.setEntries(workspacesWithID);
 		}).catch(onUnexpectedError);
 	}
+	*/
 
 	private buildStartList(): GettingStartedIndexList<IWelcomePageStartEntry> {
 		const renderStartEntry = (entry: IWelcomePageStartEntry): HTMLElement =>
@@ -1256,7 +1163,7 @@ export class GettingStartedPage extends EditorPane {
 
 		this.startList?.layout(size);
 		this.gettingStartedList?.layout(size);
-		this.recentlyOpenedList?.layout(size);
+		// this.recentlyOpenedList?.layout(size);
 
 		if (this.editorInput?.selectedStep && this.currentMediaType) {
 			this.mediaDisposables.clear();

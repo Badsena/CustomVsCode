@@ -3,13 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createCommandUri } from '../../../../base/common/htmlContent.js';
+// import { createCommandUri } from '../../../../base/common/htmlContent.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isCodeEditor, isDiffEditor } from '../../../../editor/browser/editorBrowser.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ContextKeyExpr, IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -18,14 +18,14 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { OpenFileAction, OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
+// import { OpenFileAction, OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
 import { ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IViewletViewOptions } from '../../../browser/parts/views/viewsViewlet.js';
-import { WorkbenchStateContext } from '../../../common/contextkeys.js';
+// import { WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { Extensions, IViewDescriptorService, IViewsRegistry, ViewContentGroups } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CONTEXT_DEBUGGERS_AVAILABLE, CONTEXT_DEBUG_EXTENSION_AVAILABLE, IDebugService } from '../common/debug.js';
-import { DEBUG_CONFIGURE_COMMAND_ID, DEBUG_START_COMMAND_ID } from './debugCommands.js';
+import { DEBUG_START_COMMAND_ID } from './debugCommands.js';
 
 const debugStartLanguageKey = 'debugStartLanguage';
 const CONTEXT_DEBUG_START_LANGUAGE = new RawContextKey<string>(debugStartLanguageKey, undefined);
@@ -114,6 +114,7 @@ export class WelcomeView extends ViewPane {
 }
 
 const viewsRegistry = Registry.as<IViewsRegistry>(Extensions.ViewsRegistry);
+/*
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: localize(
 		{
@@ -128,6 +129,7 @@ viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, CONTEXT_DEBUGGER_INTERESTED_IN_ACTIVE_EDITOR.toNegated()),
 	group: ViewContentGroups.Open,
 });
+*/
 
 let debugKeybindingLabel = '';
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
@@ -138,13 +140,16 @@ viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	order: 1
 });
 
+/*
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: localize({ key: 'customizeRunAndDebug2', comment: ['{Locked="launch.json"}', '{Locked="["}', '{Locked="]({0})"}'] },
 		"To customize Run and Debug [create a launch.json file]({0}).", `${createCommandUri(DEBUG_CONFIGURE_COMMAND_ID, { addNew: true }).toString()}`),
 	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, WorkbenchStateContext.notEqualsTo('empty')),
 	group: ViewContentGroups.Debug
 });
+*/
 
+/*
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: localize(
 		{
@@ -159,6 +164,7 @@ viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, WorkbenchStateContext.isEqualTo('empty')),
 	group: ViewContentGroups.Debug
 });
+*/
 
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: localize('allDebuggersDisabled', "All debug extensions are disabled. Enable a debug extension or install a new one from the Marketplace."),

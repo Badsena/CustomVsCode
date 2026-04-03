@@ -17,9 +17,9 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { IContextKeyService, IContextKey, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, IContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { IViewsRegistry, IViewDescriptor, Extensions, ViewContainer, IViewContainersRegistry, ViewContainerLocation, IViewDescriptorService, ViewContentGroups } from '../../../common/views.js';
+import { IViewsRegistry, IViewDescriptor, Extensions, ViewContainer, IViewContainersRegistry, ViewContainerLocation, IViewDescriptorService } from '../../../common/views.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
@@ -30,10 +30,10 @@ import { KeyChord, KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
-import { WorkbenchStateContext, RemoteNameContext, OpenFolderWorkspaceSupportContext } from '../../../common/contextkeys.js';
-import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
-import { AddRootFolderAction, OpenFolderAction, OpenFolderViaWorkspaceAction } from '../../../browser/actions/workspaceActions.js';
-import { OpenRecentAction } from '../../../browser/actions/windowActions.js';
+// import { WorkbenchStateContext, RemoteNameContext, OpenFolderWorkspaceSupportContext } from '../../../common/contextkeys.js';
+// import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+// import { AddRootFolderAction, OpenFolderAction, OpenFolderViaWorkspaceAction } from '../../../browser/actions/workspaceActions.js';
+// import { OpenRecentAction } from '../../../browser/actions/windowActions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { isMouseEvent } from '../../../../base/browser/dom.js';
@@ -272,17 +272,22 @@ export const VIEW_CONTAINER: ViewContainer = viewContainerRegistry.registerViewC
 	},
 }, ViewContainerLocation.Sidebar, { isDefault: true });
 
+/*
 const openFolder = localize('openFolder', "Open Folder");
 const addAFolder = localize('addAFolder', "add a folder");
 const openRecent = localize('openRecent', "Open Recent");
+*/
 
+/*
 const addRootFolderButton = `[${openFolder}](command:${AddRootFolderAction.ID})`;
 const addAFolderButton = `[${addAFolder}](command:${AddRootFolderAction.ID})`;
 const openFolderButton = `[${openFolder}](command:${OpenFolderAction.ID})`;
 const openFolderViaWorkspaceButton = `[${openFolder}](command:${OpenFolderViaWorkspaceAction.ID})`;
 const openRecentButton = `[${openRecent}](command:${OpenRecentAction.ID})`;
+*/
 
 const viewsRegistry = Registry.as<IViewsRegistry>(Extensions.ViewsRegistry);
+/*
 viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	content: localize({ key: 'noWorkspaceHelp', comment: ['Please do not translate the word "command", it is part of our internal syntax which must not change'] },
 		"You have not yet added a folder to the workspace.\n{0}", addRootFolderButton),
@@ -295,7 +300,9 @@ viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	group: ViewContentGroups.Open,
 	order: 1
 });
+*/
 
+/*
 viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	content: localize({ key: 'noFolderHelpWeb', comment: ['Please do not translate the word "command", it is part of our internal syntax which must not change'] },
 		"You have not yet opened a folder.\n{0}\n{1}", openFolderViaWorkspaceButton, openRecentButton),
@@ -308,7 +315,9 @@ viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	group: ViewContentGroups.Open,
 	order: 1
 });
+*/
 
+/*
 viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	content: localize({ key: 'remoteNoFolderHelp', comment: ['Please do not translate the word "command", it is part of our internal syntax which must not change'] },
 		"Connected to remote.\n{0}", openFolderButton),
@@ -322,7 +331,9 @@ viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	group: ViewContentGroups.Open,
 	order: 1
 });
+*/
 
+/*
 viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	content: localize({ key: 'noFolderButEditorsHelp', comment: ['Please do not translate the word "command", it is part of our internal syntax which must not change'] },
 		"You have not yet opened a folder.\n{0}\nOpening a folder will close all currently open editors. To keep them open, {1} instead.", openFolderButton, addAFolderButton),
@@ -339,7 +350,9 @@ viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	group: ViewContentGroups.Open,
 	order: 1
 });
+*/
 
+/*
 viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	content: localize({ key: 'noFolderHelp', comment: ['Please do not translate the word "command", it is part of our internal syntax which must not change'] },
 		"You have not yet opened a folder.\n{0}", openFolderButton),
@@ -356,3 +369,4 @@ viewsRegistry.registerViewWelcomeContent(EmptyView.ID, {
 	group: ViewContentGroups.Open,
 	order: 1
 });
+*/

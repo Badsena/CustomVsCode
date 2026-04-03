@@ -324,10 +324,10 @@ class DuplicateWorkspaceInNewWindowAction extends Action2 {
 
 registerAction2(AddRootFolderAction);
 registerAction2(RemoveRootFolderAction);
-registerAction2(OpenFileAction);
-registerAction2(OpenFolderAction);
-registerAction2(OpenFolderViaWorkspaceAction);
-registerAction2(OpenFileFolderAction);
+// registerAction2(OpenFileAction);
+// registerAction2(OpenFolderAction);
+// registerAction2(OpenFolderViaWorkspaceAction);
+// registerAction2(OpenFileFolderAction);
 registerAction2(OpenWorkspaceAction);
 registerAction2(OpenWorkspaceConfigFileAction);
 registerAction2(CloseWorkspaceAction);
