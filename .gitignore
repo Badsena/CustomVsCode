@@ -54,3 +54,4 @@ out-vscode-min/
 *.dll  
 *.pdb  
 *.log 
+scripts/code.sh
