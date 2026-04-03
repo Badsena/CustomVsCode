@@ -15,7 +15,6 @@ import { ContextKeyExpr } from '../../platform/contextkey/common/contextkey.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../platform/keybinding/common/keybindingsRegistry.js';
 import { CommandsRegistry } from '../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../platform/instantiation/common/instantiation.js';
-import { IsMacContext } from '../../platform/contextkey/common/contextkeys.js';
 import { INativeHostService } from '../../platform/native/common/native.js';
 import { IJSONContributionRegistry, Extensions as JSONExtensions } from '../../platform/jsonschemas/common/jsonContributionRegistry.js';
 import { IJSONSchema } from '../../base/common/jsonSchema.js';
@@ -121,6 +120,7 @@ import product from '../../platform/product/common/product.js';
 // Menu
 (function registerMenu(): void {
 
+	/*
 	// Quit
 	MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 		group: 'z_Exit',
@@ -131,6 +131,7 @@ import product from '../../platform/product/common/product.js';
 		order: 1,
 		when: IsMacContext.toNegated()
 	});
+	*/
 })();
 
 // Configuration

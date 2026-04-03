@@ -533,9 +533,11 @@ MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	when: IsWebContext
 });
 
+/*
 MenuRegistry.appendMenuItem(MenuId.MenubarFileMenu, {
 	title: localize({ key: 'miOpenRecent', comment: ['&& denotes a mnemonic'] }, "Open &&Recent"),
 	submenu: MenuId.MenubarRecentMenu,
 	group: '2_open',
 	order: 4
 });
+*/
