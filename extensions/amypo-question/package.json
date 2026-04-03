@@ -18,7 +18,7 @@
   ],
   "contributes": {
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "amypo-sidebar",
           "title": "Amypo",
@@ -38,8 +38,8 @@
     }
   },
   "scripts": {
-    "compile": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
-    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch"
+    "compile": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
+    "watch": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch"
   },
   "dependencies": {
     "axios": "^1.14.0"

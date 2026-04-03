@@ -4,6 +4,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'amypoEduView';
     private _view?: vscode.WebviewView;
     private _courseInfo?: any;
+    private _lastMessage?: any;
     private _onConfirm?: () => void;
 
     constructor(private readonly _extensionUri: vscode.Uri) { }
@@ -18,9 +19,16 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             enableScripts: true,
             localResourceRoots: [this._extensionUri]
         };
+        webviewView.description = "Amypo Question Panel";
 
         webviewView.webview.onDidReceiveMessage((message) => {
             switch (message.command) {
+                case 'ready':
+                    // Webview is now ready to receive data, re-send last state if we have it
+                    if (this._lastMessage) {
+                        this.postMessage(this._lastMessage);
+                    }
+                    break;
                 case 'startTest':
                     if (this._onConfirm) {
                         this._onConfirm();
@@ -29,7 +37,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        if (this._courseInfo) {
+        // ✅ Only set HTML if it's empty to prevent re-rendering when hidden/visible
+        if (this._courseInfo && !this._view.webview.html) {
             this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
         }
     }
@@ -45,6 +54,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     }
 
     public postMessage(message: any) {
+        this._lastMessage = message;
         if (this._view) {
             this._view.webview.postMessage(message);
         }
@@ -205,22 +215,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .info-pill { font-size: 13px; color: var(--vscode-foreground, #636e72); display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--vscode-widget-border, #dfe4ea); padding-left: 16px; font-weight: 500; }
                 .icon-btn { border: 1px solid var(--vscode-widget-border, #dfe4ea); border-radius: 50%; padding: 4px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
                 .icon-btn.yellow { border-color: #ffd32a; color: #ffa801; }
-
                 .main-layout { display: flex; flex: 1; overflow: hidden; }
-                .sidebar { width: 80px; background-color: var(--vscode-sideBar-background, #d1d8e0); display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--vscode-widget-border, #ced6e0); padding: 12px 0; }
-
-                .nav-item { display: flex; justify-content: center; margin-bottom: 16px; }
-                .nav-btn { background: none; border: none; font-size: 20px; color: var(--vscode-foreground, #2d3436); cursor: pointer; }
-                .q-tab { background: #3867d6; color: white; width: 100%; padding: 12px 0; text-align: center; font-weight: bold; border-bottom: 3px solid #ff9f43; font-size: 18px; }
-
-                .stats { display: flex; flex-direction: column; gap: 8px; padding: 0 10px; }
-                .stat-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; text-align: center; }
-                .stat-box .count { font-size: 16px; margin-bottom: 2px; }
-                .stat-green { background: #00ce7a; }
-                .stat-yellow { background: #ffaf40; }
-                .stat-orange { background: #ff793f; }
-                .stat-grey { background: #747d8c; }
-
                 .content-area { flex: 1; background: var(--vscode-editorWidget-background, white); margin: 12px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #dfe4ea); display: flex; flex-direction: column; overflow: hidden; }
                 .content-header { padding: 12px 24px; border-bottom: 1px solid var(--vscode-widget-border, #f1f2f6); display: flex; justify-content: space-between; align-items: center; background: var(--vscode-editorWidget-background, #fbfbfb); border-radius: 8px 8px 0 0; }
                 .tab-title { color: #00b894; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -249,9 +244,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 @media (max-width: 600px) {
                     .topbar { flex-direction: column; gap: 8px; }
-                    .sidebar { width: 60px; }
                     .content-header { flex-direction: column; gap: 8px; align-items: flex-start; }
-                    .q-tab { font-size: 14px; }
                 }
             </style>
         </head>
@@ -317,25 +310,9 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             </div>
                         </div>
                     </div>
-                    <div class="icon-btn yellow">☀</div>
                 </div>
 
                 <div class="main-layout">
-                    <div class="sidebar">
-                        <div>
-                            <div class="nav-item">
-                                <button class="nav-btn">≡</button>
-                            </div>
-                            <div class="q-tab">1</div>
-                        </div>
-                        <div class="stats">
-                            <div class="stat-box stat-green"><div class="count" id="stat-sub">0</div>Sub..</div>
-                            <div class="stat-box stat-yellow"><div class="count" id="stat-sav">0</div>Saved</div>
-                            <div class="stat-box stat-orange"><div class="count" id="stat-not">0</div>Not..</div>
-                            <div class="stat-box stat-grey"><div class="count" id="stat-tot">0</div>Total</div>
-                        </div>
-                    </div>
-
                     <div class="content-area">
                         <div class="content-header">
                             <div class="tab-title"><span style="color: #636e72;">📋</span> Question</div>
@@ -362,9 +339,10 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     </div>
                 </div>
             </div>
-
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
+
+                vscode.postMessage({ command: 'ready' });
 
                 document.getElementById('start').onclick = () => {
                     document.getElementById('step1').style.display = 'none';
@@ -403,15 +381,6 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             dataView.style.display = 'block';
 
                             const payload = message.payload;
-                            const stats = message.stats;
-
-                            if (stats) {
-                                document.getElementById('stat-sub').innerText = stats.submitted || '0';
-                                document.getElementById('stat-sav').innerText = stats.saved || '0';
-                                document.getElementById('stat-not').innerText = stats.not_attended || '0';
-                                document.getElementById('stat-tot').innerText = stats.total || '0';
-                            }
-
                             const qdata = Array.isArray(payload) ? payload[0] : payload;
                             if (qdata) {
                                 document.getElementById('q-title').innerText = qdata?.question_name || qdata?.title || 'Question 1';

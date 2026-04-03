@@ -47,14 +47,15 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) {
-            vscode.window.showWarningMessage('Amypo Browser: Please open a folder.');
-            return;
-        }
+        // const workspaceFolders = vscode.workspace.workspaceFolders;
+        // if (!workspaceFolders || workspaceFolders.length === 0) {
+        //     vscode.window.showWarningMessage('Amypo Browser: Please open a folder.');
+        //     return;
+        // }
 
         // Prioritize Active Root
-        let activeRoot = workspaceFolders[0].uri.fsPath;
+        // let activeRoot = workspaceFolders[0].uri.fsPath;
+        let activeRoot = "/home/sena-amypo/Documents/Amypo/Projects/CustomVsCode/extensions/studio-preview/src/webview";
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor) {
             const folder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);

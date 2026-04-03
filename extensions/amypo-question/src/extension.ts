@@ -14,7 +14,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     const eduViewProvider = new EduViewProvider(context.extensionUri);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(EduViewProvider.viewType, eduViewProvider)
+        vscode.window.registerWebviewViewProvider(EduViewProvider.viewType, eduViewProvider, {
+            webviewOptions: {
+                retainContextWhenHidden: true
+            }
+        })
     );
 
     // Command: opens the question as a fixed panel next to Explorer
@@ -213,6 +217,7 @@ export function activate(context: vscode.ExtensionContext) {
             };
 
             // ✅ Update Sidebar View
+            vscode.commands.executeCommand('workbench.action.showSecondarySideBar');
             eduViewProvider.updateView(finalCourseInfo, async () => {
                 if (!pendingTestData) {
                     vscode.window.showErrorMessage('Amypo: No test data found to start.');
