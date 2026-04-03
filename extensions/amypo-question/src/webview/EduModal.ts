@@ -50,7 +50,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: { course_name: string; module_name: string; languages?: string[]; user_name?: string }) {
+    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
         const nonce = getNonce();
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'image.png'));
 
@@ -235,7 +235,17 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .spinner { border: 4px solid var(--vscode-widget-border, rgba(0,0,0,0.1)); width: 36px; height: 36px; border-radius: 50%; border-left-color: #0984e3; animation: spin 1s linear infinite; margin-bottom: 16px; }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-                .footer { background: var(--vscode-sideBar-background, #d1d8e0); padding: 12px 24px; font-size: 13px; font-weight: bold; color: var(--vscode-foreground, #2d3436); border-top: 1px solid var(--vscode-widget-border, #ced6e0); display: flex; align-items: center; }
+                .tooltip-container { position: relative; display: inline-block; cursor: pointer; }
+                .tooltip-content {
+                    display: none; position: absolute; top: 100%; left: 0; margin-top: 8px;
+                    background: var(--vscode-editorWidget-background, white);
+                    color: var(--vscode-editor-foreground, black); border: 1px solid var(--vscode-widget-border, #ccc);
+                    padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 100; font-size: 13px; font-weight: normal; white-space: nowrap; line-height: 1.6;
+                }
+                .tooltip-content p { margin: 4px 0; }
+                .tooltip-container:hover .tooltip-content,
+                .tooltip-container:focus-within .tooltip-content { display: block; }
 
                 @media (max-width: 600px) {
                     .topbar { flex-direction: column; gap: 8px; }
@@ -280,8 +290,32 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 <div class="topbar">
                     <div class="topbar-left">
                         <img src="${logoUri}" alt="Amypo" class="logo">
-                        <div class="info-pill">User: ${courseInfo.user_name || 'Student'} <div class="icon-btn">👁</div></div>
-                        <div class="info-pill">Course: ${courseInfo.course_name || 'N/A'} <div class="icon-btn">👁</div></div>
+                        <div class="info-pill">User Details :
+                            <div class="tooltip-container">
+                                <div class="icon-btn" tabindex="0">👁</div>
+                                <div class="tooltip-content">
+                                    <p><b>Name :</b> ${courseInfo.user_name}</p>
+                                    <p><b>Email :</b> ${courseInfo.user_email}</p>
+                                    <p><b>Roll No :</b> ${courseInfo.user_roll_no}</p>
+                                    <p><b>College :</b> ${courseInfo.user_college}</p>
+                                    <p><b>Department :</b> ${courseInfo.user_department}</p>
+                                    <p><b>Batch :</b> ${courseInfo.user_batch}</p>
+                                    <p><b>Section :</b> ${courseInfo.user_section}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-pill">Course Details :
+                            <div class="tooltip-container">
+                                <div class="icon-btn" tabindex="0">👁</div>
+                                <div class="tooltip-content">
+                                    <p><b>Course Name :</b> ${courseInfo.course_name}</p>
+                                    <p><b>Course Type :</b> ${courseInfo.course_type}</p>
+                                    <p><b>Test Type :</b> ${courseInfo.test_type}</p>
+                                    <p><b>Topic Name :</b> ${courseInfo.topic_name}</p>
+                                    <p><b>Module Name :</b> ${courseInfo.module_name}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="icon-btn yellow">☀</div>
                 </div>

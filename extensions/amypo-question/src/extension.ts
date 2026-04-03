@@ -163,7 +163,13 @@ export function activate(context: vscode.ExtensionContext) {
                 module_name: (test_type == 0 ? test?.module_name : test?.testName) ?? 'N/A',
                 course_type: course_details?.type ?? 0,
                 test_type: test_type == 0 ? 'Practice' : 'Assessment',
-                user_name: user_details?.name ?? user_details?.first_name ?? 'Student'
+                user_name: user_details?.name ?? user_details?.first_name ?? 'Student',
+                user_email: user_details?.email ?? 'N/A',
+                user_roll_no: user_details?.roll_no ?? 'N/A',
+                user_college: user_details?.college_name ?? 'N/A',
+                user_department: user_details?.department_name ?? 'N/A',
+                user_batch: user_details?.batch_name ?? 'N/A',
+                user_section: user_details?.section_name ?? 'N/A'
             };
 
             // ✅ Save test details for "Start Test" confirmation
