@@ -281,7 +281,7 @@ export function activate(context: vscode.ExtensionContext) {
     // ✅ Static Trigger: Load test automatically on startup
     const staticAllocationId = 4060;
     const staticTestType = 0;
-    const staticToken = '285424|cJqVBPY44e2t8QrqQuOWbzY54twVY3uoYdd7WHg380bc7904';
+    const staticToken = '285444|gchteUb9mPs7JPD2Gdu83tv5755TRBqcZhIAJGtYff13617c';
     const staticModuleId = 992;
 
     getTestDetails(staticAllocationId, staticTestType, staticToken, staticModuleId);

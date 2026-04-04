@@ -1,76 +1,80 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
-
 export class EduViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'amypoEduView';
-    private _view?: vscode.WebviewView;
-    private _courseInfo?: any;
-    private _lastMessage?: any;
-    private _onConfirm?: () => void;
+	public static readonly viewType = 'amypoEduView';
+	private _view?: vscode.WebviewView;
+	private _courseInfo?: any;
+	private _lastMessage?: any;
+	private _onConfirm?: () => void;
 
-    constructor(private readonly _extensionUri: vscode.Uri) { }
+	constructor(private readonly _extensionUri: vscode.Uri) { }
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken,
-    ) {
-        this._view = webviewView;
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
-        webviewView.description = "Amypo Question Panel";
+	public resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken,
+	) {
+		this._view = webviewView;
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this._extensionUri]
+		};
+		webviewView.description = "Amypo Question Panel";
 
-        webviewView.webview.onDidReceiveMessage((message) => {
-            switch (message.command) {
-                case 'ready':
-                    // Webview is now ready to receive data, re-send last state if we have it
-                    if (this._lastMessage) {
-                        this.postMessage(this._lastMessage);
-                    }
-                    break;
-                case 'startTest':
-                    if (this._onConfirm) {
-                        this._onConfirm();
-                    }
-                    break;
-            }
-        });
+		webviewView.webview.onDidReceiveMessage((message) => {
+			switch (message.command) {
+				case 'ready':
+					// Webview is now ready to receive data, re-send last state if we have it
+					if (this._lastMessage) {
+						this.postMessage(this._lastMessage);
+					}
+					break;
+				case 'startTest':
+					if (this._onConfirm) {
+						this._onConfirm();
+					}
+					break;
+			}
+		});
 
-        // ✅ Only set HTML if it's empty to prevent re-rendering when hidden/visible
-        if (this._courseInfo && !this._view.webview.html) {
-            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
-        }
-    }
+		// ✅ Only set HTML if it's empty to prevent re-rendering when hidden/visible
+		if (this._courseInfo && !this._view.webview.html) {
+			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
+		}
+	}
 
-    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[] }, onConfirm: () => void) {
-        this._courseInfo = courseInfo;
-        this._onConfirm = onConfirm;
+	public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[] }, onConfirm: () => void) {
+		this._courseInfo = courseInfo;
+		this._onConfirm = onConfirm;
 
-        if (this._view) {
-            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
-            this._view.show?.(true);
-        }
-    }
+		if (this._view) {
+			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
+			this._view.show?.(true);
+		}
+	}
 
-    public postMessage(message: any) {
-        this._lastMessage = message;
-        if (this._view) {
-            this._view.webview.postMessage(message);
-        }
-    }
+	public postMessage(message: any) {
+		this._lastMessage = message;
+		if (this._view) {
+			this._view.webview.postMessage(message);
+		}
+	}
 
-    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
-        const nonce = getNonce();
-        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'image.png'));
+	private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
+		const nonce = getNonce();
+		const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'image.png'));
 
-        const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
-            ? `<div class="languages">
+		const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
+			? `<div class="languages">
 				${courseInfo.languages.map(l => `<span class="lang-tag">${l}</span>`).join('')}
 			   </div>`
-            : '';
+			: '';
 
-        return `<!DOCTYPE html>
+		return `<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
@@ -392,14 +396,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </script>
         </body>
         </html>`;
-    }
+	}
 }
 
 function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
