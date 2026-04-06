@@ -14,6 +14,7 @@ const execAsync = promisify(exec);
 
 import { EduViewProvider } from './webview/EduModal';
 import { submitData } from './services/axios/submissions';
+import axios from 'axios';
 
 
 
@@ -32,6 +33,46 @@ export function activate(context: vscode.ExtensionContext) {
             return url.replace('https://', `https://${token}@`);
         } catch {
             return url;
+        }
+    };
+
+    const createGithubRepo = async (owner: string, name: string, token: string) => {
+        try {
+            console.log(`[Amypo] Attempting to create GitHub repository: ${owner}/${name}`);
+
+            // First, check if repo exists via API (optional but safer)
+            // Then try to create it
+            const endpoints = [
+                `https://api.github.com/user/repos`,
+                `https://api.github.com/orgs/${owner}/repos`
+            ];
+
+            // Note: We try 'user/repos' first as it's most common for personal tokens
+            // But if it fails or should be in an org, we handle errors.
+            try {
+                await axios.post('https://api.github.com/user/repos',
+                    { name, private: true },
+                    { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } }
+                );
+                console.log(`[Amypo] Repository ${name} created successfully.`);
+            } catch (err: any) {
+                if (err.response?.status === 422) {
+                    console.log(`[Amypo] Repository ${name} already exists or is invalid.`);
+                } else {
+                    // Try org creation as fallback if it didn't match personal user
+                    try {
+                        await axios.post(`https://api.github.com/orgs/${owner}/repos`,
+                            { name, private: true },
+                            { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } }
+                        );
+                        console.log(`[Amypo] Repository ${name} created in organization ${owner} successfully.`);
+                    } catch (orgErr: any) {
+                        console.error('[Amypo] Error creating repo in org:', orgErr.response?.data || orgErr.message);
+                    }
+                }
+            }
+        } catch (error: any) {
+            console.error('[Amypo] Critical error in createGithubRepo:', error.message);
         }
     };
 
@@ -170,7 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
         return null;
     };
 
-    const getLanguageDetails = async (langIds: number[], token: string): Promise<string[]> => {
+    const getLanguageDetails = async (langIds: number[], token: string): Promise<any[]> => {
         try {
             const payload = { langIds };
             const endpoint = `${API_URL}/language_by_ids`;
@@ -182,12 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             console.log('[Amypo EduTech] Language details:', resp.data);
-
-            const languages: string[] = [];
-            for (const lang_data of resp.data) {
-                languages.push(lang_data?.language_name || 'Unknown');
-            }
-            return languages;
+            return resp.data;
         } catch (error) {
             console.error('[Amypo EduTech] Error fetching languages:', error);
             return [];
@@ -273,13 +309,14 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             // Fetch Languages if Practice (test_type == 0)
-            let languages: string[] = [];
-            // ... (rest of language fetching)
+            let languageNames: string[] = [];
+            let allLangDetails: any[] = [];
             if (test_type == 0 && course_details?.language) {
                 try {
                     const langIds = JSON.parse(course_details.language);
                     if (Array.isArray(langIds)) {
-                        languages = await getLanguageDetails(langIds, token);
+                        allLangDetails = await getLanguageDetails(langIds, token);
+                        languageNames = allLangDetails.map(l => l.language_name || 'Unknown');
                     }
                 } catch (e) {
                     console.error('[Amypo EduTech] Error parsing languages:', e);
@@ -289,7 +326,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Update courseInfo with languages and error
             const finalCourseInfo = {
                 ...courseInfo,
-                languages: languages,
+                languages: languageNames,
                 errorMessage: errorMessage
             };
 
@@ -323,18 +360,25 @@ export function activate(context: vscode.ExtensionContext) {
 
                         const firstQuestionId = questionDatas[0]?.id;
                         if (firstQuestionId) {
-                            const repo_name = "9239_4090_0_4767"; // Hardcoded for dev
+                            const repo_name = "9239_4090_0_476"; // Hardcoded for dev
                             const repo_url = `https://github.com/Badsena/${repo_name}`;
 
-                            // Extract lang_id (first one if multiple)
-                            let primaryLangId: number | undefined;
-                            try {
-                                const lIds = JSON.parse(course_details?.language || '[]');
-                                if (Array.isArray(lIds) && lIds.length > 0) primaryLangId = lIds[0];
-                            } catch { }
+                            // Extract primary language_id
+
 
                             const qData = await fetchQuestionById(firstQuestionId, test_type, moduleId || 0, token);
-                            const repo_clone = await cloneAndOpenRepo(repo_url, moduleId, primaryLangId);
+                            console.log("qData", qData);
+                            let primaryLanguageId: number | undefined;
+                            try {
+                                const firstId = qData?.l_id;
+                                const matchedLang = allLangDetails.find(l => l.id === firstId);
+                                primaryLanguageId = matchedLang?.language_id;
+                                console.log('[Amypo] Matched Primary Language ID:', primaryLanguageId);
+                            } catch { }
+                            // Use qData?.l_id as priority, fallback to primaryLanguageId
+                            const finalCloningLangId = primaryLanguageId;
+
+                            const repo_clone = await cloneAndOpenRepo(repo_url, moduleId, finalCloningLangId);
                             if (qData) {
                                 eduViewProvider.postMessage({ state: 'loaded', payload: qData, stats: statsObj });
                             } else {
@@ -378,14 +422,42 @@ export function activate(context: vscode.ExtensionContext) {
         const projectPath = path.join(parentPath, String(testId));
 
         let finalUrl = repoUrl;
-        if (!finalUrl && langId) {
-            console.log(`[Amypo] No repoUrl provided. Selecting template for langId: ${langId}`);
-            switch (langId) {
-                case 1002: finalUrl = 'https://github.com/Badsena/amypo-react-template.git'; break;
-                case 1003: finalUrl = 'https://github.com/Badsena/amypo-spring-template.git'; break;
-                case 1004: finalUrl = 'https://github.com/Badsena/amypo-fullstack-template.git'; break;
-                case 1005: finalUrl = 'https://github.com/Badsena/amypo-selenium-template.git'; break;
+        let isTemplate = false;
+
+        // Helper to check if repo exists
+        const checkRepoExists = async (url: string): Promise<boolean> => {
+            try {
+                const authenticatedUrl = injectToken(url, GITHUB_TOKEN);
+                await execAsync(`git ls-remote "${authenticatedUrl}"`);
+                return true;
+            } catch (e) {
+                console.warn(`[Amypo] Repo not found or inaccessible: ${url}`);
+                return false;
             }
+        };
+
+        const getTemplateUrl = (lId: number | undefined): string | null => {
+            if (!lId) return null;
+            switch (lId) {
+                case 1002: return 'https://github.com/Badsena/amypo-react-template.git';
+                case 1003: return 'https://github.com/Badsena/amypo-spring-template.git';
+                case 1004: return 'https://github.com/Badsena/amypo-fullstack-template.git';
+                case 1005: return 'https://github.com/Badsena/amypo-selenium-template.git';
+                default: return null;
+            }
+        };
+
+        if (finalUrl) {
+            const exists = await checkRepoExists(finalUrl);
+            if (!exists) {
+                console.log('[Amypo] Primary repo does not exist, falling back to template.', langId);
+                finalUrl = getTemplateUrl(langId) || null;
+                isTemplate = !!finalUrl;
+            }
+        } else {
+            console.log('[Amypo] No primary repoUrl, using template.', langId);
+            finalUrl = getTemplateUrl(langId) || null;
+            isTemplate = !!finalUrl;
         }
 
         if (!finalUrl) {
@@ -393,8 +465,12 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        finalUrl = injectToken(finalUrl, GITHUB_TOKEN);
-        console.log('[Amypo] cloneAndOpenRepo called with:', { finalUrl, testId, projectPath });
+        // Store clean URL for subsequent Git actions
+        // If we used a template, we want future pushes to go to the primary repoUrl
+        currentRepoUrl = isTemplate ? repoUrl : finalUrl;
+
+        const authenticatedCloneUrl = injectToken(finalUrl, GITHUB_TOKEN);
+        console.log('[Amypo] cloneAndOpenRepo called with:', { finalUrl: authenticatedCloneUrl.replace(GITHUB_TOKEN, '***'), testId, projectPath });
 
         // Step 1: Only create PARENT folder, NOT the testId subfolder (git will create it)
         await fs.promises.mkdir(parentPath, { recursive: true });
@@ -403,9 +479,8 @@ export function activate(context: vscode.ExtensionContext) {
         const gitDir = path.join(projectPath, '.git');
         const alreadyCloned = fs.existsSync(gitDir);
 
-        // Store for Git actions
+        // Store project path
         currentProjectPath = projectPath;
-        currentRepoUrl = finalUrl; // Captured before token injection or template logic if needed
 
         if (langId === 1002) currentProjectType = 'react';
         else if (langId === 1004) currentProjectType = 'fullstack';
@@ -420,29 +495,48 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            // Step 4: Clone the repo — git creates the testId subfolder itself
-            vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Cloning project...', 30000);
+            // Step 4: Clone the repo
+            vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Initializing project...', 30000);
             try {
-                const authenticatedUrl = injectToken(finalUrl || '', GITHUB_TOKEN);
-                console.log(`[Amypo] Running: git clone "${authenticatedUrl.replace(GITHUB_TOKEN, '***')}" "${projectPath}"`); // Hide token from log
-                await execAsync(`git clone "${authenticatedUrl}" "${projectPath}"`, { cwd: parentPath });
+                console.log(`[Amypo] Cloning from: ${authenticatedCloneUrl.replace(GITHUB_TOKEN, '***')}`);
+                await execAsync(`git clone "${authenticatedCloneUrl}" "${projectPath}"`, { cwd: parentPath });
 
-                // ✅ CLEANUP: Remove token from remote config immediately
-                if (finalUrl) {
+                // ✅ Template Initialization Logic
+                if (isTemplate && repoUrl) {
+                    // 1. Extract owner and name from repoUrl (e.g. https://github.com/Badsena/reponame)
+                    const parts = repoUrl.replace('https://github.com/', '').split('/');
+                    const [owner, name] = parts;
+
+                    if (owner && name) {
+                        // Create the GitHub repository via API before pushing
+                        await createGithubRepo(owner, name.replace('.git', ''), GITHUB_TOKEN);
+                    }
+
+                    // 2. Set remote to the NEW repo URL (authenticated)
+                    const authenticatedPushUrl = injectToken(repoUrl, GITHUB_TOKEN);
+                    console.log(`[Amypo] Re-initializing template for new repo: ${authenticatedPushUrl.replace(GITHUB_TOKEN, '***')}`);
+                    await execAsync(`git remote set-url origin "${authenticatedPushUrl}"`, { cwd: projectPath });
+
+                    // 3. Initial push to the new repo
+                    try {
+                        await execAsync(`git push -u "${authenticatedPushUrl}" main`, { cwd: projectPath });
+                        console.log('[Amypo] Template content pushed to new repo successfully.');
+                    } catch (pushErr: any) {
+                        console.warn('[Amypo] Initial push failed even after creation attempt:', pushErr.stderr || pushErr.message);
+                    }
+                } else if (finalUrl) {
+                    // Regular clone cleanup
                     await execAsync(`git remote set-url origin "${finalUrl}"`, { cwd: projectPath });
-                    console.log('[Amypo] Remote URL reset to clean URL.');
                 }
 
-                vscode.window.showInformationMessage('Amypo: Project cloned successfully!');
+                vscode.window.showInformationMessage('Amypo: Project initialized successfully!');
             } catch (err: any) {
-                console.error('[Amypo] Clone error:', err.stderr || err.message);
-                vscode.window.showErrorMessage(`Amypo: Clone failed — ${err.stderr || err.message || 'unknown error'}`);
+                console.error('[Amypo] Initialization error:', err.stderr || err.message);
+                vscode.window.showErrorMessage(`Amypo: Setup failed — ${err.stderr || err.message || 'unknown error'}`);
                 return;
             }
         } else {
-            console.log('[Amypo] Project already cloned, skipping clone.');
-            // Even if already cloned, update currentRepoUrl if possible
-            if (finalUrl) currentRepoUrl = finalUrl;
+            console.log('[Amypo] Project already cloned, skipping initialization.');
         }
 
     };
