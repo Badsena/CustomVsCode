@@ -311,7 +311,7 @@ export function useWindowControlsOverlay(configurationService: IConfigurationSer
 		}
 	}
 
-	return true; // default
+	return false;
 }
 
 export function useNativeFullScreen(configurationService: IConfigurationService): boolean {

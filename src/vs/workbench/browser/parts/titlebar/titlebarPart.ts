@@ -304,7 +304,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		@IStorageService private readonly storageService: IStorageService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 		@IContextKeyService protected readonly contextKeyService: IContextKeyService,
-		@IHostService private readonly hostService: IHostService,
+		@IHostService protected readonly hostService: IHostService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IMenuService private readonly menuService: IMenuService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService
@@ -475,6 +475,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 		// Title
 		this.title = append(this.centerContent, $('div.window-title'));
+		this.title.style.display = 'none'; // ✅ Hide title
 		this.createTitle();
 
 		// Center-Adjacent Toolbar (e.g., update indicator)
@@ -577,9 +578,9 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 		// Text Title
 		if (!this.isCommandCenterVisible) {
 			if (!isShowingTitleInNativeTitlebar) {
-				this.title.textContent = this.windowTitle.value;
+				this.title.textContent = ''; // ✅ Clear title text
 				this.titleDisposables.add(this.windowTitle.onDidChange(() => {
-					this.title.textContent = this.windowTitle.value;
+					this.title.textContent = ''; // ✅ Keep title text clear
 					if (this.lastLayoutDimensions) {
 						this.updateLayout(this.lastLayoutDimensions); // layout menubar and other renderings in the titlebar
 					}

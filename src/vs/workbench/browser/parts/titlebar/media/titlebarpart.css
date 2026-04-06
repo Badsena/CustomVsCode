@@ -323,7 +323,8 @@
 
 /* Window Controls Container Desktop: apply zoom friendly size */
 .monaco-workbench:not(.web):not(.mac) .part.titlebar .window-controls-container {
-	width: calc(138px / var(--zoom-factor, 1));
+	width: auto; /* ✅ Changed from 138px to auto to fit single Exit button */
+	padding: 0 8px;
 }
 
 .monaco-workbench:not(.web):not(.mac) .part.titlebar .titlebar-container.counter-zoom .window-controls-container {
@@ -477,4 +478,36 @@
 	padding: 0 2px;
 	border-radius: 16px;
 	text-align: center;
+}
+
+/* Exit Button Styling */
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-right > .exit-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 16px;
+	margin: 4px 8px;
+	height: 24px;
+	border-radius: 4px;
+	background-color: rgba(255, 255, 255, 0.1);
+	color: #ffffff;
+	font-size: 12px;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	-webkit-app-region: no-drag;
+	z-index: 3500;
+}
+
+.monaco-workbench .part.titlebar > .titlebar-container > .titlebar-right > .exit-button:hover {
+	background-color: #e81123 !important; /* Vibrant Red */
+	color: #ffffff !important;
+	border-color: #e81123 !important;
+	box-shadow: 0 0 10px rgba(232, 17, 35, 0.4);
+}
+
+.monaco-workbench .part.titlebar.inactive > .titlebar-container > .titlebar-right > .exit-button {
+	opacity: 0.5;
 }

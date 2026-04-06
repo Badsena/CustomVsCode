@@ -5,7 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { getZoomFactor } from '../../../../base/browser/browser.js';
-import { $, addDisposableListener, append, EventType, getWindow, getWindowId, hide, show } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, append, EventHelper, EventType, getWindow, getWindowId, hide, show } from '../../../../base/browser/dom.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService, IConfigurationChangeEvent } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
@@ -178,29 +178,19 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 			!useWindowControlsOverlay(this.configurationService) &&	// not when controls are natively drawn
 			this.windowControlsContainer
 		) {
-
-			// Minimize
-			const minimizeIcon = append(this.windowControlsContainer, $('div.window-icon.window-minimize' + ThemeIcon.asCSSSelector(Codicon.chromeMinimize)));
-			this._register(addDisposableListener(minimizeIcon, EventType.CLICK, () => {
-				this.nativeHostService.minimizeWindow({ targetWindowId });
+			// ✅ Simplified Exit button (replacing minimize/maximize/close)
+			const exitButton = append(this.windowControlsContainer, $('a.exit-button'));
+			exitButton.textContent = 'Exit';
+			exitButton.title = 'Exit Application';
+			this._register(addDisposableListener(exitButton, EventType.CLICK, (e) => {
+				EventHelper.stop(e);
+				this.hostService.close();
 			}));
 
-			// Restore
-			this.maxRestoreControl = append(this.windowControlsContainer, $('div.window-icon.window-max-restore'));
-			this._register(addDisposableListener(this.maxRestoreControl, EventType.CLICK, async () => {
-				const maximized = await this.nativeHostService.isMaximized({ targetWindowId });
-				if (maximized) {
-					return this.nativeHostService.unmaximizeWindow({ targetWindowId });
-				}
-
-				return this.nativeHostService.maximizeWindow({ targetWindowId });
-			}));
-
-			// Close
-			const closeIcon = append(this.windowControlsContainer, $('div.window-icon.window-close' + ThemeIcon.asCSSSelector(Codicon.chromeClose)));
-			this._register(addDisposableListener(closeIcon, EventType.CLICK, () => {
-				this.nativeHostService.closeWindow({ targetWindowId });
-			}));
+			/* 
+			// Standard window controls removed
+			... 
+			*/
 
 			// Resizer
 			this.resizer = append(this.rootContainer, $('div.resizer'));
