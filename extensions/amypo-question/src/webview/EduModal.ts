@@ -38,6 +38,15 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         this._onReload();
                     }
                     break;
+                case 'save':
+                    if (this._onSave) this._onSave();
+                    break;
+                case 'verify':
+                    if (this._onVerify) this._onVerify();
+                    break;
+                case 'pull':
+                    if (this._onPull) this._onPull();
+                    break;
                 case 'startTest':
                     if (this._onConfirm) {
                         this._onConfirm();
@@ -53,9 +62,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     }
 
     private _onReload?: () => void;
-    public setOnReload(callback: () => void) {
-        this._onReload = callback;
-    }
+    private _onSave?: () => void;
+    private _onVerify?: () => void;
+    private _onPull?: () => void;
+
+    public setOnReload(callback: () => void) { this._onReload = callback; }
+    public setOnSave(callback: () => void) { this._onSave = callback; }
+    public setOnVerify(callback: () => void) { this._onVerify = callback; }
+    public setOnPull(callback: () => void) { this._onPull = callback; }
 
     public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; }, onConfirm: () => void) {
         this._courseInfo = courseInfo;
@@ -238,7 +252,20 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-foreground, #2d3436); }
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
-                .q-description { font-size: 15px; line-height: 1.6; }
+                .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
+
+                .action-bar { display: flex; gap: 12px; margin-top: auto; padding-top: 24px; border-top: 1px solid var(--vscode-widget-border, #f1f2f6); }
+                .btn-action { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--vscode-widget-border, #dfe4ea); background: var(--vscode-button-secondaryBackground, #f1f2f6); color: var(--vscode-button-secondaryForeground, #2d3436); font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+                .btn-action:hover { background: var(--vscode-button-secondaryHoverBackground, #dfe4ea); }
+                .btn-primary { background: #3867d6; color: white; border: none; }
+                .btn-primary:hover { background: #2b52ad; }
+                .btn-success { background: #00ce7a; color: white; border: none; }
+                .btn-success:hover { background: #00b36a; }
+
+                .status-msg { margin-top: 12px; font-size: 12px; font-weight: 500; display: none; padding: 8px; border-radius: 4px; }
+                .status-msg.success { display: block; background: #e6fcf5; color: #087f5b; border: 1px solid #c3fae8; }
+                .status-msg.error { display: block; background: #fff5f5; color: #c92a2a; border: 1px solid #ffe3e3; }
+                .status-msg.info { display: block; background: #e7f5ff; color: #1864ab; border: 1px solid #d0ebff; }
 
                 .loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--vscode-descriptionForeground, #636e72); }
                 .spinner { border: 4px solid var(--vscode-widget-border, rgba(0,0,0,0.1)); width: 36px; height: 36px; border-radius: 50%; border-left-color: #0984e3; animation: spin 1s linear infinite; margin-bottom: 16px; }
@@ -349,12 +376,23 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             </div>
 
                             <!-- Content -->
-                            <div id="data-view" style="display: none;">
-                                <div class="q-title" id="q-title"></div>
-                                <div class="q-description" id="q-desc"></div>
+                            <div id="data-view" style="display: none; height: 100%; flex-direction: column;">
+                                <div id="q-content" style="flex: 1; overflow-y: auto;">
+                                    <div class="q-title" id="q-title"></div>
+                                    <div class="q-description" id="q-desc"></div>
+                                </div>
+
+                                <div id="status-bar" class="status-msg"></div>
+
+
                             </div>
                         </div>
                     </div>
+                </div>
+                <div class="action-bar">
+                    <button class="btn-action" id="save-btn"><span>💾</span> Save</button>
+                    <button class="btn-action btn-success" id="pull-btn">Pull</button>
+                    <button class="btn-action btn-primary" id="verify-btn"><span>Check</span> Verify</button>
                 </div>
             </div>
             <script nonce="${nonce}">
@@ -373,6 +411,24 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 document.getElementById('reload').onclick = () => {
                     vscode.postMessage({ command: 'reload' });
+                };
+
+                document.getElementById('save-btn').onclick = () => {
+                    const status = document.getElementById('status-bar');
+                    status.className = 'status-msg info';
+                    status.innerText = 'Saving...';
+                    vscode.postMessage({ command: 'save' });
+                };
+
+                document.getElementById('verify-btn').onclick = () => {
+                    const status = document.getElementById('status-bar');
+                    status.className = 'status-msg info';
+                    status.innerText = 'Verifying your code...';
+                    vscode.postMessage({ command: 'verify' });
+                };
+
+                document.getElementById('pull-btn').onclick = () => {
+                    vscode.postMessage({ command: 'pull' });
                 };
 
                 window.addEventListener('message', event => {
@@ -407,6 +463,13 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             if (qdata) {
                                 document.getElementById('q-title').innerText = qdata?.question_name || qdata?.title || 'Question 1';
                                 document.getElementById('q-desc').innerHTML = qdata?.description || qdata?.question || 'Empty Question Description';
+                            }
+                        } else if (message.state === 'status') {
+                            const status = document.getElementById('status-bar');
+                            status.className = 'status-msg ' + (message.type || 'info');
+                            status.innerText = message.text;
+                            if (message.type === 'success' || message.type === 'error') {
+                                setTimeout(() => { if (status.innerText === message.text) status.style.display = 'none'; }, 5000);
                             }
                         }
                     }
