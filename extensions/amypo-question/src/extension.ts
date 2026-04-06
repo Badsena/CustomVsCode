@@ -335,14 +335,26 @@ export function activate(context: vscode.ExtensionContext) {
 			console.log('[Amypo] Project already cloned, skipping clone.');
 		}
 
-		// Step 5: Open folder in same window (only if not already there)
+		// ✅ Step 5: Add to workspace — NO RELOAD
 		const folderUri = vscode.Uri.file(projectPath);
-		const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		const alreadyInWorkspace = vscode.workspace.workspaceFolders?.some(
+			f => f.uri.fsPath === projectPath
+		);
 
-		console.log('[Amypo] currentFolder:', currentFolder, '| projectPath:', projectPath);
-		if (currentFolder !== projectPath) {
-			console.log('[Amypo] Opening folder in Explorer...');
-			await vscode.commands.executeCommand('vscode.openFolder', folderUri, false);
+		if (!alreadyInWorkspace) {
+			console.log('[Amypo] Adding folder to workspace...');
+			const added = vscode.workspace.updateWorkspaceFolders(
+				vscode.workspace.workspaceFolders?.length ?? 0,
+				null,
+				{ uri: folderUri, name: 'Amypo Project' }
+			);
+			if (added) {
+				vscode.window.showInformationMessage('Amypo: Project folder added to Explorer!');
+			} else {
+				vscode.window.showErrorMessage('Amypo: Failed to add folder to workspace.');
+			}
+		} else {
+			console.log('[Amypo] Folder already in workspace.');
 		}
 	};
 
