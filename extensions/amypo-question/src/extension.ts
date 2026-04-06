@@ -4,12 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
+
 import { EduViewProvider } from './webview/EduModal';
 import { submitData } from './services/axios/submissions';
 
+
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('[Amypo Question] Activating…');
-    let pendingTestData: any = null;
     let currentAllocationData: any = null;
 
     const eduViewProvider = new EduViewProvider(context.extensionUri);
@@ -26,11 +35,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     // ✅ Amypo EduTech - Fetch and Process Test Details
     const API_URL = "https://1102amy21.amypo.ai/api";
-
-    const fetchAdpUrl = async () => {
-        console.log('[Amypo EduTech] fetchAdpUrl triggered');
-        // Placeholder for ADP URL fetching logic
-    };
 
     const checkStoreInitialData = async (allocation_id: number, test_type: number, token: string, moduleId?: number): Promise<any> => {
         try {
@@ -114,10 +118,6 @@ export function activate(context: vscode.ExtensionContext) {
 
             const languages: string[] = [];
             for (const lang_data of resp.data) {
-                const langId = Number(lang_data?.language_id);
-                if ([1002, 1003, 1004, 1005].includes(langId)) {
-                    await fetchAdpUrl();
-                }
                 languages.push(lang_data?.language_name || 'Unknown');
             }
             return languages;
@@ -129,6 +129,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const getTestDetails = async (allocation_id: number, test_type: number, token: string, moduleId?: number): Promise<void> => {
         try {
+
             vscode.window.setStatusBarMessage(`$(sync~spin) Amypo: Fetching test details...`, 10000);
 
             let payload: any = {
@@ -147,7 +148,13 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('[Amypo EduTech] Test details response:', resp);
 
             if (resp?.status !== 200 || !resp?.data) {
-                vscode.window.showWarningMessage('Amypo: No test details found.');
+                const errorMsg = 'No test details found or unauthorized access.';
+                vscode.commands.executeCommand('workbench.action.showSecondarySideBar');
+                eduViewProvider.updateView({
+                    course_name: 'Error',
+                    module_name: 'Test Initialization Failed',
+                    errorMessage: errorMsg
+                }, () => { });
                 return;
             }
 
@@ -176,29 +183,31 @@ export function activate(context: vscode.ExtensionContext) {
                 user_section: user_details?.section_name ?? 'N/A'
             };
 
-            // ✅ Save test details for "Start Test" confirmation
-            pendingTestData = {
-                repo_url: test?.repo_url || test?.project_link,
-                question_url: test?.question_url || test?.question_link,
-                test_id: String(test?.id || allocation_id),
-                folder: test?.folder || '',
-                token: token
+            const isAfterNow = (dateStr: any) => {
+                if (!dateStr) return false;
+                const d = new Date(dateStr.replace(' ', 'T')); // Handle bit of space vs T
+                return d > new Date();
+            };
+            const isBeforeNow = (dateStr: any) => {
+                if (!dateStr) return false;
+                const d = new Date(dateStr.replace(' ', 'T'));
+                return d < new Date();
             };
 
-            // Check Expiry
-
-            // if (isAfterNow(allocation?.course_start_date)) {
-            //     vscode.window.showWarningMessage('Amypo: This course has not started yet.');
-            // } else if (isBeforeNow(allocation?.course_end_date)) {
-            //     vscode.window.showWarningMessage('Amypo: This course has already expired.');
-            // } else if (isAfterNow(allocation?.topic_start_date)) {
-            //     vscode.window.showWarningMessage('Amypo: This topic has not started yet.');
-            // } else if (isBeforeNow(allocation?.topic_end_date)) {
-            //     vscode.window.showWarningMessage('Amypo: This topic has already expired.');
-            // }
+            let errorMessage: string | null = null;
+            if (isAfterNow(allocation?.course_start_date)) {
+                errorMessage = 'This course has not started yet.';
+            } else if (isBeforeNow(allocation?.course_end_date)) {
+                errorMessage = 'This course has already expired.';
+            } else if (isAfterNow(allocation?.topic_start_date)) {
+                errorMessage = 'This topic has not started yet.';
+            } else if (isBeforeNow(allocation?.topic_end_date)) {
+                errorMessage = 'This topic has already expired.';
+            }
 
             // Fetch Languages if Practice (test_type == 0)
             let languages: string[] = [];
+            // ... (rest of language fetching)
             if (test_type == 0 && course_details?.language) {
                 try {
                     const langIds = JSON.parse(course_details.language);
@@ -210,20 +219,16 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            // Update courseInfo with languages
+            // Update courseInfo with languages and error
             const finalCourseInfo = {
                 ...courseInfo,
-                languages: languages
+                languages: languages,
+                errorMessage: errorMessage
             };
 
             // ✅ Update Sidebar View
             vscode.commands.executeCommand('workbench.action.showSecondarySideBar');
             eduViewProvider.updateView(finalCourseInfo, async () => {
-                if (!pendingTestData) {
-                    vscode.window.showErrorMessage('Amypo: No test data found to start.');
-                    return;
-                }
-                const { repo_url, question_url, test_id, folder, token } = pendingTestData;
 
                 vscode.window.setStatusBarMessage(`$(sync~spin) Amypo: Starting test...`, 5000);
 
@@ -261,29 +266,95 @@ export function activate(context: vscode.ExtensionContext) {
                             eduViewProvider.postMessage({ state: 'error', message: 'Invalid Question ID.' });
                         }
                     } else {
-                        vscode.window.showWarningMessage('Amypo: No questions allocated for this test.');
                         eduViewProvider.postMessage({ state: 'error', message: 'No questions allocated.' });
                     }
                 } else {
                     eduViewProvider.postMessage({ state: 'error', message: 'Failed to initialize test log.' });
                 }
 
-                pendingTestData = null;
             });
             vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
 
         } catch (error: any) {
             console.error('[Amypo EduTech] Error fetching test details:', error);
-            vscode.window.showErrorMessage('Amypo: Failed to fetch test details.');
+            const status = error?.response?.status;
+            let msg = 'Failed to fetch test details.';
+            if (status === 401) {
+                msg = 'Unauthorized: Invalid or expired token (401).';
+            } else if (status === 404) {
+                msg = 'Test not found (404).';
+            } else if (status === 500) {
+                msg = 'Server error (500). Please try again later.';
+            }
+
+            eduViewProvider.updateView({
+                course_name: 'Error',
+                module_name: 'Access Denied',
+                errorMessage: msg
+            }, () => { });
+        }
+    };
+
+    const cloneAndOpenRepo = async (repoUrl: string, testId: string): Promise<void> => {
+        const parentPath = path.join(os.homedir(), 'amypo-workspace');
+        const projectPath = path.join(parentPath, testId);
+
+        console.log('[Amypo] cloneAndOpenRepo called with:', { repoUrl, testId, projectPath });
+
+        // Step 1: Only create PARENT folder, NOT the testId subfolder (git will create it)
+        await fs.promises.mkdir(parentPath, { recursive: true });
+
+        // Step 2: Check if already cloned (has .git folder)
+        const gitDir = path.join(projectPath, '.git');
+        const alreadyCloned = fs.existsSync(gitDir);
+
+        if (!alreadyCloned) {
+            // Step 3: Check git is installed
+            try {
+                await execAsync('git --version');
+            } catch {
+                vscode.window.showErrorMessage('Amypo: Git is not installed. Please install Git and try again.');
+                return;
+            }
+
+            // Step 4: Clone the repo — git creates the testId subfolder itself
+            vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Cloning project...', 30000);
+            try {
+                console.log(`[Amypo] Running: git clone "${repoUrl}" "${projectPath}"`);
+                await execAsync(`git clone "${repoUrl}" "${projectPath}", { cwd: parentPath }`);
+                vscode.window.showInformationMessage('Amypo: Project cloned successfully!');
+            } catch (err: any) {
+                console.error('[Amypo] Clone error:', err.stderr || err.message);
+                vscode.window.showErrorMessage(`Amypo: Clone failed — ${err.stderr || err.message || 'unknown error'}`);
+                return;
+            }
+        } else {
+            console.log('[Amypo] Project already cloned, skipping clone.');
+        }
+
+        // Step 5: Open folder in same window (only if not already there)
+        const folderUri = vscode.Uri.file(projectPath);
+        const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        console.log('[Amypo] currentFolder:', currentFolder, '| projectPath:', projectPath);
+        if (currentFolder !== projectPath) {
+            console.log('[Amypo] Opening folder in Explorer...');
+            await vscode.commands.executeCommand('vscode.openFolder', folderUri, false);
         }
     };
 
     // ✅ Static Trigger: Load test automatically on startup
     const staticAllocationId = 4060;
     const staticTestType = 0;
-    const staticToken = '285444|gchteUb9mPs7JPD2Gdu83tv5755TRBqcZhIAJGtYff13617c';
+    const staticToken = '285452|59GB0aGaSjSesoExX5nIFC0MUDLidBlKRIzqYTqt1d501244';
     const staticModuleId = 992;
 
+    eduViewProvider.setOnReload(() => {
+        getTestDetails(staticAllocationId, staticTestType, staticToken, staticModuleId);
+    });
+
+    vscode.commands.executeCommand('workbench.action.showSecondarySideBar');
+    vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
     getTestDetails(staticAllocationId, staticTestType, staticToken, staticModuleId);
 
 }
