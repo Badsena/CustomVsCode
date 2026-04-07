@@ -390,12 +390,14 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		// These are windows to restore because of hot-exit or from previous session (only performed once on startup!)
 		if (openConfig.initialStartup) {
 
-			// Untitled workspaces are always restored
-			untitledWorkspacesToRestore.push(...this.workspacesManagementMainService.getUntitledWorkspaces());
-			workspacesToOpen.push(...untitledWorkspacesToRestore);
+			// Amypo Coder: Do NOT restore previous session windows.
+			// This prevents the "two windows" issue where the old
+			// Untitled Workspace reopens alongside the new window.
+			// untitledWorkspacesToRestore.push(...this.workspacesManagementMainService.getUntitledWorkspaces());
+			// workspacesToOpen.push(...untitledWorkspacesToRestore);
 
-			// Empty windows with backups are always restored
-			emptyWindowsWithBackupsToRestore.push(...this.backupMainService.getEmptyWindowBackups());
+			// Empty windows with backups are also skipped
+			// emptyWindowsWithBackupsToRestore.push(...this.backupMainService.getEmptyWindowBackups());
 		} else {
 			emptyWindowsWithBackupsToRestore.length = 0;
 		}

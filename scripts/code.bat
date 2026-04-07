@@ -35,8 +35,12 @@ for %%A in (%*) do (
 	)
 )
 
+:: Kill any existing instance before launching
+taskkill /IM AmypoCoder.exe /F 2>nul
+timeout /t 1 /nobreak >nul
+
 :: Launch Code
-%CODE% --disable-gpu --in-process-gpu --disable-gpu-sandbox --disable-software-rasterizer --enable-unsafe-swiftshader . --new-window %DISABLE_TEST_EXTENSION% %*
+%CODE% --disable-gpu --in-process-gpu --disable-gpu-sandbox --disable-software-rasterizer --enable-unsafe-swiftshader --inspect-extensions=5871 . --new-window --skip-add-to-recently-opened %DISABLE_TEST_EXTENSION% %*
 goto end
 
 :builtin

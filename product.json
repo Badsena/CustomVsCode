@@ -115,7 +115,8 @@
 		}
 	},
 	"configurationDefaults": {
-		"window.menuBarVisibility": "visible"
+		"window.menuBarVisibility": "visible",
+		"window.restoreWindows": "none"
 	},
 	"amypoSecretKey": "AMY-X9K2-2026-SECURE"
 }

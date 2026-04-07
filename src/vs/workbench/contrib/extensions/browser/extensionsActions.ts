@@ -926,6 +926,7 @@ export class UninstallAction extends ExtensionAction {
 
 		if (this.extension.isBuiltin || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
 			this.enabled = false;
+			this.hidden = this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question';
 			return;
 		}
 
@@ -1652,6 +1653,11 @@ export class EnableForWorkspaceAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped) {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+				this.enabled = false;
+				this.hidden = true;
+				return;
+			}
 			this.enabled = this.extension.state === ExtensionState.Installed
 				&& !this.extensionEnablementService.isEnabled(this.extension.local)
 				&& this.extensionEnablementService.canChangeWorkspaceEnablement(this.extension.local);
@@ -1683,6 +1689,11 @@ export class EnableGloballyAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped) {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+				this.enabled = false;
+				this.hidden = true;
+				return;
+			}
 			this.enabled = this.extension.state === ExtensionState.Installed
 				&& this.extensionEnablementService.isDisabledGlobally(this.extension.local)
 				&& this.extensionEnablementService.canChangeEnablement(this.extension.local);
@@ -1719,6 +1730,7 @@ export class DisableForWorkspaceAction extends ExtensionAction {
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped && this.extensionService.extensions.some(e => areSameExtensions({ id: e.identifier.value, uuid: e.uuid }, this.extension!.identifier) && this.workspaceContextService.getWorkbenchState() !== WorkbenchState.EMPTY)) {
 			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
 				this.enabled = false;
+				this.hidden = true;
 				return;
 			}
 			this.enabled = this.extension.state === ExtensionState.Installed
@@ -1756,6 +1768,7 @@ export class DisableGloballyAction extends ExtensionAction {
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped && this.extensionService.extensions.some(e => areSameExtensions({ id: e.identifier.value, uuid: e.uuid }, this.extension!.identifier))) {
 			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
 				this.enabled = false;
+				this.hidden = true;
 				return;
 			}
 			this.enabled = this.extension.state === ExtensionState.Installed

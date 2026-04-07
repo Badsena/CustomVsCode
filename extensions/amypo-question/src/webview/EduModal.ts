@@ -29,7 +29,10 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 case 'ready':
                     // Webview is now ready to receive data, re-send last state if we have it
                     if (this._lastMessage) {
-                        this.postMessage(this._lastMessage);
+                        // Small delay to ensure DOM is fully ready
+                        setTimeout(() => {
+                            this.postMessage(this._lastMessage);
+                        }, 100);
                     }
                     break;
                 case 'reload':
@@ -60,9 +63,12 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // ✅ Only set HTML if it's empty to prevent re-rendering when hidden/visible
-        if (this._courseInfo && !this._view.webview.html) {
+        // ✅ Always set HTML immediately
+        if (this._courseInfo) {
             this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
+        } else if (!this._view.webview.html) {
+            // Show loading state until courseInfo arrives
+            this._view.webview.html = this._getLoadingHtml();
         }
     }
 
@@ -93,6 +99,18 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private _getLoadingHtml(): string {
+        return `<!DOCTYPE html>
+        <html><body style="display:flex;align-items:center;justify-content:center;height:100%;
+        background:var(--vscode-editor-background);color:var(--vscode-foreground);font-family:var(--vscode-font-family);">
+            <div style="text-align:center;">
+                <div style="border:4px solid rgba(0,0,0,0.1);width:36px;height:36px;border-radius:50%;border-left-color:#0984e3;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
+                <div>Loading Amypo...</div>
+            </div>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        </body></html>`;
+    }
+
     private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
         const nonce = getNonce();
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
@@ -104,7 +122,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             : '';
 
         return `<!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" style="height: 100%; margin: 0; padding: 0;">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -112,7 +130,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 body {
                     margin: 0;
                     padding: 0;
-                    min-height: 100vh;
+                    height: 100%;
+                    min-height: 100%;
                     background: var(--vscode-editor-background, #f1f2f6);
                     color: var(--vscode-editor-foreground);
                     font-family: var(--vscode-font-family);
@@ -123,7 +142,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    min-height: 100vh;
+                    min-height: 100%;
                     padding: 24px;
                     width: 100%;
                     box-sizing: border-box;
@@ -237,7 +256,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 #question-ui {
                     display: none;
                     flex-direction: column;
-                    height: 100vh;
+                    height: 100%;
                     width: 100%;
                     background-color: var(--vscode-editor-background, #f1f2f6);
                 }
@@ -394,6 +413,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         </div>
                     </div>
                 </div>
+
+                <!-- ✅ action-bar inside question-ui -->
                 <div class="action-bar">
                     <button class="btn-action" id="save-btn"><span>💾</span> Save</button>
                     <button class="btn-action btn-success" id="pull-btn">Pull</button>

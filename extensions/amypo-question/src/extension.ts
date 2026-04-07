@@ -222,9 +222,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	// ────────────────────────────────────────────────────────
 	//  Auto-Update Check (async, non-blocking)
 	// ────────────────────────────────────────────────────────
-	checkForExtensionUpdate(secretKey).catch(err => {
-		console.warn('[Amypo Update] Background update check error:', err);
-	});
+	// checkForExtensionUpdate(secretKey).catch(err => {
+	// 	console.warn('[Amypo Update] Background update check error:', err);
+	// });
 
 	// ─────────────────────────────────────────────────────────
 	//  State
@@ -508,13 +508,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			vscode.window.showInformationMessage('Amypo: Project initialised successfully!');
 
-			// Save state before updateWorkspaceFolders (which restarts the extension host)
+			// Save ALL state before updateWorkspaceFolders (which restarts the extension host)
+			await context.globalState.update('amypo.testStarted', true);
 			await context.globalState.update('amypo.allocationData', currentAllocationData);
+			await context.globalState.update('amypo.projectPath', projectPath);
+			await context.globalState.update('amypo.repoUrl', currentRepoUrl);
+			await context.globalState.update('amypo.projectType', currentProjectType);
 			await context.globalState.update('amypo.lastTest', {
 				allocation_id: STATIC_ALLOCATION_ID,
 				test_type: STATIC_TEST_TYPE,
 				module_id: STATIC_MODULE_ID
 			});
+			console.log('[Amypo] State saved to globalState before workspace change.');
 
 			openFolderWithoutReload(projectPath);
 
@@ -847,20 +852,29 @@ export async function activate(context: vscode.ExtensionContext) {
 	} catch { /* command not available */ }
 	vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
 
+	// Check if test was already started (survives extension host restart)
+	const testAlreadyStarted = context.globalState.get<boolean>('amypo.testStarted') === true;
+
+	// Also check workspace folder as a fallback
 	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const amypoWorkspace = path.join(os.homedir(), 'amypo-workspace');
 	const isInsideAmypoProject = currentFolder?.startsWith(amypoWorkspace);
 
-	if (isInsideAmypoProject) {
-		console.log('[Amypo] Already inside amypo-workspace. Loading question directly.');
+	if (testAlreadyStarted || isInsideAmypoProject) {
+		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
 
-		// Restore saved data
+		// Restore saved data from globalState
 		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
+		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
+		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
+		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
 		const lastTest = context.globalState.get<any>('amypo.lastTest') ?? {
 			allocation_id: STATIC_ALLOCATION_ID,
 			test_type: STATIC_TEST_TYPE,
 			module_id: STATIC_MODULE_ID
 		};
+
+		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
 
 		// Skip Start Test, load question directly
 		setTimeout(async () => {
@@ -921,12 +935,13 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 			} catch (err) {
-				console.error('[Amypo] Workspace guard error:', err);
+				console.error('[Amypo] Session restore error:', err);
 			}
 		}, 1500); // 1.5s delay to ensure the webview is ready to receive messages
 
 	} else {
 		// Fresh launch — show Start Test
+		console.log('[Amypo] Fresh launch detected. Showing Start Test screen.');
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
