@@ -178,19 +178,57 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 			!useWindowControlsOverlay(this.configurationService) &&	// not when controls are natively drawn
 			this.windowControlsContainer
 		) {
-			// ✅ Simplified Exit button (replacing minimize/maximize/close)
-			const exitButton = append(this.windowControlsContainer, $('a.exit-button'));
+			// Ensure the container is visible and aligned
+			this.windowControlsContainer.style.width = 'auto';
+			this.windowControlsContainer.style.display = 'flex';
+			this.windowControlsContainer.style.alignItems = 'center';
+
+			// ✅ Modern Premium Exit button
+			const exitButton = append(this.windowControlsContainer, $('a.exit-button', {
+				style: `
+					background-color: #e81123;
+					color: white;
+					padding: 4px 20px;
+					margin: 0 8px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					height: 28px;
+					cursor: pointer;
+					text-decoration: none;
+					font-weight: 600;
+					font-size: 12px;
+					border-radius: 4px;
+					transition: all 0.2s ease;
+					box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+					user-select: none;
+					-webkit-app-region: no-drag;
+					border: 1px solid rgba(255,255,255,0.1);
+				`
+			}));
 			exitButton.textContent = 'Exit';
 			exitButton.title = 'Exit Application';
+
+			// Rich Interaction States
+			exitButton.onmouseenter = () => {
+				exitButton.style.backgroundColor = '#f44336';
+				exitButton.style.transform = 'translateY(-1px)';
+				exitButton.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+			};
+			exitButton.onmouseleave = () => {
+				exitButton.style.backgroundColor = '#e81123';
+				exitButton.style.transform = 'translateY(0)';
+				exitButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+			};
+			exitButton.onmousedown = () => {
+				exitButton.style.transform = 'translateY(1px)';
+				exitButton.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+			};
+
 			this._register(addDisposableListener(exitButton, EventType.CLICK, (e) => {
 				EventHelper.stop(e);
 				this.hostService.close();
 			}));
-
-			/* 
-			// Standard window controls removed
-			... 
-			*/
 
 			// Resizer
 			this.resizer = append(this.rootContainer, $('div.resizer'));
