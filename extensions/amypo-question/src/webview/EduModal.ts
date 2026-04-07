@@ -413,36 +413,54 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 vscode.postMessage({ command: 'ready' });
 
-                document.getElementById('start').onclick = () => {
-                    document.getElementById('step1').style.display = 'none';
-                    document.getElementById('step2').style.display = 'block';
-                };
+                const startBtn = document.getElementById('start');
+                if (startBtn) {
+                    startBtn.onclick = () => {
+                        document.getElementById('step1').style.display = 'none';
+                        document.getElementById('step2').style.display = 'block';
+                    };
+                }
 
-                document.getElementById('continue').onclick = () => {
-                    vscode.postMessage({ command: 'startTest' });
-                };
+                const continueBtn = document.getElementById('continue');
+                if (continueBtn) {
+                    continueBtn.onclick = () => {
+                        vscode.postMessage({ command: 'startTest' });
+                    };
+                }
 
-                document.getElementById('reload').onclick = () => {
-                    vscode.postMessage({ command: 'reload' });
-                };
+                const reloadBtn = document.getElementById('reload');
+                if (reloadBtn) {
+                    reloadBtn.onclick = () => {
+                        vscode.postMessage({ command: 'reload' });
+                    };
+                }
 
-                document.getElementById('save-btn').onclick = () => {
-                    const status = document.getElementById('status-bar');
-                    status.className = 'status-msg info';
-                    status.innerText = 'Saving...';
-                    vscode.postMessage({ command: 'save' });
-                };
+                const saveBtn = document.getElementById('save-btn');
+                if (saveBtn) {
+                    saveBtn.onclick = () => {
+                        const status = document.getElementById('status-bar');
+                        status.className = 'status-msg info';
+                        status.innerText = 'Saving...';
+                        vscode.postMessage({ command: 'save' });
+                    };
+                }
 
-                document.getElementById('verify-btn').onclick = () => {
-                    const status = document.getElementById('status-bar');
-                    status.className = 'status-msg info';
-                    status.innerText = 'Verifying your code...';
-                    vscode.postMessage({ command: 'verify' });
-                };
+                const verifyBtn = document.getElementById('verify-btn');
+                if (verifyBtn) {
+                    verifyBtn.onclick = () => {
+                        const status = document.getElementById('status-bar');
+                        status.className = 'status-msg info';
+                        status.innerText = 'Verifying your code...';
+                        vscode.postMessage({ command: 'verify' });
+                    };
+                }
 
-                document.getElementById('pull-btn').onclick = () => {
-                    vscode.postMessage({ command: 'pull' });
-                };
+                const pullBtn = document.getElementById('pull-btn');
+                if (pullBtn) {
+                    pullBtn.onclick = () => {
+                        vscode.postMessage({ command: 'pull' });
+                    };
+                }
 
                 window.addEventListener('message', event => {
                     const message = event.data;

@@ -16,12 +16,12 @@ import { append, $, Dimension, hide, show, DragAndDropObserver, trackFocus, addD
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IExtensionsWorkbenchService, IExtensionsViewPaneContainer, VIEWLET_ID, CloseExtensionDetailsOnViewChangeKey, INSTALL_EXTENSION_FROM_VSIX_COMMAND_ID, WORKSPACE_RECOMMENDATIONS_VIEW_ID, AutoCheckUpdatesConfigurationKey, OUTDATED_EXTENSIONS_VIEW_ID, CONTEXT_HAS_GALLERY, extensionsSearchActionsMenu, AutoRestartConfigurationKey, ExtensionRuntimeActionType, SearchMcpServersContext, SearchAgentPluginsContext, DefaultViewsContext, CONTEXT_EXTENSIONS_GALLERY_STATUS } from '../common/extensions.js';
+import { IExtensionsWorkbenchService, IExtensionsViewPaneContainer, VIEWLET_ID, CloseExtensionDetailsOnViewChangeKey, INSTALL_EXTENSION_FROM_VSIX_COMMAND_ID, /* WORKSPACE_RECOMMENDATIONS_VIEW_ID, OUTDATED_EXTENSIONS_VIEW_ID, CONTEXT_HAS_GALLERY, */ AutoCheckUpdatesConfigurationKey, extensionsSearchActionsMenu, AutoRestartConfigurationKey, ExtensionRuntimeActionType, SearchMcpServersContext, SearchAgentPluginsContext, DefaultViewsContext, CONTEXT_EXTENSIONS_GALLERY_STATUS } from '../common/extensions.js';
 import { InstallLocalExtensionsInRemoteAction, InstallRemoteExtensionsInLocalAction } from './extensionsActions.js';
 import { IExtensionManagementService, ILocalExtension } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { IWorkbenchExtensionEnablementService, IExtensionManagementServerService, IExtensionManagementServer } from '../../../services/extensionManagement/common/extensionManagement.js';
 import { ExtensionsInput } from '../common/extensionsInput.js';
-import { ExtensionsListView, EnabledExtensionsView, DisabledExtensionsView, RecommendedExtensionsView, WorkspaceRecommendedExtensionsView, ServerInstalledExtensionsView, DefaultRecommendedExtensionsView, UntrustedWorkspaceUnsupportedExtensionsView, UntrustedWorkspacePartiallySupportedExtensionsView, VirtualWorkspaceUnsupportedExtensionsView, VirtualWorkspacePartiallySupportedExtensionsView, DeprecatedExtensionsView, SearchMarketplaceExtensionsView, RecentlyUpdatedExtensionsView, OutdatedExtensionsView, /* StaticQueryExtensionsView, NONE_CATEGORY, */ AbstractExtensionsListView } from './extensionsViews.js';
+import { ExtensionsListView, /* RecommendedExtensionsView, WorkspaceRecommendedExtensionsView, */ ServerInstalledExtensionsView, DefaultRecommendedExtensionsView, /* UntrustedWorkspaceUnsupportedExtensionsView, UntrustedWorkspacePartiallySupportedExtensionsView, VirtualWorkspaceUnsupportedExtensionsView, VirtualWorkspacePartiallySupportedExtensionsView, DeprecatedExtensionsView, SearchMarketplaceExtensionsView, RecentlyUpdatedExtensionsView, OutdatedExtensionsView, StaticQueryExtensionsView, NONE_CATEGORY, */ AbstractExtensionsListView } from './extensionsViews.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import Severity from '../../../../base/common/severity.js';
@@ -48,7 +48,7 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { SIDE_BAR_DRAG_AND_DROP_BACKGROUND } from '../../../common/theme.js';
-import { VirtualWorkspaceContext, WorkbenchStateContext } from '../../../common/contextkeys.js';
+// import { VirtualWorkspaceContext, WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { installLocalInRemoteIcon } from './extensionsIcons.js';
 import { registerAction2, Action2, MenuId } from '../../../../platform/actions/common/actions.js';
@@ -115,22 +115,23 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		/* Default views */
 		viewDescriptors.push(...this.createDefaultExtensionsViewDescriptors());
 
-		/* Search views */
-		viewDescriptors.push(...this.createSearchExtensionsViewDescriptors());
+		/* Search views - DISABLED */
+		// viewDescriptors.push(...this.createSearchExtensionsViewDescriptors());
 
-		/* Recommendations views */
-		viewDescriptors.push(...this.createRecommendedExtensionsViewDescriptors());
+		/* Recommendations views - DISABLED */
+		// viewDescriptors.push(...this.createRecommendedExtensionsViewDescriptors());
 
 		/* Built-in extensions views - DISABLED for Amypo Coder */
 		// viewDescriptors.push(...this.createBuiltinExtensionsViewDescriptors());
 
-		/* Trust Required extensions views */
-		viewDescriptors.push(...this.createUnsupportedWorkspaceExtensionsViewDescriptors());
+		/* Trust Required extensions views - DISABLED */
+		// viewDescriptors.push(...this.createUnsupportedWorkspaceExtensionsViewDescriptors());
 
-		/* Other Local Filtered extensions views */
-		viewDescriptors.push(...this.createOtherLocalFilteredExtensionsViewDescriptors());
+		/* Other Local Filtered extensions views - DISABLED */
+		// viewDescriptors.push(...this.createOtherLocalFilteredExtensionsViewDescriptors());
 
 
+		/*
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.marketplaceAccess',
 			name: localize2('marketPlace', "Marketplace"),
@@ -147,6 +148,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			),
 			order: -1,
 		});
+		*/
 
 		const viewRegistry = Registry.as<IViewsRegistry>(Extensions.ViewsRegistry);
 		viewRegistry.registerViews(viewDescriptors, this.container);
@@ -266,11 +268,8 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		});
 
 		/* Installed views shall be default in multi server window  */
+		/*
 		if (servers.length === 1) {
-			/*
-			 * Default enabled extensions view - Shows all user installed enabled extensions.
-			 * Hidden by default
-			 */
 			viewDescriptors.push({
 				id: 'workbench.views.extensions.enabled',
 				name: localize2('enabledExtensions', "Enabled"),
@@ -282,10 +281,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 				canToggleVisibility: true
 			});
 
-			/*
-			 * Default disabled extensions view - Shows all disabled extensions.
-			 * Hidden by default
-			 */
 			viewDescriptors.push({
 				id: 'workbench.views.extensions.disabled',
 				name: localize2('disabledExtensions', "Disabled"),
@@ -298,16 +293,15 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			});
 
 		}
+		*/
 
 		return viewDescriptors;
 	}
 
+	/*
 	private createSearchExtensionsViewDescriptors(): IViewDescriptor[] {
 		const viewDescriptors: IViewDescriptor[] = [];
 
-		/*
-		 * View used for searching Marketplace
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.marketplace',
 			name: localize2('marketPlace', "Marketplace"),
@@ -315,9 +309,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchMarketplaceExtensions'), CONTEXT_HAS_GALLERY)
 		});
 
-		/*
-		 * View used for searching all installed extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchInstalled',
 			name: localize2('installed', "Installed"),
@@ -325,9 +316,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.or(ContextKeyExpr.has('searchInstalledExtensions'), ContextKeyExpr.has('installedExtensions')),
 		});
 
-		/*
-		 * View used for searching recently updated extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchRecentlyUpdated',
 			name: localize2('recently updated', "Recently Updated"),
@@ -336,9 +324,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			order: 2,
 		});
 
-		/*
-		 * View used for searching enabled extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchEnabled',
 			name: localize2('enabled', "Enabled"),
@@ -346,9 +331,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchEnabledExtensions')),
 		});
 
-		/*
-		 * View used for searching disabled extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchDisabled',
 			name: localize2('disabled', "Disabled"),
@@ -356,9 +338,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchDisabledExtensions')),
 		});
 
-		/*
-		 * View used for searching outdated extensions
-		 */
 		viewDescriptors.push({
 			id: OUTDATED_EXTENSIONS_VIEW_ID,
 			name: localize2('availableUpdates', "Available Updates"),
@@ -367,9 +346,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			order: 1,
 		});
 
-		/*
-		 * View used for searching builtin extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchBuiltin',
 			name: localize2('builtin', "Builtin"),
@@ -377,9 +353,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.and(ContextKeyExpr.has('searchBuiltInExtensions')),
 		});
 
-		/*
-		 * View used for searching workspace unsupported extensions
-		 */
 		viewDescriptors.push({
 			id: 'workbench.views.extensions.searchWorkspaceUnsupported',
 			name: localize2('workspaceUnsupported', "Workspace Unsupported"),
@@ -389,7 +362,9 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 
 		return viewDescriptors;
 	}
+	*/
 
+	/*
 	private createRecommendedExtensionsViewDescriptors(): IViewDescriptor[] {
 		const viewDescriptors: IViewDescriptor[] = [];
 
@@ -411,40 +386,42 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 
 		return viewDescriptors;
 	}
+	*/
 
-/*
-	private _createBuiltinExtensionsViewDescriptors(): IViewDescriptor[] {
-		const viewDescriptors: IViewDescriptor[] = [];
+	/*
+		private _createBuiltinExtensionsViewDescriptors(): IViewDescriptor[] {
+			const viewDescriptors: IViewDescriptor[] = [];
 
-		const configuredCategories = ['themes', 'programming languages'];
-		const otherCategories = EXTENSION_CATEGORIES.filter(c => !configuredCategories.includes(c.toLowerCase()));
-		otherCategories.push(NONE_CATEGORY);
-		const otherCategoriesQuery = `${otherCategories.map(c => `category:"${c}"`).join(' ')} ${configuredCategories.map(c => `category:"-${c}"`).join(' ')}`;
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.builtinFeatureExtensions',
-			name: localize2('builtinFeatureExtensions', "Features"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin ${otherCategoriesQuery}` }]),
-			when: ContextKeyExpr.has('builtInExtensions'),
-		});
+			const configuredCategories = ['themes', 'programming languages'];
+			const otherCategories = EXTENSION_CATEGORIES.filter(c => !configuredCategories.includes(c.toLowerCase()));
+			otherCategories.push(NONE_CATEGORY);
+			const otherCategoriesQuery = `${otherCategories.map(c => `category:"${c}"`).join(' ')} ${configuredCategories.map(c => `category:"-${c}"`).join(' ')}`;
+			viewDescriptors.push({
+				id: 'workbench.views.extensions.builtinFeatureExtensions',
+				name: localize2('builtinFeatureExtensions', "Features"),
+				ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin ${otherCategoriesQuery}` }]),
+				when: ContextKeyExpr.has('builtInExtensions'),
+			});
 
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.builtinThemeExtensions',
-			name: localize2('builtInThemesExtensions', "Themes"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:themes` }]),
-			when: ContextKeyExpr.has('builtInExtensions'),
-		});
+			viewDescriptors.push({
+				id: 'workbench.views.extensions.builtinThemeExtensions',
+				name: localize2('builtInThemesExtensions', "Themes"),
+				ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:themes` }]),
+				when: ContextKeyExpr.has('builtInExtensions'),
+			});
 
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.builtinProgrammingLanguageExtensions',
-			name: localize2('builtinProgrammingLanguageExtensions', "Programming Languages"),
-			ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:"programming languages"` }]),
-			when: ContextKeyExpr.has('builtInExtensions'),
-		});
+			viewDescriptors.push({
+				id: 'workbench.views.extensions.builtinProgrammingLanguageExtensions',
+				name: localize2('builtinProgrammingLanguageExtensions', "Programming Languages"),
+				ctorDescriptor: new SyncDescriptor(StaticQueryExtensionsView, [{ query: `@builtin category:"programming languages"` }]),
+				when: ContextKeyExpr.has('builtInExtensions'),
+			});
 
-		return viewDescriptors;
-	}
-*/
+			return viewDescriptors;
+		}
+	*/
 
+	/*
 	private createUnsupportedWorkspaceExtensionsViewDescriptors(): IViewDescriptor[] {
 		const viewDescriptors: IViewDescriptor[] = [];
 
@@ -478,7 +455,9 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 
 		return viewDescriptors;
 	}
+	*/
 
+	/*
 	private createOtherLocalFilteredExtensionsViewDescriptors(): IViewDescriptor[] {
 		const viewDescriptors: IViewDescriptor[] = [];
 
@@ -498,6 +477,7 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 
 		return viewDescriptors;
 	}
+	*/
 
 }
 

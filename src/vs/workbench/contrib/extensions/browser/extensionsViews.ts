@@ -356,11 +356,8 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 				const local = this.options.server ? this.extensionsWorkbenchService.installed.filter(e => e.server === this.options.server) : this.extensionsWorkbenchService.local;
 				const { extensions: newExtensions } = await this.filterLocal(local, this.extensionService.extensions, query, options);
 				if (!isDisposed) {
-					const mergedExtensions = this.mergeAddedExtensions(extensions, newExtensions);
-					if (mergedExtensions) {
-						extensions = mergedExtensions;
-						onDidChangeModel.fire(new PagedModel(extensions));
-					}
+					extensions = newExtensions;
+					onDidChangeModel.fire(new PagedModel(extensions));
 				}
 			}));
 		}
@@ -472,7 +469,7 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 
 		value = value.replace(/@installed/g, '').replace(/@sort:(\w+)(-\w*)?/g, '').trim().toLowerCase();
 
-		const matchingText = (e: IExtension) => (!e.isBuiltin) && (e.name.toLowerCase().indexOf(value) > -1 || e.displayName.toLowerCase().indexOf(value) > -1 || e.description.toLowerCase().indexOf(value) > -1)
+		const matchingText = (e: IExtension) => (!e.isBuiltin || e.identifier.id.toLowerCase() === 'amypo.amypo-question') && (e.name.toLowerCase().indexOf(value) > -1 || e.displayName.toLowerCase().indexOf(value) > -1 || e.description.toLowerCase().indexOf(value) > -1)
 			&& this.filterExtensionByCategory(e, includedCategories, excludedCategories);
 		let result;
 
@@ -715,31 +712,7 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 		}
 	}
 
-	private mergeAddedExtensions(extensions: IExtension[], newExtensions: IExtension[]): IExtension[] | undefined {
-		const oldExtensions = [...extensions];
-		const findPreviousExtensionIndex = (from: number): number => {
-			let index = -1;
-			const previousExtensionInNew = newExtensions[from];
-			if (previousExtensionInNew) {
-				index = oldExtensions.findIndex(e => areSameExtensions(e.identifier, previousExtensionInNew.identifier));
-				if (index === -1) {
-					return findPreviousExtensionIndex(from - 1);
-				}
-			}
-			return index;
-		};
 
-		let hasChanged: boolean = false;
-		for (let index = 0; index < newExtensions.length; index++) {
-			const extension = newExtensions[index];
-			if (extensions.every(r => !areSameExtensions(r.identifier, extension.identifier))) {
-				hasChanged = true;
-				extensions.splice(findPreviousExtensionIndex(index - 1) + 1, 0, extension);
-			}
-		}
-
-		return hasChanged ? extensions : undefined;
-	}
 
 	private async queryGallery(query: Query, options: IGalleryQueryOptions, token: CancellationToken): Promise<IQueryResult> {
 		const hasUserDefinedSortOrder = options.sortBy !== undefined;

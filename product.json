@@ -69,10 +69,17 @@
 			"name": "ms-vscode.js-debug",
 			"version": "2022.8.1217",
 			"repo": "https://github.com/microsoft/vscode-js-debug"
+		},
+		{
+			"name": "amypo.amypo-question",
+			"version": "1.0.0",
+			"repo": "https://github.com/amypo-coder/amypo-coder"
 		}
 	],
 	"webBuiltInExtensions": [],
 	"extensionTips": {
+		"amypo.amypo-question": "Amypo Question Panel",
+		"rangav.vscode-thunder-client": "Thunder Client",
 		"dsznajder.es7-react-js-snippets": "ES7+ React/Redux/React-Native snippets",
 		"esbenp.prettier-vscode": "Code formatter using prettier",
 		"dbaeumer.vscode-eslint": "Integrates ESLint JavaScript into VS Code.",
@@ -83,6 +90,10 @@
 		"vscjava.vscode-maven": "Maven for Java"
 	},
 	"extensionImportantTips": {
+		"amypo.amypo-question": {
+			"name": "Amypo Question Panel",
+			"pattern": "**/*"
+		},
 		"dsznajder.es7-react-js-snippets": {
 			"name": "ES7+ React Snippets",
 			"pattern": "**/*.{js,jsx,ts,tsx}"

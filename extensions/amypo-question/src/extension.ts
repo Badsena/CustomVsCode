@@ -26,7 +26,7 @@ const GITHUB_TOKEN = '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';
 
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285469|CFngwM53U7QMtcGnkYC64WFXYjDl63OddWqrRhSFda4cdffe';
+const STATIC_TOKEN = '285476|SKc3kEAcDVpkWGREnHnVq0zFpIBpVwGLN6vdOAX00415c056';
 const STATIC_MODULE_ID = 992;
 
 // ─────────────────────────────────────────────────────────────
@@ -233,6 +233,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	let currentProjectPath: string | null = null;
 	let currentRepoUrl: string | null = null;
 	let currentProjectType: 'react' | 'fullstack' | 'spring' = 'spring';
+
+	// ─────────────────────────────────────────────────────────
+	//  Exit
+	// ─────────────────────────────────────────────────────────
+
+	/** callMurugaExit() — User exit callback */
+	const callMurugaExit = () => {
+		console.log('exit button is clicked');
+		vscode.window.showInformationMessage('Amypo: Exit logic triggered.');
+	};
 
 	// ─────────────────────────────────────────────────────────
 	//  Helpers
@@ -919,6 +929,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Fresh launch — show Start Test
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
+
+	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', () => {
+		callMurugaExit();
+		// Fallback exit if needed
+		// vscode.commands.executeCommand('workbench.action.closeWindow');
+	}));
 }
 
 export function deactivate() { }
