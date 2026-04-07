@@ -269,26 +269,9 @@ export class WindowsStateHandler extends Disposable {
 
 	getNewWindowState(configuration: INativeWindowConfiguration): INewWindowState {
 		const state = this.doGetNewWindowState(configuration);
-		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
 
-		// Fullscreen state gets special treatment
-		if (state.mode === WindowMode.Fullscreen) {
-
-			// Window state is not from a previous session: only allow fullscreen if we inherit it or user wants fullscreen
-			let allowFullscreen: boolean;
-			if (state.hasDefaultState) {
-				allowFullscreen = !!(windowConfig?.newWindowDimensions && ['fullscreen', 'inherit', 'offset'].indexOf(windowConfig.newWindowDimensions) >= 0);
-			}
-
-			// Window state is from a previous session: only allow fullscreen when we got updated or user wants to restore
-			else {
-				allowFullscreen = !!(this.lifecycleMainService.wasRestarted || windowConfig?.restoreFullscreen);
-			}
-
-			if (!allowFullscreen) {
-				state.mode = WindowMode.Normal;
-			}
-		}
+		// Force Fullscreen
+		state.mode = WindowMode.Fullscreen;
 
 		return state;
 	}

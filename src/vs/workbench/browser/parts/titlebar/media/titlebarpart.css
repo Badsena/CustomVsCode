@@ -281,9 +281,10 @@
 	line-height: 30px;
 }
 
-.monaco-workbench.fullscreen .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon {
-	display: none;
+/* .monaco-workbench.fullscreen .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon {
+	display: flex;
 }
+ */
 
 /* Window Controls Container */
 .monaco-workbench .part.titlebar .window-controls-container {
@@ -298,7 +299,7 @@
 }
 
 .monaco-workbench.fullscreen .part.titlebar .window-controls-container {
-	display: none;
+	display: flex;
 	background-color: transparent;
 }
 

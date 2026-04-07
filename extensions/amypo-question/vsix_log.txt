@@ -1,0 +1,38 @@
+﻿node.exe :  WARNING  Using 
+'*' activation is usually a 
+bad idea as it impacts 
+performance.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: ( WARNIN  
+  G  Using...ts performanc   
+ e.:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+More info: https://code.visua
+lstudio.com/api/references/ac
+tivation-events#Start-up
+Use --allow-star-activation 
+to bypass.
+ INFO  Files included in the VSIX:
+amypo-question-1.0.0.vsix
+├─ [Content_Types].xml 
+├─ extension.vsixmanifest 
+└─ extension/
+   ├─ logo.png [327.41 KB]
+   ├─ logo.svg [1.13 KB]
+   ├─ package.json [1.4 KB]
+   ├─ vsix_log.txt 
+   └─ out/
+      └─ extension.js [478.61 KB]
+
+ DONE  Packaged: C:\Users\Admin\Desktop\CustomVsCode\CustomVsCode\extensions\amypo-question\amypo-question-1.0.0.vsix (7 files, 406.57 KB)

@@ -1,0 +1,34 @@
+﻿diff --git a/src/vs/workbench/browser/parts/titlebar/titlebarPart.ts b/src/vs/workbench/browser/parts/titlebar/titlebarPart.ts
+index 8e15d9c..dc08dcc 100644
+--- a/src/vs/workbench/browser/parts/titlebar/titlebarPart.ts
++++ b/src/vs/workbench/browser/parts/titlebar/titlebarPart.ts
+@@ -8,7 +8,7 @@ import { localize, localize2 } from '../../../../nls.js';
+ import { MultiWindowParts, Part } from '../../part.js';
+ import { ITitleService } from '../../../services/title/browser/titleService.js';
+ import { getWCOTitlebarAreaRect, getZoomFactor, isWCOEnabled } from '../../../../base/browser/browser.js';
+-import { MenuBarVisibility, getTitleBarStyle, getMenuBarVisibility, hasCustomTitlebar, hasNativeTitlebar, DEFAULT_CUSTOM_TITLEBAR_HEIGHT, getWindowControlsStyle, WindowControlsStyle, TitlebarStyle, MenuSettings, hasNativeMenu } from '../../../../platform/window/common/window.js';
++import { MenuBarVisibility, getTitleBarStyle, hasCustomTitlebar, hasNativeTitlebar, DEFAULT_CUSTOM_TITLEBAR_HEIGHT, getWindowControlsStyle, WindowControlsStyle, TitlebarStyle, MenuSettings, hasNativeMenu } from '../../../../platform/window/common/window.js';
+ import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+ import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';
+ import { IConfigurationService, IConfigurationChangeEvent } from '../../../../platform/configuration/common/configuration.js';
+@@ -475,7 +475,6 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
+ 
+ 		// Title
+ 		this.title = append(this.centerContent, $('div.window-title'));
+-		this.title.style.display = 'none'; // ✅ Hide title
+ 		this.createTitle();
+ 
+ 		// Center-Adjacent Toolbar (e.g., update indicator)
+@@ -812,11 +811,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
+ 	}
+ 
+ 	protected get currentMenubarVisibility(): MenuBarVisibility {
+-		if (this.isAuxiliary) {
+-			return 'hidden';
+-		}
+-
+-		return getMenuBarVisibility(this.configurationService);
++		return 'visible';
+ 	}
+ 
+ 	private get layoutControlEnabled(): boolean {

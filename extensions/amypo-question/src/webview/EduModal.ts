@@ -23,8 +23,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             enableScripts: true,
             localResourceRoots: [this._extensionUri]
         };
-        webviewView.description = "Amypo Question Panel";
-
+        webviewView.description = 'Amypo Question Panel';
         webviewView.webview.onDidReceiveMessage((message) => {
             switch (message.command) {
                 case 'ready':
@@ -39,13 +38,19 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case 'save':
-                    if (this._onSave) this._onSave();
+                    if (this._onSave) {
+                        this._onSave();
+                    }
                     break;
                 case 'verify':
-                    if (this._onVerify) this._onVerify();
+                    if (this._onVerify) {
+                        this._onVerify();
+                    }
                     break;
                 case 'pull':
-                    if (this._onPull) this._onPull();
+                    if (this._onPull) {
+                        this._onPull();
+                    }
                     break;
                 case 'startTest':
                     if (this._onConfirm) {
@@ -71,7 +76,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     public setOnVerify(callback: () => void) { this._onVerify = callback; }
     public setOnPull(callback: () => void) { this._onPull = callback; }
 
-    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; }, onConfirm: () => void) {
+    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
         this._courseInfo = courseInfo;
         this._onConfirm = onConfirm;
 
@@ -90,7 +95,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
     private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
         const nonce = getNonce();
-        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'image.png'));
+        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
 
         const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
             ? `<div class="languages">
@@ -397,6 +402,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </div>
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
+
+                // ✅ Suppress ResizeObserver loop errors
+                window.addEventListener('error', (e) => {
+                    if (e.message === 'ResizeObserver loop completed with undelivered notifications') {
+                        e.stopImmediatePropagation();
+                        return;
+                    }
+                });
 
                 vscode.postMessage({ command: 'ready' });
 

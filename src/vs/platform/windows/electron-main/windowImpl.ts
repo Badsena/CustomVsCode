@@ -242,6 +242,15 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 				this.onDisplayAdded(e.display);
 			}));
 		}
+
+		// Intercept F11 and Alt+Enter to prevent exiting fullscreen
+		this._win.webContents.on('before-input-event', (event, input) => {
+			if (input.type === 'keyDown') {
+				if (input.key === 'F11' || (input.key === 'Enter' && input.alt)) {
+					event.preventDefault();
+				}
+			}
+		});
 	}
 
 	private onDisplayAdded(display: Display): void {
@@ -287,22 +296,12 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 			}
 		}
 
-		if (state.mode === WindowMode.Maximized || state.mode === WindowMode.Fullscreen) {
+		// FORCE FULLSCREEN: Override any incoming state mode to always start in fullscreen
+		state.mode = WindowMode.Fullscreen;
 
-			// this call may or may not show the window, depends
-			// on the platform: currently on Windows and Linux will
-			// show the window as active. To be on the safe side,
-			// we show the window at the end of this block.
-			this._win?.maximize();
-
-			if (state.mode === WindowMode.Fullscreen) {
-				this.setFullScreen(true, true);
-			}
-
-			// to reduce flicker from the default window size
-			// to maximize or fullscreen, we only show after
-			this._win?.show();
-		}
+		this._win?.maximize();
+		this.setFullScreen(true, true);
+		this._win?.show();
 	}
 
 	private representedFilename: string | undefined;

@@ -102,5 +102,9 @@
 				}
 			}
 		}
-	}
+	},
+	"configurationDefaults": {
+		"window.menuBarVisibility": "visible"
+	},
+	"amypoSecretKey": "AMY-X9K2-2026-SECURE"
 }
