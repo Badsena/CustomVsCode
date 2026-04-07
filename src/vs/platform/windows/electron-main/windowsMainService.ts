@@ -862,7 +862,8 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		// not restored windows already otherwise.
 		// Use `unshift` to ensure any new window to open comes last for proper
 		// focus treatment.
-		if (openConfig.initialStartup && !isRestoringPaths && this.configurationService.getValue<IWindowSettings | undefined>('window')?.restoreWindows === 'preserve') {
+		// ✅ FORCE NONE: We use getRestoreWindowsSetting() instead of raw config to ensure our 'none' force is respected.
+		if (openConfig.initialStartup && !isRestoringPaths && this.getRestoreWindowsSetting() === 'preserve') {
 			const lastSessionPaths = await this.doGetPathsFromLastSession();
 			pathsToOpen.unshift(...lastSessionPaths.filter(path => isWorkspacePathToOpen(path) || isSingleFolderWorkspacePathToOpen(path) || path.backupPath));
 		}
@@ -1040,16 +1041,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		if (this.lifecycleMainService.wasRestarted) {
 			restoreWindows = 'all'; // always reopen all windows when an update was applied
 		} else {
-			const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
-			restoreWindows = windowConfig?.restoreWindows ?? 'none'; // by default restore none if missing
-
-			if (restoreWindows === null) {
-				restoreWindows = 'none';
-			}
-
-			if (!['preserve', 'all', 'folders', 'one', 'none'].includes(restoreWindows)) {
-				restoreWindows = 'none'; // by default restore none
-			}
+			// ✅ FORCE NONE: For this custom build, we never want to restore old windows
+			// even if the user has it in their global settings.
+			restoreWindows = 'none';
 		}
 
 		return restoreWindows;
