@@ -727,6 +727,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			const finalCourseInfo = { ...courseInfo, languages: languageNames, errorMessage };
 
+			// Save courseInfo for session restore after extension host restart
+			await context.globalState.update('amypo.courseInfo', finalCourseInfo);
+
 			// Update sidebar
 			try {
 				await vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
@@ -856,9 +859,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	const testAlreadyStarted = context.globalState.get<boolean>('amypo.testStarted') === true;
 
 	// Also check workspace folder as a fallback
+	// Normalize path separators and case to prevent mismatch on Windows
 	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const amypoWorkspace = path.join(os.homedir(), 'amypo-workspace');
-	const isInsideAmypoProject = currentFolder?.startsWith(amypoWorkspace);
+	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
+	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
+	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
+
+	console.log('[Amypo] Guard check:', { currentFolder: normalizedCurrent, amypoWorkspace: normalizedAmypo, isInsideAmypoProject });
 
 	if (testAlreadyStarted || isInsideAmypoProject) {
 		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
@@ -876,10 +884,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
 
-		// Skip Start Test, load question directly
-		setTimeout(async () => {
+		// Wait for webview to signal 'ready' before sending data
+		eduViewProvider.setOnReady(async () => {
 			try {
-				eduViewProvider.postMessage({ state: 'loading' });
+				console.log('[Amypo] Webview ready — restoring question…');
 
 				const initResp = await checkStoreInitialData(
 					lastTest.allocation_id,
@@ -928,16 +936,30 @@ export async function activate(context: vscode.ExtensionContext) {
 					STATIC_TOKEN
 				);
 
-				if (qData) {
-					eduViewProvider.postMessage({ state: 'loaded', payload: qData, stats: statsObj });
-				} else {
-					eduViewProvider.postMessage({ state: 'error', message: 'Failed to retrieve question details.' });
-				}
+				const questionMessage = qData
+					? { state: 'loaded', payload: qData, stats: statsObj }
+					: { state: 'error', message: 'Failed to retrieve question details.' };
+
+				// Save the message, then switch to full question HTML
+				eduViewProvider.postMessage(questionMessage);
+
+				// Load saved courseInfo and switch to full HTML
+				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo') ?? {
+					course_name: 'Amypo Test',
+					module_name: 'Restoring session…',
+					languages: [],
+				};
+				console.log('[Amypo] Switching to full question HTML with saved courseInfo');
+
+				// updateView switches HTML to _getHtml() which has message handlers.
+				// When the new HTML fires 'ready', _lastMessage will be re-sent automatically.
+				eduViewProvider.updateView(savedCourseInfo, () => { /* no-op on restore */ });
 
 			} catch (err) {
 				console.error('[Amypo] Session restore error:', err);
+				eduViewProvider.postMessage({ state: 'error', message: 'Error restoring session.' });
 			}
-		}, 1500); // 1.5s delay to ensure the webview is ready to receive messages
+		});
 
 	} else {
 		// Fresh launch — show Start Test

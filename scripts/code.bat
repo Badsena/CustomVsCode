@@ -6,9 +6,11 @@ title VSCode Dev
 pushd %~dp0\..
 
 :: Get electron, compile, built-in extensions
-if "%VSCODE_SKIP_PRELAUNCH%"=="" (
-	node build/lib/preLaunch.ts
-)
+:: Skipped — Electron already cached in .build\electron\
+:: Uncomment below to re-enable if Electron needs re-downloading:
+:: if "%VSCODE_SKIP_PRELAUNCH%"=="" (
+:: 	node build/lib/preLaunch.ts
+:: )
 
 set "NAMESHORT="
 for /f "tokens=2 delims=:," %%a in ('findstr /R /C:"\"nameShort\":.*" product.json') do if not defined NAMESHORT set "NAMESHORT=%%~a"
@@ -23,7 +25,7 @@ if "%~1"=="--builtin" goto builtin
 set NODE_ENV=development
 set VSCODE_DEV=1
 set VSCODE_CLI=1
-set ELECTRON_ENABLE_LOGGING=1
+set ELECTRON_ENABLE_LOGGING=0
 set ELECTRON_ENABLE_STACK_DUMPING=1
 set LIBGL_ALWAYS_SOFTWARE=1
 set GALLIUM_DRIVER=llvmpipe

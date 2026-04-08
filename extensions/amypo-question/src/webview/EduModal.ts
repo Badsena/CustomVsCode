@@ -9,6 +9,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _courseInfo?: any;
     private _lastMessage?: any;
+    private _webviewReady = false;
     private _onConfirm?: () => void;
 
     constructor(private readonly _extensionUri: vscode.Uri) { }
@@ -27,12 +28,17 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage((message) => {
             switch (message.command) {
                 case 'ready':
-                    // Webview is now ready to receive data, re-send last state if we have it
+                    this._webviewReady = true;
+                    // Re-send last state if we have it
                     if (this._lastMessage) {
-                        // Small delay to ensure DOM is fully ready
                         setTimeout(() => {
                             this.postMessage(this._lastMessage);
                         }, 100);
+                    }
+                    // Notify extension that webview is ready (for session restore)
+                    if (this._onReady) {
+                        this._onReady();
+                        this._onReady = undefined;
                     }
                     break;
                 case 'reload':
@@ -76,15 +82,26 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     private _onSave?: () => void;
     private _onVerify?: () => void;
     private _onPull?: () => void;
+    private _onReady?: () => void;
 
     public setOnReload(callback: () => void) { this._onReload = callback; }
     public setOnSave(callback: () => void) { this._onSave = callback; }
     public setOnVerify(callback: () => void) { this._onVerify = callback; }
     public setOnPull(callback: () => void) { this._onPull = callback; }
+    public setOnReady(callback: () => void) {
+        if (this._webviewReady) {
+            // Webview already fired ready — call immediately
+            console.log('[Amypo] Webview already ready — firing callback immediately');
+            setTimeout(callback, 100);
+        } else {
+            this._onReady = callback;
+        }
+    }
 
     public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
         this._courseInfo = courseInfo;
         this._onConfirm = onConfirm;
+        this._webviewReady = false; // Reset — new HTML will fire 'ready' again
 
         if (this._view) {
             this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
@@ -108,6 +125,10 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 <div>Loading Amypo...</div>
             </div>
             <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <script>
+                const vscode = acquireVsCodeApi();
+                vscode.postMessage({ command: 'ready' });
+            </script>
         </body></html>`;
     }
 
@@ -122,29 +143,30 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             : '';
 
         return `<!DOCTYPE html>
-        <html lang="en" style="height: 100%; margin: 0; padding: 0;">
+        <html lang="en" style="height: 100%; margin: 0; padding: 0; overflow: hidden;">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
             <style>
-                body {
+                html, body {
                     margin: 0;
                     padding: 0;
+                    width: 100%;
                     height: 100%;
-                    min-height: 100%;
-                    background: var(--vscode-editor-background, #f1f2f6);
+                    overflow: hidden;
+                    background: var(--vscode-editor-background);
                     color: var(--vscode-editor-foreground);
                     font-family: var(--vscode-font-family);
-                    display: flex;
-                    flex-direction: column;
                 }
                 #modal-wrapper {
+                    position: absolute;
+                    inset: 0;
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    min-height: 100%;
+                    overflow-y: auto;
                     padding: 24px;
-                    width: 100%;
                     box-sizing: border-box;
                 }
                 #modal-content {
@@ -255,9 +277,10 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 /* Question UI Styles */
                 #question-ui {
                     display: none;
+                    position: absolute;
+                    inset: 0;
                     flex-direction: column;
-                    height: 100%;
-                    width: 100%;
+                    overflow: hidden;
                     background-color: var(--vscode-editor-background, #f1f2f6);
                 }
                 /* Inherit general background */
@@ -267,7 +290,15 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .info-pill { font-size: 13px; color: var(--vscode-foreground, #636e72); display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--vscode-widget-border, #dfe4ea); padding-left: 16px; font-weight: 500; }
                 .icon-btn { border: 1px solid var(--vscode-widget-border, #dfe4ea); border-radius: 50%; padding: 4px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
                 .icon-btn.yellow { border-color: #ffd32a; color: #ffa801; }
-                .main-layout { display: flex; flex: 1; overflow: hidden; }
+                .main-layout {
+                    position: absolute;
+                    top: 53px;
+                    bottom: 60px;
+                    left: 0;
+                    right: 0;
+                    overflow: hidden;
+                    display: flex;
+                }
                 .content-area { flex: 1; background: var(--vscode-editorWidget-background, white); margin: 12px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #dfe4ea); display: flex; flex-direction: column; overflow: hidden; }
                 .content-header { padding: 12px 24px; border-bottom: 1px solid var(--vscode-widget-border, #f1f2f6); display: flex; justify-content: space-between; align-items: center; background: var(--vscode-editorWidget-background, #fbfbfb); border-radius: 8px 8px 0 0; }
                 .tab-title { color: #00b894; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -278,7 +309,18 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
                 .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
 
-                .action-bar { display: flex; gap: 12px; margin-top: auto; padding-top: 24px; border-top: 1px solid var(--vscode-widget-border, #f1f2f6); }
+                .action-bar {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    display: flex;
+                    gap: 12px;
+                    padding: 12px;
+                    background: var(--vscode-editor-background);
+                    border-top: 1px solid var(--vscode-widget-border);
+                    box-sizing: border-box;
+                }
                 .btn-action { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--vscode-widget-border, #dfe4ea); background: var(--vscode-button-secondaryBackground, #f1f2f6); color: var(--vscode-button-secondaryForeground, #2d3436); font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
                 .btn-action:hover { background: var(--vscode-button-secondaryHoverBackground, #dfe4ea); }
                 .btn-primary { background: #3867d6; color: white; border: none; }
@@ -423,14 +465,6 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </div>
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
-
-                // ✅ Suppress ResizeObserver loop errors
-                window.addEventListener('error', (e) => {
-                    if (e.message === 'ResizeObserver loop completed with undelivered notifications') {
-                        e.stopImmediatePropagation();
-                        return;
-                    }
-                });
 
                 vscode.postMessage({ command: 'ready' });
 
