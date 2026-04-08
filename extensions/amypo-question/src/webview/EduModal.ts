@@ -321,12 +321,46 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     border-top: 1px solid var(--vscode-widget-border);
                     box-sizing: border-box;
                 }
-                .btn-action { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--vscode-widget-border, #dfe4ea); background: var(--vscode-button-secondaryBackground, #f1f2f6); color: var(--vscode-button-secondaryForeground, #2d3436); font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-                .btn-action:hover { background: var(--vscode-button-secondaryHoverBackground, #dfe4ea); }
+                .btn-action {
+                    flex: 1;
+                    padding: 10px;
+                    border-radius: 6px;
+                    border: 1px solid var(--vscode-widget-border, #dfe4ea);
+                    background: var(--vscode-button-secondaryBackground, #f1f2f6);
+                    color: var(--vscode-button-secondaryForeground, #2d3436);
+                    font-size: 13px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 2px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                .btn-action:hover {
+                    background: var(--vscode-button-secondaryHoverBackground, #dfe4ea);
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+                }
+                .btn-action:active { transform: translateY(0); }
                 .btn-primary { background: #3867d6; color: white; border: none; }
                 .btn-primary:hover { background: #2b52ad; }
                 .btn-success { background: #00ce7a; color: white; border: none; }
                 .btn-success:hover { background: #00b36a; }
+                .btn-action:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none !important;
+                    box-shadow: none !important;
+                }
+                .save-time {
+                    font-size: 12px;
+                    opacity: 0.9;
+                    font-weight: 400;
+                    margin-top: -2px;
+                }
 
                 .status-msg { margin-top: 12px; font-size: 12px; font-weight: 500; display: none; padding: 8px; border-radius: 4px; }
                 .status-msg.success { display: block; background: #e6fcf5; color: #087f5b; border: 1px solid #c3fae8; }
@@ -335,6 +369,15 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 .loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--vscode-descriptionForeground, #636e72); }
                 .spinner { border: 4px solid var(--vscode-widget-border, rgba(0,0,0,0.1)); width: 36px; height: 36px; border-radius: 50%; border-left-color: #0984e3; animation: spin 1s linear infinite; margin-bottom: 16px; }
+                .btn-spinner {
+                    width: 12px;
+                    height: 12px;
+                    border: 2px solid rgba(0, 0, 0, 0.1);
+                    border-radius: 50%;
+                    border-top-color: currentColor;
+                    animation: spin 0.8s linear infinite;
+                    display: none;
+                }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
                 .tooltip-container { position: relative; display: inline-block; cursor: pointer; }
@@ -458,9 +501,18 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                 <!-- ✅ action-bar inside question-ui -->
                 <div class="action-bar">
-                    <button class="btn-action" id="save-btn"><span>💾</span> Save</button>
+                    <button class="btn-action" id="save-btn">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="btn-spinner" id="save-spinner"></div>
+                            <span>💾 Save</span>
+                        </div>
+                        <div>
+                            <span>Last Saved : </span>
+                            <span class="save-time" id="last-saved-time"></span>
+                        </div>
+                    </button>
                     <button class="btn-action btn-success" id="pull-btn">Pull</button>
-                    <button class="btn-action btn-primary" id="verify-btn"><span>Check</span> Verify</button>
+                    <button class="btn-action btn-primary" id="verify-btn"><span>Check Verify</span></button>
                 </div>
             </div>
             <script nonce="${nonce}">
@@ -496,6 +548,10 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         const status = document.getElementById('status-bar');
                         status.className = 'status-msg info';
                         status.innerText = 'Saving...';
+
+                        saveBtn.disabled = true;
+                        document.getElementById('save-spinner').style.display = 'block';
+
                         vscode.postMessage({ command: 'save' });
                     };
                 }
@@ -516,6 +572,20 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         vscode.postMessage({ command: 'pull' });
                     };
                 }
+
+                let lastSavedTimestamp = null;
+                function updateRelativeTime() {
+                    if (!lastSavedTimestamp) return;
+                    const el = document.getElementById('last-saved-time');
+                    if (!el) return;
+
+                    const diff = Math.floor((Date.now() - lastSavedTimestamp) / 1000);
+                    if (diff < 5) el.innerText = 'just now';
+                    else if (diff < 60) el.innerText = diff + ' secs ago';
+                    else if (diff < 3600) el.innerText = Math.floor(diff / 60) + ' mins ago';
+                    else el.innerText = Math.floor(diff / 3600) + ' hrs ago';
+                }
+                setInterval(updateRelativeTime, 10000);
 
                 window.addEventListener('message', event => {
                     const message = event.data;
@@ -554,9 +624,26 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             const status = document.getElementById('status-bar');
                             status.className = 'status-msg ' + (message.type || 'info');
                             status.innerText = message.text;
+
+                            // Re-enable save button on success or error
                             if (message.type === 'success' || message.type === 'error') {
                                 setTimeout(() => { if (status.innerText === message.text) status.style.display = 'none'; }, 5000);
+                                const sBtn = document.getElementById('save-btn');
+                                if (sBtn) {
+                                    sBtn.disabled = false;
+                                    document.getElementById('save-spinner').style.display = 'none';
+                                }
                             }
+                        } else if (message.state === 'saved') {
+                             lastSavedTimestamp = message.timestamp;
+                             updateRelativeTime();
+
+                             // Also re-enable here just in case
+                             const sBtn = document.getElementById('save-btn');
+                             if (sBtn) {
+                                 sBtn.disabled = false;
+                                 document.getElementById('save-spinner').style.display = 'none';
+                             }
                         }
                     }
                 });

@@ -12,7 +12,7 @@ import { promisify } from 'util';
 import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
-import { submitData } from './services/axios/submissions';
+import { submitData, jsonsubmitData } from './services/axios/submissions';
 
 const execAsync = promisify(exec);
 
@@ -153,6 +153,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	let currentRepoUrl: string | null = null;
 	let currentProjectType: 'react' | 'fullstack' | 'spring' = 'spring';
 
+	// Test state for API synchronization
+	let activeTestType: number = STATIC_TEST_TYPE;
+	let activeModuleId: number = STATIC_MODULE_ID;
+	let activeToken: string = STATIC_TOKEN;
+	let activeQuestionDatas: any[] = [];
+	let activeAllocation: any = context.globalState.get<any>('amypo.testDetails')?.allocation ?? STATIC_ALLOCATION_ID;
+	let testStartTime = Date.now();
+
 	//  Exit
 	const callMurugaExit = () => {
 		console.log('exit button is clicked');
@@ -213,6 +221,81 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	/**
+	 * saveAmypoState — Synchronizes test metadata (timer, status, etc.) with Amypo server.
+	 * Mirror of the user's save_datas logic.
+	 */
+	const saveAmypoState = async (exit_reason: string = 'auto') => {
+		console.log("activeAllocation", activeAllocation);
+		console.log("activeQuestionDatas", activeQuestionDatas);
+		console.log("activeTestType", activeTestType);
+		console.log("activeModuleId", activeModuleId);
+		console.log("activeToken", activeToken);
+		console.log("testStartTime", testStartTime);
+		console.log("exit_reason", exit_reason);
+		console.log("testStartTime", testStartTime);
+
+		if (!activeAllocation || activeQuestionDatas.length === 0) {
+			return;
+		}
+
+		console.log('[Amypo] Syncing state to server…');
+
+		const qindex = 0; // Assuming first question for now as per extension context
+		const question = activeQuestionDatas[qindex];
+		const now = Date.now();
+		const testTimer = Math.floor((now - testStartTime) / 1000);
+
+		const payload: any = {
+			save_type: 1, // Default to auto/manual
+			allocate_id: parseInt(activeAllocation.id),
+			test_type: activeTestType,
+			module_id: activeModuleId,
+			questionId: question.id,
+			type: question.type,
+			course_allocation_id: activeAllocation.allocation_id,
+			topic_id: activeAllocation.topic_id,
+			db: activeAllocation.db,
+			topic_test_id: activeAllocation.topic_id || activeAllocation.test_id,
+
+			solution: '', // Code is in Git
+			sub_solutions: null,
+			question_timer: testTimer,
+			run_count: 0,
+			deb_count: 0,
+			opt_count: 0,
+			verify_count: 0,
+			compile_id: 0,
+			error: [],
+
+			timer: testTimer,
+			tab_switched: 0,
+		};
+
+		// Add exit reason if applicable
+		if (['manual', 'tabswitch', 'timer'].includes(exit_reason)) {
+			payload.exit_reason = exit_reason;
+		}
+
+		console.log("payload", payload);
+
+		const endpoint = activeTestType === 2
+			? `${API_URL}/sandbox/link_save`
+			: `${API_URL}/sandbox/save`;
+
+		try {
+			// Using activeToken which was used during activation
+			const resp = await jsonsubmitData(payload, endpoint, 0, activeToken);
+			console.log('[Amypo Server Sync] response:', resp);
+
+			if (resp?.status === 200) {
+				console.log('[Amypo Server Sync] Metadata saved successfully.');
+			}
+		} catch (error) {
+			console.error('[Amypo Server Sync] Error:', error);
+		}
+	};
+
 	// GitHub Repo Creation
 	const createGithubRepo = async (
 		owner: string,
@@ -261,58 +344,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	// Git Sync (save / pull)
-	const syncGit = async (action: 'save' | 'pull'): Promise<void> => {
-		if (!currentProjectPath || !currentRepoUrl) {
-			eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'No active project found.' });
-			return;
-		}
-
-		let subpath = '';
-		if (currentProjectType === 'react') {
-			subpath = 'reactapp';
-		} else if (currentProjectType === 'fullstack') {
-			subpath = '';
-		} else {
-			subpath = 'demo';
-		}
-
-		const fullPath = path.join(currentProjectPath, subpath);
-		const workingDir = fs.existsSync(path.join(fullPath, '.git')) ? fullPath : currentProjectPath;
-
-		console.log(`[Amypo Git] ${action} in ${workingDir}`);
-		eduViewProvider.postMessage({
-			state: 'status',
-			type: 'info',
-			text: action === 'save' ? 'Saving changes…' : 'Pulling changes…',
-		});
-
-		try {
-			const authenticatedUrl = injectToken(currentRepoUrl, GITHUB_TOKEN);
-
-			if (action === 'save') {
-				await execAsync('git add .', { cwd: workingDir });
-
-				try {
-					await execAsync('git commit -m "User commit"', { cwd: workingDir });
-				} catch {
-					console.log('[Amypo Git] Nothing new to commit.');
-				}
-
-				await execAsync(`git push ${authenticatedUrl} main`, { cwd: workingDir });
-				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Saved to cloud successfully!' });
-
-			} else {
-				await execAsync(`git pull ${authenticatedUrl} main`, { cwd: workingDir });
-				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Pulled latest changes!' });
-			}
-
-		} catch (error: any) {
-			console.error(`[Amypo Git] Error during ${action}:`, error);
-			const errMsg = error.stderr ?? error.message ?? 'Git operation failed';
-			eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Failed: ${errMsg}` });
-		}
-	};
 
 	// Clone & Open Repository
 	const cloneAndOpenRepo = async (
@@ -575,7 +606,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			const topic_details = resp.data.topic_details ?? {};
 			const user_details = resp.data.user_details ?? {};
 
+			// Cache full data for restoration
+			await context.globalState.update('amypo.testDetails', resp.data);
+
 			currentAllocationData = allocation;
+			activeAllocation = allocation;
+			activeTestType = test_type;
+			activeModuleId = moduleId ?? 0;
+			activeToken = token;
+			testStartTime = Date.now();
 
 			console.log('[Amypo EduTech] Course:', course_details?.course_name);
 
@@ -649,6 +688,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showInformationMessage('Amypo: Test started successfully!');
 
 				const questionDatas: any[] = initResp.question_datas ?? [];
+				activeQuestionDatas = questionDatas;
+				await context.globalState.update('amypo.questionData', questionDatas);
 
 				if (questionDatas.length === 0) {
 					eduViewProvider.postMessage({ state: 'error', message: 'No questions allocated.' });
@@ -683,6 +724,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				const qData = await fetchQuestionById(firstQuestionId, test_type, moduleId ?? 0, token);
 				console.log('[Amypo] qData:', qData);
+				console.log('[Amypo] questionDatas:', questionDatas);
 
 				let primaryLanguageId: number | undefined;
 				try {
@@ -737,6 +779,87 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	let isSyncing = false;
+	// Git Sync (save / pull)
+	const syncGit = async (action: 'save' | 'pull'): Promise<void> => {
+		if (isSyncing) {
+			return;
+		}
+		isSyncing = true;
+
+		try {
+			if (!currentProjectPath || !currentRepoUrl) {
+				eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'No active project found.' });
+				return;
+			}
+
+			let subpath = '';
+			if (currentProjectType === 'react') {
+				subpath = 'reactapp';
+			} else if (currentProjectType === 'fullstack') {
+				subpath = '';
+			} else {
+				subpath = 'demo';
+			}
+
+			const fullPath = path.join(currentProjectPath, subpath);
+			const workingDir = fs.existsSync(path.join(fullPath, '.git')) ? fullPath : currentProjectPath;
+
+			console.log(`[Amypo Git] ${action} in ${workingDir}`);
+			eduViewProvider.postMessage({
+				state: 'status',
+				type: 'info',
+				text: action === 'save' ? 'Saving changes…' : 'Pulling changes…',
+			});
+
+			const authenticatedUrl = injectToken(currentRepoUrl, GITHUB_TOKEN);
+
+			if (action === 'save') {
+				await execAsync('git add .', { cwd: workingDir });
+
+				try {
+					await execAsync('git commit -m "User commit"', { cwd: workingDir });
+				} catch {
+					console.log('[Amypo Git] Nothing new to commit.');
+				}
+
+				try {
+					await execAsync(`git push ${authenticatedUrl} main`, { cwd: workingDir });
+				} catch (error: any) {
+					console.error('[Amypo Git] Error during push:', error);
+					const errMsg = error.stderr ?? error.message ?? 'Git push failed';
+					eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Failed to push: ${errMsg}` });
+					return;
+				}
+
+				const timestamp = Date.now();
+				vscode.window.showInformationMessage('Changes pushed to Git successfully!');
+				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Saved to cloud successfully!' });
+				eduViewProvider.postMessage({ state: 'saved', timestamp });
+
+				// Sync meta-state to Amypo server
+				try {
+					await saveAmypoState('manual');
+				} catch (error: any) {
+					console.error('[Amypo Git] Error during saveAmypoState:', error);
+					const errMsg = error.stderr ?? error.message ?? 'Failed to save meta-state to Amypo server';
+					eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Failed: ${errMsg}` });
+				}
+
+			} else {
+				await execAsync(`git pull ${authenticatedUrl} main`, { cwd: workingDir });
+				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Pulled latest changes!' });
+			}
+
+		} catch (error: any) {
+			console.error(`[Amypo Git] Error during ${action}:`, error);
+			const errMsg = error.stderr ?? error.message ?? 'Git operation failed';
+			eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Failed: ${errMsg}` });
+		} finally {
+			isSyncing = false;
+		}
+	};
+
 	eduViewProvider.setOnReload(() => {
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	});
@@ -755,6 +878,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	try {
 		vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 	} catch { /* command not available */ }
+
+	// Auto-save every 1.5 minutes
+	const autoSaveInterval = setInterval(() => {
+		if (currentProjectPath && currentRepoUrl) {
+			console.log('[Amypo] Auto-save triggered.');
+			syncGit('save').catch(err => {
+				console.error('[Amypo] Auto-save error:', err);
+			});
+		}
+	}, 90000);
+
+	context.subscriptions.push({ dispose: () => clearInterval(autoSaveInterval) });
 	vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
 
 	// Check if test was already started (survives extension host restart)
@@ -789,6 +924,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
 
+		// Restore metadata for API sync
+		const cachedDetails = context.globalState.get<any>('amypo.testDetails');
+		const cachedQuestions = context.globalState.get<any>('amypo.questionData');
+
+		if (cachedDetails) {
+			console.log('[Amypo] Restoring metadata from cache…');
+			activeAllocation = cachedDetails.allocation;
+		}
+		if (cachedQuestions) {
+			activeQuestionDatas = cachedQuestions;
+		}
+
 		// Wait for webview to signal 'ready' before sending data
 		eduViewProvider.setOnReady(async () => {
 			try {
@@ -797,13 +944,15 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Check if we have a cached question from a very recent transition
 				const cachedMsg = context.globalState.get<any>('amypo.cachedQuestion');
 				if (cachedMsg) {
-					console.log('[Amypo] Using cached question data (transition recovery)');
+					console.log('[Amypo] Using cached question data (transition recovery)', cachedMsg);
 					eduViewProvider.postMessage(cachedMsg);
 					// Clear the cache after one use — subsequent reloads will fetch fresh data
 					await context.globalState.update('amypo.cachedQuestion', undefined);
 
 					// Also restore the course info UI
 					const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
+					console.log('[Amypo] Using cached course info (transition recovery)', savedCourseInfo);
+
 					if (savedCourseInfo) {
 						eduViewProvider.updateView(savedCourseInfo, () => { });
 					}
@@ -824,6 +973,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 				const questionDatas = initResp.question_datas ?? [];
+				activeQuestionDatas = questionDatas;
 				if (questionDatas.length === 0) {
 					eduViewProvider.postMessage({ state: 'error', message: 'No questions allocated.' });
 					return;
@@ -892,6 +1042,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Clear persistent state on exit
 		await context.globalState.update('amypo.testStarted', false);
 		await context.globalState.update('amypo.allocationData', undefined);
+		await context.globalState.update('amypo.testDetails', undefined);
+		await context.globalState.update('amypo.questionData', undefined);
 		await context.globalState.update('amypo.courseInfo', undefined);
 		await context.globalState.update('amypo.cachedQuestion', undefined);
 		vscode.commands.executeCommand('workbench.action.closeWindow');

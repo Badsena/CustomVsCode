@@ -92,9 +92,9 @@ export async function jsonsubmitData(
     values: any,
     endpoint: string,
     type: number,
+    token: string = '',
 ): Promise<any> {
-    const rawToken = '';
-    const token = getSafeToken(rawToken);
+    const safeToken = getSafeToken(token);
 
     const payload = { ...values };
     const method = type === 1 ? 'PUT' : 'POST';
@@ -106,7 +106,7 @@ export async function jsonsubmitData(
             data: payload,
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: token ? `Bearer ${token}` : '',
+                Authorization: safeToken ? `Bearer ${safeToken}` : '',
             },
         })
 
