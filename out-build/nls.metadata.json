@@ -5315,12 +5315,6 @@
 				]
 			},
 			{
-				"key": "miOpenRecent",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
 				"key": "miToggleFullScreen",
 				"comment": [
 					"&& denotes a mnemonic"
@@ -5341,52 +5335,8 @@
 		],
 		"vs/workbench/browser/actions/workspaceActions": [
 			"closeWorkspace",
-			"duplicateWorkspace",
 			"duplicateWorkspaceInNewWindow",
 			"globalRemoveFolderFromWorkspace",
-			{
-				"key": "miAddFolderToWorkspace",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miCloseFolder",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miCloseWorkspace",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miOpen",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miOpenFile",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miOpenFolder",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miOpenWorkspace",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			"miSaveWorkspaceAs",
 			"openFile",
 			"openFileFolder",
 			"openFolder",
@@ -5825,7 +5775,6 @@
 					"&& denotes a mnemonic"
 				]
 			},
-			"miShare",
 			{
 				"key": "miSingleColumnEditorLayout",
 				"comment": [
@@ -5946,7 +5895,6 @@
 			"previousChangeIcon",
 			"reopenWith",
 			"reopenWith",
-			"share",
 			"showOpenedEditors",
 			"sideBySideEditor",
 			"singleTab",
@@ -6206,9 +6154,6 @@
 			"watermark.findInFiles",
 			"watermark.newUntitledFile",
 			"watermark.openChat",
-			"watermark.openFile",
-			"watermark.openFileFolder",
-			"watermark.openFolder",
 			"watermark.openRecent",
 			"watermark.openSettings",
 			"watermark.quickAccess",
@@ -6596,18 +6541,6 @@
 			},
 			{
 				"key": "mGoto",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "mHelp",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "mPreferences",
 				"comment": [
 					"&& denotes a mnemonic"
 				]
@@ -13252,29 +13185,6 @@
 		],
 		"vs/workbench/contrib/debug/browser/welcomeView": [
 			"allDebuggersDisabled",
-			{
-				"key": "customizeRunAndDebug2",
-				"comment": [
-					"{Locked=\"launch.json\"}",
-					"{Locked=\"[\"}",
-					"{Locked=\"]({0})\"}"
-				]
-			},
-			{
-				"key": "customizeRunAndDebugOpenFolder2",
-				"comment": [
-					"{Locked=\"launch.json\"}",
-					"{Locked=\"[\"}",
-					"{Locked=\"]({0})\"}"
-				]
-			},
-			{
-				"key": "openAFileWhichCanBeDebugged",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change",
-					"{Locked=\"](command:{0})\"}"
-				]
-			},
 			"run",
 			"runAndDebugAction"
 		],
@@ -14154,14 +14064,7 @@
 		"vs/workbench/contrib/extensions/browser/extensionsViewlet": [
 			"access denied",
 			"accessDenied",
-			"availableUpdates",
-			"builtin",
 			"click show",
-			"deprecated",
-			"disabled",
-			"disabledExtensions",
-			"enabled",
-			"enabledExtensions",
 			"extensionFound",
 			"extensionFoundInSection",
 			"extensionsFound",
@@ -14172,13 +14075,9 @@
 			"extensionToUpdate",
 			"install remote in local",
 			"installed",
-			"installed",
 			"learnMore",
 			"malicious warning",
-			"marketPlace",
 			"open user settings",
-			"otherRecommendedExtensions",
-			"recently updated",
 			"recommendedExtensions",
 			"reloadNow",
 			{
@@ -14187,7 +14086,6 @@
 					"Remote as in remote machine"
 				]
 			},
-			"restart required",
 			"restartNow",
 			"searchExtensions",
 			"select and install local extensions",
@@ -14195,13 +14093,7 @@
 			"sign in",
 			"sign in enterprise marketplace",
 			"signInRequired",
-			"suggestProxyError",
-			"untrustedPartiallySupportedExtensions",
-			"untrustedUnsupportedExtensions",
-			"virtualPartiallySupportedExtensions",
-			"virtualUnsupportedExtensions",
-			"workspaceRecommendedExtensions",
-			"workspaceUnsupported"
+			"suggestProxyError"
 		],
 		"vs/workbench/contrib/extensions/browser/extensionsViews": [
 			"error",
@@ -14510,7 +14402,6 @@
 			"userGuide"
 		],
 		"vs/workbench/contrib/files/browser/explorerViewlet": [
-			"addAFolder",
 			"explore",
 			"explorerViewIcon",
 			"folders",
@@ -14520,39 +14411,7 @@
 					"&& denotes a mnemonic"
 				]
 			},
-			{
-				"key": "noFolderButEditorsHelp",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change"
-				]
-			},
-			{
-				"key": "noFolderHelp",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change"
-				]
-			},
-			{
-				"key": "noFolderHelpWeb",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change"
-				]
-			},
-			{
-				"key": "noWorkspaceHelp",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change"
-				]
-			},
-			"openEditorsIcon",
-			"openFolder",
-			"openRecent",
-			{
-				"key": "remoteNoFolderHelp",
-				"comment": [
-					"Please do not translate the word \"command\", it is part of our internal syntax which must not change"
-				]
-			}
+			"openEditorsIcon"
 		],
 		"vs/workbench/contrib/files/browser/fileActions": [
 			"binFailed",
@@ -14761,50 +14620,12 @@
 				]
 			},
 			{
-				"key": "miCloseEditor",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
 				"key": "miGotoFile",
 				"comment": [
 					"&& denotes a mnemonic"
 				]
 			},
-			{
-				"key": "miNewFile",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miRevert",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miSave",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miSaveAll",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			{
-				"key": "miSaveAs",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
-			"newFile",
 			"newFolderDescription",
-			"openFile",
 			"openToSide",
 			"reopenWith",
 			"revealInSideBar",
@@ -17576,12 +17397,6 @@
 					"&& denotes a mnemonic"
 				]
 			},
-			{
-				"key": "miPreferences",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
 			"openAccessibilitySettings",
 			"openApplicationSettingsJson",
 			"openDefaultKeybindingsFile",
@@ -18119,12 +17934,6 @@
 				"key": "host.tooltip",
 				"comment": [
 					"{0} is a remote host name, e.g. Dev Container"
-				]
-			},
-			{
-				"key": "miCloseRemote",
-				"comment": [
-					"&& denotes a mnemonic"
 				]
 			},
 			"networkStatusHighLatencyTooltip",
@@ -19018,7 +18827,6 @@
 			"noResultsIncludesExcludes",
 			"onlyOpenEditors",
 			"openEditors.disable",
-			"openFolder",
 			"openInEditor.message",
 			"openInEditor.tooltip",
 			"openSettings.message",
@@ -19059,7 +18867,6 @@
 			"searchScope.excludes",
 			"searchScope.includes",
 			"searchWithAIButtonTooltip",
-			"searchWithoutFolder",
 			"triggerAISearch.tooltip",
 			"useExcludesAndIgnoreFilesDescription",
 			"useIgnoresAndExcludesDisabled"
@@ -19128,13 +18935,7 @@
 			"searchMaxResultsWarning"
 		],
 		"vs/workbench/contrib/share/browser/share.contribution": [
-			"close",
-			"experimental.share.enabled",
-			"generating link",
-			"open link",
-			"share",
-			"shareSuccess",
-			"shareTextSuccess"
+			"experimental.share.enabled"
 		],
 		"vs/workbench/contrib/share/browser/shareService": [
 			"shareProviderCount",
@@ -21730,7 +21531,6 @@
 					"&& denotes a mnemonic"
 				]
 			},
-			"New Profile Window",
 			"new window with profile",
 			"newWindowWithProfile",
 			"open",
@@ -22152,28 +21952,22 @@
 				]
 			},
 			"nextOne",
-			"noRecents",
-			"openFolder",
 			"optOut",
 			"pickWalkthroughs",
 			"privacy statement",
-			"recent",
-			"show more recents",
 			"showAll",
 			"start",
 			"stepAutoCompleted",
 			"stepDone",
 			"stepNotDone",
-			"toStart",
 			"videoAltText",
 			"videoShowing",
 			"walkthroughs",
 			"welcome",
 			"welcomeAriaLabel",
-			"welcomePage.openFolderWithPath",
-			"welcomePage.removeRecent",
-			"welcomePage.removeRecentAriaLabel",
-			"welcomePage.showOnStartup"
+			"welcomePage.showOnStartup",
+			"welcomePage.sloganSubtitle",
+			"welcomePage.sloganTitle"
 		],
 		"vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution": [
 			"deprecationMessage",
@@ -22309,7 +22103,6 @@
 			"cloneRepo",
 			"commandPalette",
 			"enableSync",
-			"enableTrust",
 			"getting-started-beginner-icon",
 			"getting-started-setup-icon",
 			"gettingStarted.accessibilityHelp.description.interpolated",
@@ -22320,6 +22113,10 @@
 			"gettingStarted.accessibilitySignals.title",
 			"gettingStarted.accessibleView.description.interpolated",
 			"gettingStarted.accessibleView.title",
+			"gettingStarted.amypoFeatures.description",
+			"gettingStarted.amypoFeatures.title",
+			"gettingStarted.amypoInfo.description",
+			"gettingStarted.amypoInfo.title",
 			"gettingStarted.beginner.description",
 			"gettingStarted.beginner.title",
 			"gettingStarted.beginner.walkthroughPageTitle",
@@ -22355,18 +22152,10 @@
 			"gettingStarted.keyboardShortcuts.title",
 			"gettingStarted.menuBar.description.interpolated",
 			"gettingStarted.menuBar.title",
-			"gettingStarted.newFile.description",
-			"gettingStarted.newFile.title",
 			"gettingStarted.notebook.title",
 			"gettingStarted.notebook.walkthroughPageTitle",
 			"gettingStarted.notebookProfile.description",
 			"gettingStarted.notebookProfile.title",
-			"gettingStarted.openFile.description",
-			"gettingStarted.openFile.title",
-			"gettingStarted.openFolder.description",
-			"gettingStarted.openFolder.title",
-			"gettingStarted.openMac.description",
-			"gettingStarted.openMac.title",
 			"gettingStarted.pickColor.description.interpolated",
 			"gettingStarted.pickColor.title",
 			"gettingStarted.quickOpen.description.interpolated",
@@ -22380,8 +22169,6 @@
 			"gettingStarted.settingsSync.description.interpolated",
 			"gettingStarted.settingsSync.title",
 			"gettingStarted.setup.description",
-			"gettingStarted.setup.OpenFolder.title",
-			"gettingStarted.setup.OpenFolderWeb.description.interpolated",
 			"gettingStarted.setup.title",
 			"gettingStarted.setup.walkthroughPageTitle",
 			"gettingStarted.setupAccessibility.description",
@@ -22396,20 +22183,10 @@
 			"gettingStarted.tasks.title",
 			"gettingStarted.terminal.description.interpolated",
 			"gettingStarted.terminal.title",
-			"gettingStarted.topLevelGitClone.description",
-			"gettingStarted.topLevelGitClone.title",
-			"gettingStarted.topLevelGitOpen.description",
-			"gettingStarted.topLevelGitOpen.title",
-			"gettingStarted.topLevelOpenTunnel.description",
-			"gettingStarted.topLevelOpenTunnel.title",
-			"gettingStarted.topLevelRemoteOpen.description",
-			"gettingStarted.topLevelRemoteOpen.title",
 			"gettingStarted.verbositySettings.description.interpolated",
 			"gettingStarted.verbositySettings.title",
 			"gettingStarted.videoTutorial.description.interpolated",
 			"gettingStarted.videoTutorial.title",
-			"gettingStarted.workspaceTrust.description.interpolated",
-			"gettingStarted.workspaceTrust.title",
 			"initRepo",
 			"installGit",
 			"keyboardShortcuts",
@@ -22418,9 +22195,7 @@
 			"openAccessibilityHelp",
 			"openAccessibilitySettings",
 			"openAccessibleView",
-			"openFolder",
 			"openGoToSymbol",
-			"openRepository",
 			"openSCM",
 			"openVerbositySettings",
 			"quickOpen",
@@ -22446,8 +22221,7 @@
 			"triggerInlineSuggestion",
 			"triggerIntellisense",
 			"tweakSettings",
-			"watch",
-			"workspaceTrust"
+			"watch"
 		],
 		"vs/workbench/contrib/welcomeGettingStarted/common/media/notebookProfile": [
 			"colab",
@@ -22838,12 +22612,6 @@
 			"enableCrashReporterDeprecated",
 			"keyboardConfigurationTitle",
 			"mergeAllWindowTabs",
-			{
-				"key": "miExit",
-				"comment": [
-					"&& denotes a mnemonic"
-				]
-			},
 			"moveWindowTabToNewWindow",
 			"newTab",
 			"newWindowDimensions",
@@ -29076,7 +28844,6 @@
 			"&&About",
 			"Confirm Before Close",
 			"&&More...",
-			"Open &&Recent",
 			"&&Full Screen",
 			"Folder Opened in a Window",
 			"Workspace Opened in a Window",
@@ -29093,17 +28860,8 @@
 		],
 		"vs/workbench/browser/actions/workspaceActions": [
 			"Close Workspace",
-			"Duplicate Workspace",
 			"Duplicate As Workspace in New Window",
 			"Remove Folder from Workspace...",
-			"A&&dd Folder to Workspace...",
-			"Close &&Folder",
-			"Close &&Workspace",
-			"&&Open...",
-			"&&Open File...",
-			"Open &&Folder...",
-			"Open Wor&&kspace from File...",
-			"Save Workspace As...",
 			"Open File...",
 			"Open...",
 			"Open Folder...",
@@ -29362,7 +29120,6 @@
 			"&&Previous Used Editor in Group",
 			"&&Reopen Closed Editor",
 			"&&Second Side in Editor",
-			"Share",
 			"&&Single",
 			"Single",
 			"Split &&Down",
@@ -29408,7 +29165,6 @@
 			"Icon for the previous change action in the diff editor.",
 			"Reopen Editor With...",
 			"Reopen Editor With...",
-			"Share",
 			"Show Opened Editors",
 			"Side by Side Editor",
 			"Single Tab",
@@ -29623,9 +29379,6 @@
 			"Find in Files",
 			"New Untitled Text File",
 			"Open Chat",
-			"Open File",
-			"Open File or Folder",
-			"Open Folder",
 			"Open Recent",
 			"Open Settings",
 			"Go to File",
@@ -29947,8 +29700,6 @@
 			"Accessibility support is enabled for you. For the most accessible experience, we recommend the custom menu style.",
 			"&&File",
 			"&&Go",
-			"&&Help",
-			"Preferences",
 			"&&Selection",
 			"&&Terminal",
 			"&&View",
@@ -35799,9 +35550,6 @@
 		],
 		"vs/workbench/contrib/debug/browser/welcomeView": [
 			"All debug extensions are disabled. Enable a debug extension or install a new one from the Marketplace.",
-			"To customize Run and Debug [create a launch.json file]({0}).",
-			"To customize Run and Debug, [open a folder]({0}) and create a launch.json file.",
-			"[Open a file](command:{0}) which can be debugged or run.",
 			"Run",
 			"Run and Debug"
 		],
@@ -36577,14 +36325,7 @@
 		"vs/workbench/contrib/extensions/browser/extensionsViewlet": [
 			"Your account does not have access to the Extensions Marketplace. Please contact your administrator.",
 			"Access denied to marketplace",
-			"Available Updates",
-			"Builtin",
 			"Click to Show",
-			"Deprecated",
-			"Disabled",
-			"Disabled",
-			"Enabled",
-			"Enabled",
 			"1 extension found.",
 			"1 extension found in the {0} section.",
 			"{0} extensions found.",
@@ -36595,17 +36336,12 @@
 			"{0} requires update",
 			"Install Remote Extensions Locally...",
 			"Installed",
-			"Installed",
 			"Learn More",
 			"The extension '{0}' was found to be problematic and has been uninstalled",
-			"Marketplace",
 			"Open User Settings",
-			"Other Recommendations",
-			"Recently Updated",
 			"Recommended",
 			"Reload Now",
 			"Remote",
-			"Restart Required",
 			"Restart Extensions",
 			"Search Extensions in Marketplace",
 			"Install Local Extensions in '{0}'...",
@@ -36613,13 +36349,7 @@
 			"[Sign in to access Extensions Marketplace]({0})",
 			"Sign in to access Marketplace",
 			"Sign in required to access marketplace",
-			"Marketplace returned 'ECONNREFUSED'. Please check the 'http.proxy' setting.",
-			"Limited in Restricted Mode",
-			"Disabled in Restricted Mode",
-			"Limited in Virtual Workspaces",
-			"Disabled in Virtual Workspaces",
-			"Workspace Recommendations",
-			"Workspace Unsupported"
+			"Marketplace returned 'ECONNREFUSED'. Please check the 'http.proxy' setting."
 		],
 		"vs/workbench/contrib/extensions/browser/extensionsViews": [
 			"Error while fetching extensions. {0}",
@@ -36893,19 +36623,11 @@
 			"Use the actions in the editor tool bar to either undo your changes or overwrite the content of the file with your changes."
 		],
 		"vs/workbench/contrib/files/browser/explorerViewlet": [
-			"add a folder",
 			"Explorer",
 			"View icon of the explorer view.",
 			"Folders",
 			"&&Explorer",
-			"You have not yet opened a folder.\n{0}\nOpening a folder will close all currently open editors. To keep them open, {1} instead.",
-			"You have not yet opened a folder.\n{0}",
-			"You have not yet opened a folder.\n{0}\n{1}",
-			"You have not yet added a folder to the workspace.\n{0}",
-			"View icon of the open editors view.",
-			"Open Folder",
-			"Open Recent",
-			"Connected to remote.\n{0}"
+			"View icon of the open editors view."
 		],
 		"vs/workbench/contrib/files/browser/fileActions": [
 			"Failed to delete using the Recycle Bin. Do you want to permanently delete instead?",
@@ -37023,16 +36745,8 @@
 			"Delete Permanently",
 			"Open With...",
 			"A&&uto Save",
-			"&&Close Editor",
 			"Go to &&File...",
-			"&&New Text File",
-			"Re&&vert File",
-			"&&Save",
-			"Save A&&ll",
-			"Save &&As...",
-			"New Text File",
 			"Create a new folder or directory",
-			"Open File...",
 			"Open to the Side",
 			"Reopen Editor With...",
 			"Reveal in Explorer View",
@@ -39468,7 +39182,6 @@
 			"&&Online Services Settings",
 			"&&Settings",
 			"&&Telemetry Settings",
-			"&&Preferences",
 			"Open Accessibility Settings",
 			"Open Application Settings (JSON)",
 			"Open Default Keyboard Shortcuts (JSON)",
@@ -39938,7 +39651,6 @@
 			"Opening Remote...",
 			"Reconnecting to {0}...",
 			"Editing on {0}",
-			"Close Re&&mote Connection",
 			"Network appears to have high latency ({0}ms last, {1}ms average), certain features may be slow to respond.",
 			"Network appears to be offline, certain features might be unavailable.",
 			"Open a Remote Window",
@@ -40705,7 +40417,6 @@
 			"No results found in '{0}' excluding '{1}' - ",
 			"searching only in open files",
 			"disable",
-			"Open Folder",
 			"Open in editor",
 			"Copy current search results to an editor",
 			"Open Settings",
@@ -40741,7 +40452,6 @@
 			"files to exclude",
 			"files to include",
 			"Search with AI",
-			"You have not opened or specified a folder. Only open files are currently searched - ",
 			"Search with AI.",
 			"Use Exclude Settings and Ignore Files",
 			"exclude settings and ignore files are disabled"
@@ -40810,13 +40520,7 @@
 			"The result set only contains a subset of all matches. Be more specific in your search to narrow down the results."
 		],
 		"vs/workbench/contrib/share/browser/share.contribution": [
-			"Close",
-			"Controls whether to render the Share action next to the command center when {0} is {1}.",
-			"Generating link...",
-			"Open Link",
-			"Share...",
-			"Copied link to clipboard!",
-			"Copied text to clipboard!"
+			"Controls whether to render the Share action next to the command center when {0} is {1}."
 		],
 		"vs/workbench/contrib/share/browser/shareService": [
 			"The number of available share providers",
@@ -43158,7 +42862,6 @@
 			"Profiles",
 			"&&Profiles",
 			"New Window with Profile",
-			"New Window with Profile",
 			"New Window with Profile...",
 			"Open {0} Profile",
 			"Open New Window with {0} Profile",
@@ -43498,28 +43201,22 @@
 			"New",
 			"Updated",
 			"Next Section",
-			"You have no recent folders,",
-			"open a folder",
 			"opt out",
 			"Open Walkthrough...",
 			"privacy statement",
-			"Recent",
-			"Show All Recent Folders {0}",
 			"More...",
 			"Start",
 			"Step {0} completed",
 			"{0}: Completed",
 			"{0}: Not completed",
-			"to start.",
 			"Video for {0}",
 			"Video showing {0}",
 			"Walkthroughs",
 			"Welcome",
 			"Overview of how to get up to speed with your editor.",
-			"Open folder {0} with path {1}",
-			"Remove from Recently Opened",
-			"Remove {0} from Recently Opened",
-			"Show welcome page on startup"
+			"Show welcome page on startup",
+			"Master Your Skills with Every Line of Code.",
+			"Amypo Coder: Your Path to Programming Excellence."
 		],
 		"vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution": [
 			"Deprecated, use the global `workbench.reduceMotion`.",
@@ -43620,7 +43317,6 @@
 			"Clone Repository",
 			"Open Command Palette",
 			"Backup and Sync Settings",
-			"enable trust",
 			"Icon used for the beginner category of welcome page",
 			"Icon used for the setup category of welcome page",
 			"The accessibility help dialog provides information about what to expect from a feature and the commands/keybindings to operate them.\n With focus in an editor, terminal, notebook, chat response, comment, or debug console, the relevant dialog can be opened with the Open Accessibility Help command.\n{0}",
@@ -43631,6 +43327,10 @@
 			"Fine tune which accessibility signals you want to receive via audio or a braille device",
 			"The accessible view is available for the terminal, hovers, notifications, comments, notebook output, chat responses, inline completions, and debug console output.\n With focus in any of those features, it can be opened with the Open Accessible View command.\n{0}",
 			"Screen reader users can inspect content line by line, character by character in the accessible view.",
+			"Explore the powerful coding features and tools available in Amypo Coder.",
+			"Amypo Coder Features",
+			"Learn more about the mission and development of the Amypo Coder IDE.",
+			"Amypo Coder Information",
 			"Get an overview of the most essential features",
 			"Learn the Fundamentals",
 			"Essential Features",
@@ -43661,18 +43361,10 @@
 			"Customize your keyboard shortcuts",
 			"The full menu bar is available in the dropdown menu to make room for your code. Toggle its appearance for faster access. \n{0}",
 			"Just the right amount of UI",
-			"Open a new untitled text file, notebook, or custom editor.",
-			"New File...",
 			"Customize Notebooks",
 			"Notebooks",
 			"Get notebooks to feel just the way you prefer",
 			"Select the layout for your notebooks",
-			"Open a file to start working",
-			"Open File...",
-			"Open a folder to start working",
-			"Open Folder...",
-			"Open a file or folder to start working",
-			"Open...",
 			"The right theme helps you focus on your code, is easy on your eyes, and is simply more fun to use.\n{0}",
 			"Choose your theme",
 			"Navigate between files in an instant with one keystroke. Tip: Open multiple files by pressing the right arrow key.\n{0}",
@@ -43686,8 +43378,6 @@
 			"Keep your essential customizations backed up and updated across all your devices.\n{0}",
 			"Sync settings across devices",
 			"Start coding instantly.\nNo AI. No clutter. Just code.",
-			"Open up your code",
-			"You're all set to start coding. You can open a local project or a remote repository to get your files into Amypo Coder.\n{0}\n{1}",
 			"Welcome to Amypo Coder - Ready!",
 			"Setup Amypo Coder",
 			"Learn the tools and shortcuts that make Amypo Coder accessible. Note that some actions are not actionable from within the context of the walkthrough.",
@@ -43702,20 +43392,10 @@
 			"Automate your project tasks",
 			"Quickly run shell commands and monitor build output, right next to your code.\n{0}",
 			"Built-in terminal",
-			"Clone a remote repository to a local folder",
-			"Clone Git Repository...",
-			"Connect to a remote repository or pull request to browse, search, edit, and commit",
-			"Open Repository...",
-			"Connect to a remote machine through a Tunnel",
-			"Open Tunnel...",
-			"Connect to remote development workspaces.",
-			"Connect to...",
 			"Screen reader verbosity settings exist for features around the workbench so that once a user is familiar with a feature, they can avoid hearing hints about how to operate it. For example, features for which an accessibility help dialog exists will indicate how to open the dialog until the verbosity setting for that feature has been disabled.\n These and other accessibility settings can be configured by running the Open Accessibility Settings command.\n{0}",
 			"Control the verbosity of aria labels",
 			"Watch the first in a series of short & practical video tutorials for Amypo Coder's key features.\n{0}",
 			"Watch video tutorials",
-			"{0} lets you decide whether your project folders should **allow or restrict** automatic code execution __(required for extensions, debugging, etc)__.\nOpening a file/folder will prompt to grant trust. You can always {1} later.",
-			"Safely browse and edit code",
 			"Initialize Git Repository",
 			"Install Git",
 			"Keyboard Shortcuts",
@@ -43724,9 +43404,7 @@
 			"Open Accessibility Help",
 			"Open Accessibility Settings",
 			"Open Accessible View",
-			"Open Folder",
 			"Go to Symbol",
-			"Open Repository",
 			"Open Source Control",
 			"Open Accessibility Settings",
 			"Quick Open a File",
@@ -43745,8 +43423,7 @@
 			"Trigger Inline Suggestion",
 			"Trigger Intellisense",
 			"Open Settings",
-			"Watch Tutorial",
-			"Workspace Trust"
+			"Watch Tutorial"
 		],
 		"vs/workbench/contrib/welcomeGettingStarted/common/media/notebookProfile": [
 			"Colab",
@@ -44016,7 +43693,6 @@
 			"If this setting is false, no telemetry will be sent regardless of the new setting's value. Deprecated due to being combined into the {0} setting.",
 			"Keyboard",
 			"Merge All Windows",
-			"E&&xit",
 			"Move Window Tab to New Window",
 			"New Window Tab",
 			"Controls the dimensions of opening a new window when at least one window is already opened. Note that this setting does not have an impact on the first window that is opened. The first window will always restore the size and location as you left it before closing.",

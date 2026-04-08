@@ -432,10 +432,9 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		result.on('end', () => console.log('merged result ENDED'));
 	}
 
-	return (
-		result
-			.pipe(util2.setExecutableBit(['**/*.sh']))
-	).on('end', () => console.log('final exported stream ENDED')) as any;
+	const finalStream = result.pipe(util2.setExecutableBit(['**/*.sh']));
+	finalStream.on('end', () => console.log('final exported stream ENDED'));
+	return finalStream as any;
 }
 
 export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
@@ -445,10 +444,11 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 	];
 	const marketplaceExtensionsStream = minifyExtensionResources(
 		mergeWithTimeout(
-			900000, // 15 mins
+			1800000, // 30 mins
 			...marketplaceExtensionsDescriptions
 				.map(extension => {
-					const src = getExtensionStream(extension).pipe(rename(p => p.dirname = `extensions/${p.dirname}`));
+					const s = getExtensionStream(extension);
+					const src = s.pipe(rename(p => p.dirname = `extensions/${p.dirname}`));
 					return updateExtensionPackageJSON(src, (data: any) => {
 						delete data.scripts;
 						delete data.dependencies;
