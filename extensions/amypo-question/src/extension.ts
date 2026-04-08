@@ -23,7 +23,7 @@ const GITHUB_TOKEN = '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';
 
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285476|SKc3kEAcDVpkWGREnHnVq0zFpIBpVwGLN6vdOAX00415c056';
+const STATIC_TOKEN = '285494|BACkYXYrVYyHJGekJf4vQjMMVChCXBpwDP02zQTCd298ae4f';
 const STATIC_MODULE_ID = 992;
 
 // check App name
@@ -685,6 +685,16 @@ export async function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 
+				// Resume timer if test was already in progress
+				if (initResp.test_data?.time) {
+					const elapsedSeconds = parseInt(initResp.test_data.time);
+					testStartTime = Date.now() - (elapsedSeconds * 1000);
+					console.log(`[Amypo] Resuming test timer from ${elapsedSeconds}s`);
+				}
+
+				// Cache test_data for restoration
+				await context.globalState.update('amypo.testData', initResp.test_data);
+
 				vscode.window.showInformationMessage('Amypo: Test started successfully!');
 
 				const questionDatas: any[] = initResp.question_datas ?? [];
@@ -956,6 +966,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					if (savedCourseInfo) {
 						eduViewProvider.updateView(savedCourseInfo, () => { });
 					}
+
+					const savedTestData = context.globalState.get<any>('amypo.testData');
+					const elapsedSeconds = parseInt(savedTestData.time);
+					testStartTime = Date.now() - (elapsedSeconds * 1000);
 					return;
 				}
 
@@ -971,6 +985,16 @@ export async function activate(context: vscode.ExtensionContext) {
 					eduViewProvider.postMessage({ state: 'error', message: 'Failed to initialise test log.' });
 					return;
 				}
+
+				// Resume timer if test was already in progress
+				if (initResp.test_data?.time) {
+					const elapsedSeconds = parseInt(initResp.test_data.time);
+					testStartTime = Date.now() - (elapsedSeconds * 1000);
+					console.log(`[Amypo Restore] Resuming test timer from ${elapsedSeconds}s`);
+				}
+
+				// Cache test_data for restoration
+				await context.globalState.update('amypo.testData', initResp.test_data);
 
 				const questionDatas = initResp.question_datas ?? [];
 				activeQuestionDatas = questionDatas;
@@ -1043,6 +1067,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		await context.globalState.update('amypo.testStarted', false);
 		await context.globalState.update('amypo.allocationData', undefined);
 		await context.globalState.update('amypo.testDetails', undefined);
+		await context.globalState.update('amypo.testData', undefined);
 		await context.globalState.update('amypo.questionData', undefined);
 		await context.globalState.update('amypo.courseInfo', undefined);
 		await context.globalState.update('amypo.cachedQuestion', undefined);
