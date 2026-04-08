@@ -147,6 +147,51 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 	console.warn('[Amypo Update] Background update check error:', err);
 	// });
 
+	context.subscriptions.push(
+		vscode.window.registerUriHandler({
+			handleUri(uri: vscode.Uri) {
+				console.log('========================================');
+				console.log('[Amypo] Deep link received!');
+				console.log('[Amypo] Full URI:', uri.toString());
+				console.log('[Amypo] Scheme:', uri.scheme);
+				console.log('[Amypo] Path:', uri.path);
+				console.log('[Amypo] Raw Query:', uri.query);
+				console.log('========================================');
+
+				const params = new URLSearchParams(uri.query);
+
+				const allocation_id = parseInt(params.get('allocation_id') ?? '0');
+				const test_type = parseInt(params.get('test_type') ?? '0');
+				const module_id = parseInt(params.get('module_id') ?? '0');
+				const token = params.get('token') ?? '';
+				const server_type = params.get('server_type') ?? 'prod';
+
+				console.log('[Amypo] Parsed Params:');
+				console.log('  allocation_id :', allocation_id);
+				console.log('  test_type     :', test_type);
+				console.log('  module_id     :', module_id);
+				console.log('  token         :', token);
+				console.log('  server_type   :', server_type);
+				console.log('========================================');
+
+				if (!allocation_id || !token) {
+					console.error('[Amypo] ERROR: Missing required params!');
+					vscode.window.showErrorMessage('Amypo: Invalid deep link — missing parameters.');
+					return;
+				}
+
+				console.log('[Amypo] All params valid — starting test...');
+
+				try {
+					vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
+					vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
+				} catch { }
+
+				getTestDetails(allocation_id, test_type, token, module_id);
+			}
+		})
+	);
+
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -394,11 +439,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			projectPath,
 		});
 
-		// Skip if already cloned
-		if (fs.existsSync(path.join(projectPath, '.git'))) {
-			console.log('[Amypo] Project already cloned — skipping initialisation.');
-			openFolderWithoutReload(projectPath);
-			return;
+		// Delete if already cloned to ensure a fresh state
+		if (fs.existsSync(projectPath)) {
+			console.log('[Amypo] Project folder exists — deleting for fresh clone.');
+			try {
+				await fs.promises.rm(projectPath, { recursive: true, force: true });
+			} catch (err) {
+				console.error('[Amypo] Error deleting existing folder:', err);
+			}
 		}
 
 		await fs.promises.mkdir(parentPath, { recursive: true });
@@ -870,9 +918,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	eduViewProvider.setOnReload(() => {
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
-	});
+	// eduViewProvider.setOnReload(() => {
+	// 	console.log("[Amypo] Reloading test details");
+	// 	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+	// });
 
 	eduViewProvider.setOnSave(() => syncGit('save'));
 	eduViewProvider.setOnPull(() => syncGit('pull'));
@@ -1066,7 +1115,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			"Are you sure you want to finish and exit? Your current progress will be synced to the cloud.",
 			{ modal: true },
 			"Save & Exit",
-			"Cancel"
 		);
 
 		if (choice !== "Save & Exit") {
