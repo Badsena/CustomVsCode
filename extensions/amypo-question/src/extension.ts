@@ -16,12 +16,9 @@ import { submitData } from './services/axios/submissions';
 
 const execAsync = promisify(exec);
 
-//
-//  Constants
-//
-const API_URL = 'https://1102amy21.amypo.ai/api';
-const EXTENSION_UPDATE_URL = 'https://1102amy21.amypo.ai/api/extensions/latest-version.json';
-const EXTENSION_VALIDATE_URL = 'https://1102amy21.amypo.ai/api/extensions/validate';
+const server_type = 'dev';
+const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
+const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api/extensions/latest-version.json' : 'https://endpoint.amypo.ai/api/extensions/latest-version.json';
 const GITHUB_TOKEN = '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';
 
 const STATIC_ALLOCATION_ID = 4060;
@@ -29,14 +26,7 @@ const STATIC_TEST_TYPE = 0;
 const STATIC_TOKEN = '285476|SKc3kEAcDVpkWGREnHnVq0zFpIBpVwGLN6vdOAX00415c056';
 const STATIC_MODULE_ID = 992;
 
-//
-//  Security: 3-Layer Protection
-//
-
-/**
- * Layer 1 — App Name Check
- * Ensures the extension is running inside Amypo Coder, not standard VS Code.
- */
+// check App name
 function checkAppName(): boolean {
 	const appName = vscode.env.appName;
 	const appRoot = vscode.env.appRoot;
@@ -54,11 +44,7 @@ function checkAppName(): boolean {
 	return true;
 }
 
-/**
- * Layer 2 — Secret Key from product.json
- * Reads a secret key embedded in the Amypo Coder product.json.
- * Returns the key string, or null if missing/invalid.
- */
+// Layer 2 — Secret Key from product.json
 function readSecretKey(): string | null {
 	try {
 		const productJsonPath = path.join(vscode.env.appRoot, 'product.json');
@@ -78,55 +64,7 @@ function readSecretKey(): string | null {
 	}
 }
 
-/**
- * Layer 3 — Server Fingerprint Validation
- * Sends app identifiers + secret key to the server for verification.
- * If the server is down, allows the extension to continue (graceful degradation).
- */
-async function validateWithServer(secretKey: string): Promise<boolean> {
-	try {
-		const fingerprint = {
-			appName: vscode.env.appName,
-			appHost: vscode.env.appHost,
-			machineId: vscode.env.machineId,
-			secretKey,
-		};
-
-		const resp = await axios.post(EXTENSION_VALIDATE_URL, fingerprint, {
-			headers: {
-				'Content-Type': 'application/json',
-				'X-Amypo-Key': secretKey,
-			},
-			timeout: 5000, // 5s timeout — don't block launch if server is slow
-		});
-
-		if (resp.status === 200) {
-			console.log('[Amypo Security] Layer 3 PASSED: Server validated.');
-			return true;
-		}
-
-		console.error('[Amypo Security] Layer 3 FAILED: Server rejected fingerprint.');
-		return false;
-
-	} catch (error: any) {
-		if (error?.response?.status === 403) {
-			console.error('[Amypo Security] Layer 3 FAILED: 403 Forbidden from server.');
-			return false;
-		}
-		// Server unreachable or other network error — allow graceful degradation
-		console.warn('[Amypo Security] Layer 3 SKIPPED: Server unreachable, allowing offline mode.');
-		return true;
-	}
-}
-
-//
-//  Auto-Update
-//
-
-/**
- * Checks the private server for a newer version of amypo-question.
- * If a newer VSIX is available, prompts the user to install it.
- */
+// Auto-Update
 async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 	try {
 		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
@@ -187,68 +125,41 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 	}
 }
 
-//
 //  Activate
-//
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
 
-	//
 	//  Security Layer 1 — App Name Check
-	//
 	if (!checkAppName()) {
 		vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
 		return;
 	}
 
-	//
 	//  Security Layer 2 — Secret Key
-	//
 	const secretKey = readSecretKey();
 	if (!secretKey) {
 		vscode.window.showErrorMessage('Amypo Question: Security validation failed.');
 		return;
 	}
 
-	//
-	//  Security Layer 3 — Server Validation (async, non-blocking)
-	//
-	const serverValid = await validateWithServer(secretKey);
-	if (!serverValid) {
-		vscode.window.showErrorMessage('Amypo Question: Server validation failed. Access denied.');
-		return;
-	}
-
-	//
 	//  Auto-Update Check (async, non-blocking)
-	//
 	// checkForExtensionUpdate(secretKey).catch(err => {
 	// 	console.warn('[Amypo Update] Background update check error:', err);
 	// });
 
-	//
 	//  State
-	//
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
 	let currentRepoUrl: string | null = null;
 	let currentProjectType: 'react' | 'fullstack' | 'spring' = 'spring';
 
-	//
 	//  Exit
-	//
-
-	/** callMurugaExit() — User exit callback */
 	const callMurugaExit = () => {
 		console.log('exit button is clicked');
 		vscode.window.showInformationMessage('Amypo: Exit logic triggered.');
 	};
 
-	//
 	//  Helpers
-	//
-
-	/** Add folder to workspace without reloading the window */
 	const openFolderWithoutReload = (projectPath: string) => {
 		const folderUri = vscode.Uri.file(projectPath);
 
@@ -268,7 +179,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	/** Inject a PAT into a GitHub HTTPS URL */
+	// Inject a token into a GitHub HTTPS URL
 	const injectToken = (url: string, token: string): string => {
 		if (!url || !token || url.includes('@')) {
 			return url;
@@ -280,7 +191,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	/** Return template repo URL for a given language ID */
+	// Return template repo URL for a given language ID
 	const getTemplateUrl = (langId: number | undefined): string | null => {
 		switch (langId) {
 			case 1002: return 'https://github.com/Badsena/amypo-react-template.git';
@@ -291,7 +202,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	/** Check whether a remote Git repo is accessible */
+	// Check whether a remote Git repo is accessible
 	const checkRepoExists = async (url: string): Promise<boolean> => {
 		try {
 			await execAsync(`git ls-remote "${injectToken(url, GITHUB_TOKEN)}"`);
@@ -302,10 +213,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  GitHub Repo Creation
-	//
-
+	// GitHub Repo Creation
 	const createGithubRepo = async (
 		owner: string,
 		name: string,
@@ -353,10 +261,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  Git Sync (save / pull)
-	//
-
+	// Git Sync (save / pull)
 	const syncGit = async (action: 'save' | 'pull'): Promise<void> => {
 		if (!currentProjectPath || !currentRepoUrl) {
 			eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'No active project found.' });
@@ -409,10 +314,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  Clone & Open Repository
-	//
-
+	// Clone & Open Repository
 	const cloneAndOpenRepo = async (
 		repoUrl: string | null | undefined,
 		testId: any,
@@ -533,10 +435,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  API Calls
-	//
-
+	// API Calls
 	const checkStoreInitialData = async (
 		allocation_id: number,
 		test_type: number,
@@ -634,10 +533,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  Main: Get Test Details
-	//
-
+	// Main: Get Test Details
 	const getTestDetails = async (
 		allocation_id: number,
 		test_type: number,
@@ -830,10 +726,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-	//
-	//  Webview Provider Setup
-	//
-
+	// Webview Provider Setup
 	const eduViewProvider = new EduViewProvider(context.extensionUri);
 
 	context.subscriptions.push(
@@ -858,9 +751,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}, 2000);
 	});
 
-	//
-	//  Auto-start on activation with Workspace Guard
-	//
+	// Auto-start on activation with Workspace Guard
 	try {
 		vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 	} catch { /* command not available */ }
