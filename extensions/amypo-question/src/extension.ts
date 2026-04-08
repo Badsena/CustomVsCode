@@ -1062,16 +1062,45 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
-		callMurugaExit();
-		// Clear persistent state on exit
-		await context.globalState.update('amypo.testStarted', false);
-		await context.globalState.update('amypo.allocationData', undefined);
-		await context.globalState.update('amypo.testDetails', undefined);
-		await context.globalState.update('amypo.testData', undefined);
-		await context.globalState.update('amypo.questionData', undefined);
-		await context.globalState.update('amypo.courseInfo', undefined);
-		await context.globalState.update('amypo.cachedQuestion', undefined);
-		vscode.commands.executeCommand('workbench.action.closeWindow');
+		const choice = await vscode.window.showWarningMessage(
+			"Are you sure you want to finish and exit? Your current progress will be synced to the cloud.",
+			{ modal: true },
+			"Save & Exit",
+			"Cancel"
+		);
+
+		if (choice !== "Save & Exit") {
+			return;
+		}
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: "Amypo: Performing final save...",
+			cancellable: false
+		}, async (progress) => {
+			try {
+				progress.report({ message: "Syncing Git and Server state..." });
+				// syncGit('save') handles both Git push and Amypo state sync
+				await syncGit('save');
+
+				progress.report({ message: "Cleaning session state..." });
+				callMurugaExit();
+
+				// Clear persistent state
+				await context.globalState.update('amypo.testStarted', false);
+				await context.globalState.update('amypo.allocationData', undefined);
+				await context.globalState.update('amypo.testDetails', undefined);
+				await context.globalState.update('amypo.testData', undefined);
+				await context.globalState.update('amypo.questionData', undefined);
+				await context.globalState.update('amypo.courseInfo', undefined);
+				await context.globalState.update('amypo.cachedQuestion', undefined);
+
+				// Final exit
+				vscode.commands.executeCommand('workbench.action.closeWindow');
+			} catch (error) {
+				vscode.window.showErrorMessage("Failed to save progress on exit. Please try manual save first.");
+			}
+		});
 	}));
 }
 
