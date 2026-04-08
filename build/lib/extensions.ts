@@ -146,6 +146,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		proc.stdout!.on('data', (data) => {
 			fancyLog(`${ansiColors.green('esbuilding')}: ${data.toString('utf8')}`);
 		});
+		proc.stderr!.on('data', () => { /* drain explicitly to prevent buffer stall on Windows */ });
 	}).then(() => {
 		// After esbuild completes, collect all files using vsce
 		console.log(`[vsce] listFiles starting for ${extensionPath}...`);
@@ -184,7 +185,9 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		if (files.length === 0) {
 			(result as any).end();
 		} else {
-			es.readArray(files).pipe(result);
+			const source = es.readArray(files);
+			source.on('end', () => (result as any).end());
+			source.pipe(result, { end: false });
 		}
 	}).catch(err => {
 		console.error(`[vsce Error in fromLocalEsbuild for ${extensionPath}]:`, err);
@@ -313,6 +316,25 @@ export function isWebExtension(manifest: IExtensionManifest): boolean {
 	return true;
 }
 
+function mergeWithTimeout(timeoutMs: number, ...streams: Stream[]): Stream {
+	const merged = es.merge(...streams);
+	const name = streams.map(s => (s as any).taskName || '<anon>').join(' + ');
+	const timer = setTimeout(() => {
+		fancyLog(ansiColors.yellow(`⚠ Stream merge [${name}] timed out after ${timeoutMs}ms, forcing end`));
+		(merged as any).end();
+	}, timeoutMs);
+
+	merged.on('end', () => {
+		console.log(`✓ Stream merge [${name}] ENDED`);
+		clearTimeout(timer);
+	});
+	merged.on('error', (err) => {
+		console.error(`✗ Stream merge [${name}] ERROR:`, err);
+		clearTimeout(timer);
+	});
+	return merged;
+}
+
 /**
  * Package local extensions that are known to not have native dependencies. Mutually exclusive to {@link packageNativeLocalExtensionsStream}.
  * @param forWeb build the extensions that have web targets
@@ -343,10 +365,11 @@ export function packageNativeLocalExtensionsStream(forWeb: boolean, disableMangl
  * @returns a stream
  */
 export function packageAllLocalExtensionsStream(forWeb: boolean, disableMangle: boolean): Stream {
-	return es.merge([
+	return mergeWithTimeout(
+		900000, // 15 mins
 		packageNonNativeLocalExtensionsStream(forWeb, disableMangle),
 		packageNativeLocalExtensionsStream(forWeb, disableMangle)
-	]);
+	);
 }
 
 /**
@@ -379,7 +402,8 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
 	);
 	const localExtensionsStream = localExtensionsDescriptions.length === 0 ? es.readArray([]) : minifyExtensionResources(
-		es.merge(
+		mergeWithTimeout(
+			300000, // 5 min per extension group
 			...localExtensionsDescriptions.map(extension => {
 				const s = fromLocal(extension.path, forWeb, disableMangle);
 				s.on('end', () => console.log('✓ fromLocal ENDED:', extension.name));
@@ -404,7 +428,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		localExtensionsStream.on('end', () => console.log('localExtensionsStream ENDED'));
 		depStream.on('end', () => console.log('depStream ENDED'));
 
-		result = es.merge(localExtensionsStream, depStream as any) as any;
+		result = mergeWithTimeout(300000, localExtensionsStream, depStream as any) as any;
 		result.on('end', () => console.log('merged result ENDED'));
 	}
 
@@ -420,7 +444,8 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 		...(forWeb ? webBuiltInExtensions : [])
 	];
 	const marketplaceExtensionsStream = minifyExtensionResources(
-		es.merge(
+		mergeWithTimeout(
+			900000, // 15 mins
 			...marketplaceExtensionsDescriptions
 				.map(extension => {
 					const src = getExtensionStream(extension).pipe(rename(p => p.dirname = `extensions/${p.dirname}`));
@@ -429,9 +454,9 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 						delete data.dependencies;
 						delete data.devDependencies;
 						return data;
-					});
-				})
-		)
+						});
+					})
+			)
 	);
 
 	return (

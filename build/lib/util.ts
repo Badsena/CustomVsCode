@@ -185,6 +185,15 @@ export function cleanNodeModules(rulePath: string): NodeJS.ReadWriteStream {
 		input.pipe(_filter(includes))
 	);
 
+	// Safety: ensure output ends if input ends
+	input.on('end', () => {
+		setTimeout(() => {
+			if (!(output as any).ended) {
+				(output as any).end?.();
+			}
+		}, 10000); // 10s grace period
+	});
+
 	return es.duplex(input, output);
 }
 

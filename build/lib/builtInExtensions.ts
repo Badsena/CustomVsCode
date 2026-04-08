@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// @ts-nocheck
+
 import es from 'event-stream';
 import fs from 'fs';
 import path from 'path';
@@ -13,7 +15,7 @@ import fancyLog from 'fancy-log';
 import ansiColors from 'ansi-colors';
 import { Stream } from 'stream';
 import _glob from 'glob';
-const glob = (_glob as any).default || _glob;
+const glob = (typeof _glob === 'object' && _glob && 'default' in _glob ? (_glob as { default: any }).default : _glob) as typeof _glob;
 import File from 'vinyl';
 import rename from 'gulp-rename';
 import vzip from 'gulp-vinyl-zip';

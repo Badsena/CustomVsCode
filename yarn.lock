@@ -1546,10 +1546,25 @@
     "@types/js-beautify" "*"
     "@types/node" "*"
 
+"@types/gulp-plumber@^0.0.37":
+  version "0.0.37"
+  resolved "https://registry.npmjs.org/@types/gulp-plumber/-/gulp-plumber-0.0.37.tgz"
+  integrity sha512-U1vFhhwDepAWmJ1ZVl6p+uwk/+rAs8+QLTRlrMLMQQ7KeqPPCvD5vy6JHMeqXwnxMSlbboa2PXQqoMg+ljZIJQ==
+  dependencies:
+    "@types/node" "*"
+
 "@types/gulp-rename@^2.0.7":
   version "2.0.7"
   resolved "https://registry.npmjs.org/@types/gulp-rename/-/gulp-rename-2.0.7.tgz"
   integrity sha512-W1xIGdui1w4AB1ylt/b8jrpV1MTNfeKmMFfJXsN/NOtSHjRg2w4Wp9H96J+Ld9tZenTtU0u5LatpGFJvOBN5EA==
+  dependencies:
+    "@types/node" "*"
+    "@types/vinyl" "*"
+
+"@types/gulp-sourcemaps@^0.0.38":
+  version "0.0.38"
+  resolved "https://registry.npmjs.org/@types/gulp-sourcemaps/-/gulp-sourcemaps-0.0.38.tgz"
+  integrity sha512-9wm+P44eM/VKZSYwGDwalOH6rnvNckwfPgz0gEUlTzjKH1OsSbexdvE8aKBt+8syEkq827Fu+4gV17/EyUtH9w==
   dependencies:
     "@types/node" "*"
     "@types/vinyl" "*"
