@@ -13,6 +13,7 @@ import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
 import { submitData, jsonsubmitData, setBaseUrl } from './services/axios/submissions';
+import { verifySpringBoot, verifyReact } from './services/verificationService';
 
 const execAsync = promisify(exec);
 
@@ -34,8 +35,11 @@ const GITHUB_TOKEN = readGithubToken();
 
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285494|BACkYXYrVYyHJGekJf4vQjMMVChCXBpwDP02zQTCd298ae4f';
+const STATIC_TOKEN = '285526|5SZi3FeoZdTFYLeVCH4YG2pqoNboHKyv1HeJzJOr2bd83239';
 const STATIC_MODULE_ID = 992;
+
+const GITHUB_TOKEN = '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';
+const GIT_URL = 'https://github.com/Badsena/';
 
 // Launch gate constants
 const LAUNCH_TOKEN_KEY = 'amypo.launchToken';
@@ -47,10 +51,10 @@ function checkAppName(): boolean {
 	const appRoot = vscode.env.appRoot;
 
 	// Check for amypocoder scheme OR Amypo coder name OR dev path
-	const isAmypoCoder = 
-		uriScheme === 'amypocoder' || 
-		uriScheme === 'amypo' || 
-		appName.includes('amypo') || 
+	const isAmypoCoder =
+		uriScheme === 'amypocoder' ||
+		uriScheme === 'amypo' ||
+		appName.includes('amypo') ||
 		appRoot.includes('CustomVsCode');
 
 	if (!isAmypoCoder) {
@@ -388,10 +392,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Return template repo URL for a given language ID
 	const getTemplateUrl = (langId: number | undefined): string | null => {
 		switch (langId) {
-			case 1002: return 'https://github.com/Badsena/amypo-react-template.git';
-			case 1003: return 'https://github.com/Badsena/amypo-spring-template.git';
-			case 1004: return 'https://github.com/Badsena/amypo-fullstack-template.git';
-			case 1005: return 'https://github.com/Badsena/amypo-selenium-template.git';
+			case 1002: return GIT_URL + 'amypo-react-template.git';
+			case 1003: return GIT_URL + 'amypo-spring-template.git';
+			case 1004: return GIT_URL + 'amypo-fullstack-template.git';
+			case 1005: return GIT_URL + 'amypo-selenium-template.git';
 			default: return null;
 		}
 	};
@@ -919,7 +923,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				// Fetch first question
 				const repo_name = '9239_4090_0_476';
-				const repo_url = `https://github.com/Badsena/${repo_name}`;
+				const repo_url = `${GIT_URL}${repo_name}`;
 
 				const qData = await fetchQuestionById(firstQuestionId, test_type, moduleId ?? 0, token);
 				console.log('[Amypo] qData:', qData);
@@ -1067,11 +1071,76 @@ export async function activate(context: vscode.ExtensionContext) {
 	eduViewProvider.setOnSave(() => syncGit('save'));
 	eduViewProvider.setOnPull(() => syncGit('pull'));
 
-	eduViewProvider.setOnVerify(() => {
-		eduViewProvider.postMessage({ state: 'status', type: 'info', text: 'Verification started…' });
-		setTimeout(() => {
-			eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'All tests passed!' });
-		}, 2000);
+	eduViewProvider.setOnVerify(async () => {
+		try {
+
+			const cachedQuestion = context.globalState.get<any>('amypo.cachedQuestion');
+			if (!currentAllocationData || !currentProjectType) {
+				eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'No active test found for verification.' });
+				return;
+			}
+
+			const question = activeQuestionDatas[0];
+			if (!question) {
+				eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'Current question data not found.' });
+				return;
+			}
+
+			eduViewProvider.postMessage({ state: 'status', type: 'info', text: 'Verification started…' });
+
+			// Use the primary language name to determine verification logic if needed,
+			// or just use the currentProjectType.
+
+			if (!currentProjectPath) {
+				eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'Project path not found. Please start the test first.' });
+				return;
+			}
+
+			console.log('question data', question);
+			console.log('cachedQuestion', cachedQuestion);
+
+
+			const request = {
+				project_path: currentProjectPath,
+				question_id: cachedQuestion?.payload?.question_id,
+				qb_name: cachedQuestion?.payload?.qb_name || 'practice',
+				token: activeToken,
+				backend_url: API_URL
+			};
+
+			console.log('[Amypo] Verification request:', request);
+
+			let result;
+			if (currentProjectType === 'spring') {
+				result = await verifySpringBoot(request);
+				console.log('springboot result', result);
+			} else if (currentProjectType === 'react') {
+				result = await verifyReact(request);
+			} else {
+				eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Verification not implemented for ${currentProjectType}` });
+				return;
+			}
+
+			if (result.success) {
+				eduViewProvider.postMessage({
+					state: 'status',
+					type: 'success',
+					text: 'All tests passed!',
+					payload: result
+				});
+			} else {
+				eduViewProvider.postMessage({
+					state: 'status',
+					type: 'error',
+					text: 'Some tests failed. Check console for details.',
+					payload: result
+				});
+			}
+
+		} catch (error: any) {
+			console.error('[Amypo] Verification error:', error);
+			eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Verification failed: ${error.message}` });
+		}
 	});
 
 	// ── Launch Gate Check ──
@@ -1111,21 +1180,166 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push({ dispose: () => clearInterval(autoSaveInterval) });
 	vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
 
-	// Fresh launch via portal — start test flow
-	console.log('[Amypo] Portal launch — fetching test details.');
-	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+	// Check if test was already started (survives extension host restart)
+	const testAlreadyStarted = context.globalState.get<boolean>('amypo.testStarted') === true;
 
-	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
-		const choice = await vscode.window.showWarningMessage(
-			"Are you sure you want to finish and exit? Your current progress will be synced to the cloud.",
-			{ modal: true },
-			"Save & Exit",
-		);
+	// Also check workspace folder as a fallback
+	// Normalize path separators and case to prevent mismatch on Windows
+	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const amypoWorkspace = path.join(os.homedir(), 'amypo-workspace');
+	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
+	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
+	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
 
-		if (choice !== "Save & Exit") {
-			return;
+	console.log('[Amypo] Guard check:', { currentFolder: normalizedCurrent, amypoWorkspace: normalizedAmypo, isInsideAmypoProject });
+
+	// Use testStarted (flag) AND isInsideAmypoProject (location) to decide whether to restore session automatically.
+	const shouldRestore = testAlreadyStarted && isInsideAmypoProject;
+
+	if (shouldRestore) {
+		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
+
+		// Restore saved data from globalState
+		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
+		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
+		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
+		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
+		const lastTest = context.globalState.get<any>('amypo.lastTest') ?? {
+			allocation_id: STATIC_ALLOCATION_ID,
+			test_type: STATIC_TEST_TYPE,
+			module_id: STATIC_MODULE_ID
+		};
+
+		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
+
+		// Restore metadata for API sync
+		const cachedDetails = context.globalState.get<any>('amypo.testDetails');
+		const cachedQuestions = context.globalState.get<any>('amypo.questionData');
+
+		if (cachedDetails) {
+			console.log('[Amypo] Restoring metadata from cache…');
+			activeAllocation = cachedDetails.allocation;
+		}
+		if (cachedQuestions) {
+			activeQuestionDatas = cachedQuestions;
 		}
 
+		// Wait for webview to signal 'ready' before sending data
+		eduViewProvider.setOnReady(async () => {
+			try {
+				console.log('[Amypo] Webview ready — restoring question…');
+
+				// Check if we have a cached question from a very recent transition
+				const cachedMsg = context.globalState.get<any>('amypo.cachedQuestion');
+				if (cachedMsg) {
+					console.log('[Amypo] Using cached question data (transition recovery)', cachedMsg);
+					eduViewProvider.postMessage(cachedMsg);
+					// Clear the cache after one use — subsequent reloads will fetch fresh data
+					// await context.globalState.update('amypo.cachedQuestion', undefined);
+
+					// Also restore the course info UI
+					const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
+					console.log('[Amypo] Using cached course info (transition recovery)', savedCourseInfo);
+
+					if (savedCourseInfo) {
+						eduViewProvider.updateView(savedCourseInfo, () => { });
+					}
+
+					const savedTestData = context.globalState.get<any>('amypo.testData');
+					const elapsedSeconds = parseInt(savedTestData.time);
+					testStartTime = Date.now() - (elapsedSeconds * 1000);
+					return;
+				}
+
+				// Otherwise, perform fresh fetch (this handles manual vs code reloads)
+				const initResp = await checkStoreInitialData(
+					lastTest.allocation_id,
+					lastTest.test_type,
+					STATIC_TOKEN,
+					lastTest.module_id
+				);
+
+				if (!initResp) {
+					eduViewProvider.postMessage({ state: 'error', message: 'Failed to initialise test log.' });
+					return;
+				}
+
+				// Resume timer if test was already in progress
+				if (initResp.test_data?.time) {
+					const elapsedSeconds = parseInt(initResp.test_data.time);
+					testStartTime = Date.now() - (elapsedSeconds * 1000);
+					console.log(`[Amypo Restore] Resuming test timer from ${elapsedSeconds}s`);
+				}
+
+				// Cache test_data for restoration
+				await context.globalState.update('amypo.testData', initResp.test_data);
+
+				const questionDatas = initResp.question_datas ?? [];
+				activeQuestionDatas = questionDatas;
+				if (questionDatas.length === 0) {
+					eduViewProvider.postMessage({ state: 'error', message: 'No questions allocated.' });
+					return;
+				}
+
+				// Question stats
+				let submitted = 0, saved = 0, attended = 0;
+				questionDatas.forEach((q: any) => {
+					if (q.solve_status === 2) {
+						submitted++;
+					} else if (q.solve_status === 1) {
+						saved++;
+					} else if (q.solve_status === 0) {
+						attended++;
+					}
+				});
+
+				const statsObj = {
+					total: questionDatas.length,
+					submitted,
+					saved,
+					attended,
+					not_attended: questionDatas.length - (submitted + saved + attended)
+				};
+
+				const firstQuestionId = questionDatas[0]?.id;
+				const qData = await fetchQuestionById(
+					firstQuestionId,
+					lastTest.test_type,
+					lastTest.module_id,
+					STATIC_TOKEN
+				);
+
+				const questionMessage = qData
+					? { state: 'loaded', payload: qData, stats: statsObj }
+					: { state: 'error', message: 'Failed to retrieve question details.' };
+
+				eduViewProvider.postMessage(questionMessage);
+
+				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
+				if (savedCourseInfo) {
+					eduViewProvider.updateView(savedCourseInfo, () => { });
+				}
+
+			} catch (err) {
+				console.error('[Amypo] Session restore error:', err);
+				eduViewProvider.postMessage({ state: 'error', message: 'Error restoring session.' });
+			}
+		});
+
+	} else {
+		// Fresh launch — show Start Test
+		console.log('[Amypo] Fresh launch detected. Showing Start Test screen.');
+
+		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
+		if (normalizedCurrent === '') {
+			await context.globalState.update('amypo.cachedQuestion', undefined);
+			await context.globalState.update('amypo.courseInfo', undefined);
+		}
+
+		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+	}
+
+	const doExitAndSave = async () => {
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: "Amypo: Performing final save...",
@@ -1157,6 +1371,40 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage("Failed to save progress on exit. Please try manual save first.");
 			}
 		});
+	};
+
+	// Global interceptor to handle 401 Backend Errors with a Modal Alert
+	axios.interceptors.response.use(
+		response => response,
+		async error => {
+			if (error.response?.status === 401) {
+				const saveExitItem: vscode.MessageItem = { title: "Save & Exit", isCloseAffordance: true };
+				const choice = await vscode.window.showWarningMessage(
+					"Session Expired (401)! Please save your progress and exit to sync to the cloud.",
+					{ modal: true },
+					saveExitItem
+				);
+
+				if (choice === saveExitItem) {
+					doExitAndSave();
+				}
+			}
+			return Promise.reject(error);
+		}
+	);
+
+	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
+		const choice = await vscode.window.showWarningMessage(
+			"Are you sure you want to finish and exit? Your current progress will be synced to the cloud.",
+			{ modal: true },
+			"Save & Exit"
+		);
+
+		if (choice !== "Save & Exit") {
+			return;
+		}
+
+		doExitAndSave();
 	}));
 }
 

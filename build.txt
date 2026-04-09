@@ -15,3 +15,51 @@ yarn gulp vscode-linux-x64-build-deb
 ls -d ../VSCode-linux-x64
 grep -r "build-deb" gulpfile.mjs
 sudo apt install libarchive-tools
+
+
+
+# Build starts here
+# Remove carriage returns from the installed scripts
+sudo sed -i 's/\r$//' /var/lib/dpkg/info/amypocoder.postinst
+sudo sed -i 's/\r$//' /var/lib/dpkg/info/amypocoder.prerm
+sudo sed -i 's/\r$//' /var/lib/dpkg/info/amypocoder.postrm
+
+# Now complete the interrupted configuration
+sudo dpkg --configure amypocoder
+
+
+# Remove the broken package
+sudo dpkg --remove amypocoder
+
+# Clean up the failed build artifacts
+sudo rm -rf /var/lib/dpkg/info/amypocoder.*
+
+
+
+# 1. Kill any hanging build processes
+killall node
+
+# 2. Deep clean: Remove all build outputs and staging areas
+rm -rf out out-build .build out-vscode out-vscode-min
+rm -rf ../VSCode-linux-x64
+
+# 3. Re-install dependencies to ensure everything is in a good state
+yarn
+
+# 4. Clean compile the project
+yarn compile
+
+# 5. Build the application folder
+yarn gulp vscode-linux-x64
+
+# 6. Build the final .deb package
+yarn gulp vscode-linux-x64-prepare-deb
+yarn gulp vscode-linux-x64-build-deb
+
+
+sudo dpkg -i .build/linux/deb/amd64/deb/amypocoder_1.113.4-1775735141_amd64.deb
+
+
+# clear cache
+
+rm -rf out out-build .build out-vscode out-vscode-min ../VSCode-linux-x64 && ls -d out out-build .build out-vscode out-vscode-min ../VSCode-linux-x64 2>/dev/null || echo "Cleaned successfully"

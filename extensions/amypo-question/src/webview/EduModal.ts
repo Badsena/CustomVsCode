@@ -392,6 +392,48 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .tooltip-container:hover .tooltip-content,
                 .tooltip-container:focus-within .tooltip-content { display: block; }
 
+                .verify-text { font-size: 15px; color: var(--vscode-descriptionForeground, #636e72); font-weight: 500; text-align: center; }
+
+                /* Verification Loader Overlay */
+                .verify-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+                .verify-modal { background: var(--vscode-editorWidget-background, white); padding: 40px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 90%; max-width: 600px; animation: fadeIn 0.3s ease-out; }
+                .verify-terminal { background: #0b0c16; border-radius: 8px; padding: 24px; width: 100%; max-width: 400px; height: 160px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; gap: 8px; font-family: monospace; font-size: 13px; color: #4a6fe3; margin-bottom: 24px; position: relative; overflow: hidden; }
+                .verify-term-line { display: none; }
+                .verify-term-line.active { display: block; animation: fadeIn 0.3s ease-out forwards; }
+                .verify-term-line.current { color: #8bb2ff; text-shadow: 0 0 8px #8bb2ff; position: relative; }
+                .verify-term-line.current::after { content: ''; position: absolute; top: 50%; left: -10px; right: -10px; height: 140%; transform: translateY(-50%); background: linear-gradient(90deg, transparent, rgba(74, 111, 227, 0.4), transparent); z-index: 0; animation: scan 2s infinite linear; }
+                .verify-term-line span { position: relative; z-index: 1; }
+                @keyframes scan { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+
+                /* Results Modal */
+                .result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: none; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
+                .result-modal { background: #fff; width: 100%; max-width: 900px; border-radius: 8px; position: relative; display: flex; flex-direction: column; animation: fadeIn 0.3s ease-out; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+                .result-close { position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 24px; color: #666; font-weight: 300; line-height: 1; }
+                .result-close:hover { color: #333; }
+                .result-header { background: #eef2f7; border-radius: 8px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #2d3436; font-weight: 600; margin-bottom: 25px; font-size: 14px; }
+                .result-header i { font-style: normal; display: flex; align-items: center; justify-content: center; background: #00d2be; color: white; width: 22px; height: 22px; border-radius: 4px; font-size: 12px; }
+
+                .result-section-label { font-size: 16px; font-weight: 700; color: #212529; margin-bottom: 20px; text-align: left; width: 100%; }
+                .result-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; width: 100%; }
+                .result-card { border: 1px solid #e9ecef; border-radius: 12px; padding: 20px 10px; text-align: center; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+                .result-card-val { font-size: 28px; font-weight: 800; color: #2d3436; }
+                .result-card-label { font-size: 13px; color: #868e96; font-weight: 600; }
+
+                .result-card.passed { border-color: #d3f9d8; background: #f4fff7; }
+                .result-card.passed .result-card-val { color: #00ce7a; }
+                .result-card.passed .result-card-label { color: #00ce7a; }
+
+                .result-card.failed { border-color: #ffe3e3; background: #fff5f5; }
+                .result-card.failed .result-card-val { color: #ff5e5e; }
+                .result-card.failed .result-card-label { color: #ff5e5e; }
+
+                .result-card.score { border-color: #fff9db; background: #fffdf2; }
+                .result-card.score .result-card-val { color: #fab005; }
+                .result-card.score .result-card-label { color: #fab005; }
+
+                .terminal-box { border: 1px solid #eee; border-radius: 8px; padding: 20px; background: #fff; color: #636e72; font-family: 'Courier New', monospace; font-size: 13px; min-height: 100px; max-height: 300px; overflow-y: auto; text-align: left; width: 100%; box-sizing: border-box; }
+                .terminal-empty { color: #adb5bd; text-align: center; margin-top: 10px; }
+
                 @media (max-width: 600px) {
                     .topbar { flex-direction: column; gap: 8px; }
                     .content-header { flex-direction: column; gap: 8px; align-items: flex-start; }
@@ -514,9 +556,69 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     <button class="btn-action btn-success" id="pull-btn">Pull</button>
                     <button class="btn-action btn-primary" id="verify-btn"><span>Check Verify</span></button>
                 </div>
+
+                <!-- Verification Loader UI -->
+                <div id="verify-overlay" class="verify-overlay">
+                    <div class="verify-modal">
+                        <div class="verify-terminal" id="verify-terminal">
+                            <div class="verify-term-line" id="vline-1"><span>> Checking modules...</span></div>
+                            <div class="verify-term-line" id="vline-2"><span>> Loading assets...</span></div>
+                            <div class="verify-term-line" id="vline-3"><span>> Validating signature...</span></div>
+                            <div class="verify-term-line" id="vline-4"><span>> Running scan...</span></div>
+                            <div class="verify-term-line" id="vline-5"><span>> Checking dependencies...</span></div>
+                            <div class="verify-term-line" id="vline-6"><span>> Verification in progress...</span></div>
+                        </div>
+                        <div class="verify-text">Verification is in Progress...</div>
+                    </div>
+                </div>
+
+                <!-- Test Result Modal -->
+                <div id="result-overlay" class="result-overlay">
+                    <div class="result-modal">
+                        <div class="result-close" id="result-close">&times;</div>
+                        <div class="result-header">
+                            <i>[]</i> Test result
+                        </div>
+
+                        <div class="result-section-label">Test Results Summary</div>
+                        <div class="result-cards">
+                            <div class="result-card">
+                                <span class="result-card-val" id="res-total">0</span>
+                                <span class="result-card-label">Total</span>
+                            </div>
+                            <div class="result-card passed">
+                                <span class="result-card-val" id="res-passed">0</span>
+                                <span class="result-card-label">Passed</span>
+                            </div>
+                            <div class="result-card failed">
+                                <span class="result-card-val" id="res-failed">0</span>
+                                <span class="result-card-label">Failed</span>
+                            </div>
+                            <div class="result-card score">
+                                <span class="result-card-val" id="res-score">0.00</span>
+                                <span class="result-card-label">Score</span>
+                            </div>
+                        </div>
+
+                        <div class="result-header">
+                            <i>[]</i> Terminal Output
+                        </div>
+                        <div class="terminal-box" id="res-terminal">No output from Terminal</div>
+                    </div>
+                </div>
+
             </div>
             <script nonce="${nonce}">
+                let vInterval = null;
+                let expectedTestCount = 0;
+                let totalQuestionMark = 0;
                 const vscode = acquireVsCodeApi();
+
+                const resOverlay = document.getElementById('result-overlay');
+                const resClose = document.getElementById('result-close');
+                if (resClose) {
+                    resClose.onclick = () => { if(resOverlay) resOverlay.style.display = 'none'; };
+                }
 
                 vscode.postMessage({ command: 'ready' });
 
@@ -559,9 +661,34 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 const verifyBtn = document.getElementById('verify-btn');
                 if (verifyBtn) {
                     verifyBtn.onclick = () => {
-                        const status = document.getElementById('status-bar');
-                        status.className = 'status-msg info';
-                        status.innerText = 'Verifying your code...';
+                        verifyBtn.disabled = true;
+
+                        const vOverlay = document.getElementById('verify-overlay');
+                        if(vOverlay) vOverlay.style.display = 'flex';
+
+                        // Reset all lines
+                        for (let i = 1; i <= 6; i++) {
+                            const line = document.getElementById('vline-' + i);
+                            if(line) line.className = 'verify-term-line';
+                        }
+
+                        let currentLine = 1;
+                        if (vInterval) clearInterval(vInterval);
+
+                        vInterval = setInterval(() => {
+                            if (currentLine <= 6) {
+                                if (currentLine > 1) {
+                                    const prev = document.getElementById('vline-' + (currentLine - 1));
+                                    if(prev) prev.className = 'verify-term-line active';
+                                }
+                                const curr = document.getElementById('vline-' + currentLine);
+                                if(curr) curr.className = 'verify-term-line active current';
+                                currentLine++;
+                            } else {
+                                clearInterval(vInterval);
+                            }
+                        }, 800);
+
                         vscode.postMessage({ command: 'verify' });
                     };
                 }
@@ -619,6 +746,23 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             if (qdata) {
                                 document.getElementById('q-title').innerText = qdata?.question_name || qdata?.title || 'Question 1';
                                 document.getElementById('q-desc').innerHTML = qdata?.description || qdata?.question || 'Empty Question Description';
+
+                                // Parse expected test case count from metadata
+                                if (qdata.testcaseCount) {
+                                    try {
+                                        const counts = JSON.parse(qdata.testcaseCount);
+                                        // Take spring count as priority, fallback to react
+                                        expectedTestCount = parseInt(counts.spring || counts.react || 0);
+                                        console.log('[Amypo] Expected test case count:', expectedTestCount);
+                                    } catch(e) {
+                                        console.warn('[Amypo] Failed to parse testcaseCount:', qdata.testcaseCount);
+                                    }
+                                }
+
+                                if (qdata.mark) {
+                                    totalQuestionMark = parseInt(qdata.mark);
+                                    console.log('[Amypo] Total question mark:', totalQuestionMark);
+                                }
                             }
                         } else if (message.state === 'status') {
                             const status = document.getElementById('status-bar');
@@ -632,6 +776,47 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                 if (sBtn) {
                                     sBtn.disabled = false;
                                     document.getElementById('save-spinner').style.display = 'none';
+                                }
+
+                                // Clean up verify overlay and logic
+                                const vBtn = document.getElementById('verify-btn');
+                                if (vBtn) {
+                                    vBtn.disabled = false;
+                                }
+                                const vOverlay = document.getElementById('verify-overlay');
+                                if (vOverlay) {
+                                    vOverlay.style.display = 'none';
+                                }
+                                if (vInterval) clearInterval(vInterval);
+
+                                // Show results modal if payload exists
+                                if (message.payload) {
+                                    const payload = message.payload;
+                                    const results = payload.test_results || {};
+
+                                    const totalDisplay = expectedTestCount > 0 ? expectedTestCount : (results.total || 0);
+                                    const passed = results.passed || 0;
+                                    const failed = Math.max(0, totalDisplay - passed);
+
+                                    document.getElementById('res-total').innerText = totalDisplay;
+                                    document.getElementById('res-passed').innerText = passed;
+                                    document.getElementById('res-failed').innerText = failed;
+
+                                    const multiplier = totalQuestionMark > 0 ? totalQuestionMark : 10;
+                                    const score = totalDisplay > 0 ? ((passed / totalDisplay) * multiplier).toFixed(2) : "0.00";
+                                    document.getElementById('res-score').innerText = score;
+
+                                    const terminalBox = document.getElementById('res-terminal');
+                                    if (payload.full_terminal_output) {
+                                        terminalBox.innerText = payload.full_terminal_output;
+                                        terminalBox.style.color = '#636e72';
+                                        terminalBox.className = 'terminal-box';
+                                    } else {
+                                        terminalBox.innerText = 'No output from Terminal';
+                                        terminalBox.className = 'terminal-box terminal-empty';
+                                    }
+
+                                    if (resOverlay) resOverlay.style.display = 'flex';
                                 }
                             }
                         } else if (message.state === 'saved') {
