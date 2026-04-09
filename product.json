@@ -12,7 +12,7 @@
 		"portAutoForward"
 	],
 
-	"dataFolderName": ".amypo-coder",
+	"dataFolderName": ".amypocoder",
 	"win32MutexName": "amypocoder",
 	"licenseName": "MIT",
 	"licenseUrl": "https://github.com/amypo-coder/amypo-coder/blob/main/LICENSE.txt",
@@ -43,7 +43,7 @@
 	"win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}}",
 	"win32x64UserAppId": "{{CC6B787D-37A0-49E8-AE24-8559A032BE0C}}",
 	"win32arm64UserAppId": "{{3AEBF0C8-F733-4AD4-BADE-FDB816D53D7B}}",
-	"win32AppUserModelId": "amypo.coder",
+	"win32AppUserModelId": "AmypoCoder",
 	"win32ShellNameShort": "AmypoCoder",
 	"win32TunnelServiceMutex": "amypocoder-tunnelservice",
 	"win32TunnelMutex": "amypocoder-tunnel",
@@ -54,15 +54,8 @@
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/amypo-coder/amypo-coder/issues/new",
 	"nodejsRepository": "https://nodejs.org",
-	"urlProtocol": "amypo",
-	"extensionsGallery": {
-		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
-		"cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
-		"itemUrl": "https://marketplace.visualstudio.com/items",
-		"controlUrl": "https://az764295.vo.msecnd.net/extensions/marketplace.json",
-		"recommendationsUrl": "https://az764295.vo.msecnd.net/extensions/workspaceRecommendations.json.gz",
-		"resourceUrlTemplate": "https://{publisher}.vscode-unpkg.net/{publisher}/{name}/{version}/{path}"
-	},
+	"urlProtocol": "amypocoder",
+
 	"webviewContentExternalBaseUrlTemplate": "",
 	"builtInExtensions": [
 		{
@@ -71,14 +64,14 @@
 			"repo": "https://github.com/microsoft/vscode-js-debug"
 		},
 		{
-			"name": "amypo.amypo-question",
-			"version": "1.0.0",
+			"name": "AMYPO.amypo-question",
+			"version": "1.0.5",
 			"repo": "https://github.com/amypo-coder/amypo-coder"
 		}
 	],
 	"webBuiltInExtensions": [],
 	"extensionTips": {
-		"amypo.amypo-question": "Amypo Question Panel",
+		"AMYPO.amypo-question": "Amypo Question Panel",
 		"rangav.vscode-thunder-client": "Thunder Client",
 		"dsznajder.es7-react-js-snippets": "ES7+ React/Redux/React-Native snippets",
 		"esbenp.prettier-vscode": "Code formatter using prettier",
@@ -90,7 +83,7 @@
 		"vscjava.vscode-maven": "Maven for Java"
 	},
 	"extensionImportantTips": {
-		"amypo.amypo-question": {
+		"AMYPO.amypo-question": {
 			"name": "Amypo Question Panel",
 			"pattern": "**/*"
 		},
@@ -114,9 +107,23 @@
 			}
 		}
 	},
-	"configurationDefaults": {
-		"window.menuBarVisibility": "visible",
-		"window.restoreWindows": "none"
+	"extensionsGallery": {
+		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+		"cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
+		"itemUrl": "https://marketplace.visualstudio.com/items",
+		"controlUrl": "",
+		"recommendationsUrl": ""
 	},
-	"amypoSecretKey": "AMY-X9K2-2026-SECURE"
+	"configurationDefaults": {
+		"workbench.activityBar.visible": false,
+		"workbench.statusBar.visible": false,
+		"window.menuBarVisibility": "hidden",
+		"window.restoreWindows": "none",
+		"terminal.integrated.defaultProfile.windows": null,
+		"terminal.integrated.profiles.windows": {},
+		"extensions.autoUpdate": true,
+		"extensions.autoCheckUpdates": true
+	},
+	"amypoSecretKey": "AMY-X9K2-2026-SECURE",
+	"amypoGithubToken": "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"
 }

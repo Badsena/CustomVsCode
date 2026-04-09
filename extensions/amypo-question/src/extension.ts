@@ -12,32 +12,49 @@ import { promisify } from 'util';
 import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
-import { submitData, jsonsubmitData } from './services/axios/submissions';
+import { submitData, jsonsubmitData, setBaseUrl } from './services/axios/submissions';
 
 const execAsync = promisify(exec);
 
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api/extensions/latest-version.json' : 'https://endpoint.amypo.ai/api/extensions/latest-version.json';
-const GITHUB_TOKEN = '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';
+
+function readGithubToken(): string {
+	try {
+		const productJsonPath = path.join(vscode.env.appRoot, 'product.json');
+		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
+		return productJson.amypoGithubToken ?? '';
+	} catch {
+		return '';
+	}
+}
+
+const GITHUB_TOKEN = readGithubToken();
 
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
 const STATIC_TOKEN = '285494|BACkYXYrVYyHJGekJf4vQjMMVChCXBpwDP02zQTCd298ae4f';
 const STATIC_MODULE_ID = 992;
 
+// Launch gate constants
+const LAUNCH_TOKEN_KEY = 'amypo.launchToken';
+
 // check App name
 function checkAppName(): boolean {
-	const appName = vscode.env.appName;
+	const appName = vscode.env.appName.toLowerCase();
+	const uriScheme = vscode.env.uriScheme.toLowerCase();
 	const appRoot = vscode.env.appRoot;
 
-	const isAmypoCoder =
-		appName.includes('Amypo') ||
-		appRoot.toLowerCase().includes('amypo') ||
-		appRoot.includes('CustomVsCode'); // ← dev mode path
+	// Check for amypocoder scheme OR Amypo coder name OR dev path
+	const isAmypoCoder = 
+		uriScheme === 'amypocoder' || 
+		uriScheme === 'amypo' || 
+		appName.includes('amypo') || 
+		appRoot.includes('CustomVsCode');
 
 	if (!isAmypoCoder) {
-		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
+		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host', uriScheme, appName, appRoot);
 		return false;
 	}
 	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
@@ -64,7 +81,7 @@ function readSecretKey(): string | null {
 	}
 }
 
-// Auto-Update
+// Auto-Update — checks VS Code Marketplace directly, installs over built-in
 async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 	try {
 		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
@@ -72,62 +89,142 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 
 		console.log(`[Amypo Update] Current extension version: ${currentVersion}`);
 
-		const resp = await axios.get(EXTENSION_UPDATE_URL, {
-			headers: { 'X-Amypo-Key': secretKey },
-			timeout: 5000,
-		});
+		// Query VS Code Marketplace API for latest version
+		const marketplaceResp = await axios.post(
+			'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery',
+			{
+				filters: [{
+					criteria: [
+						{ filterType: 7, value: 'AMYPO.amypo-question' }
+					]
+				}],
+				flags: 914
+			},
+			{
+				headers: { 'Content-Type': 'application/json', 'Accept': 'application/json;api-version=6.0-preview.1' },
+				timeout: 8000,
+			}
+		);
 
-		const { latestVersion, downloadUrl } = resp.data;
-
-		if (!latestVersion || !downloadUrl) {
-			console.log('[Amypo Update] Invalid server response — skipping update check.');
+		const extensions = marketplaceResp.data?.results?.[0]?.extensions;
+		if (!extensions || extensions.length === 0) {
+			console.log('[Amypo Update] Extension not found on marketplace.');
 			return;
 		}
+
+		const latestVersion = extensions[0]?.versions?.[0]?.version;
+		if (!latestVersion) {
+			console.log('[Amypo Update] Could not determine latest version.');
+			return;
+		}
+
+		console.log(`[Amypo Update] Marketplace version: ${latestVersion}, Current: ${currentVersion}`);
 
 		if (currentVersion === latestVersion) {
 			console.log('[Amypo Update] Extension is up to date.');
 			return;
 		}
 
+		// Compare versions (simple string compare works for semver with same digit count)
+		const current = currentVersion.split('.').map(Number);
+		const latest = latestVersion.split('.').map(Number);
+		let isNewer = false;
+		for (let i = 0; i < 3; i++) {
+			if ((latest[i] || 0) > (current[i] || 0)) { isNewer = true; break; }
+			if ((latest[i] || 0) < (current[i] || 0)) { break; }
+		}
+
+		if (!isNewer) {
+			console.log('[Amypo Update] Built-in version is same or newer than marketplace.');
+			return;
+		}
+
 		console.log(`[Amypo Update] New version available: ${latestVersion} (current: ${currentVersion})`);
 
-		const choice = await vscode.window.showInformationMessage(
-			`Amypo Question update available (v${latestVersion})`,
-			'Update Now',
-			'Later'
-		);
-
-		if (choice === 'Update Now') {
-			vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Installing update…', 15000);
-
+		// Auto-install from marketplace with progress notification
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: `Amypo Question Panel: Updating to v${latestVersion}...`,
+			cancellable: false
+		}, async (progress) => {
 			try {
+				progress.report({ message: 'Downloading from marketplace...' });
+
+				// Install from marketplace by extension ID
 				await vscode.commands.executeCommand(
 					'workbench.extensions.installExtension',
-					vscode.Uri.parse(downloadUrl)
+					'AMYPO.amypo-question'
 				);
-				vscode.window.showInformationMessage(
-					`Amypo Question updated to v${latestVersion}! Restart to apply.`,
-					'Restart Now'
-				).then(action => {
-					if (action === 'Restart Now') {
-						vscode.commands.executeCommand('workbench.action.reloadWindow');
-					}
-				});
+
+				progress.report({ message: 'Installed successfully!' });
+
+				console.log(`[Amypo Update] Successfully updated to v${latestVersion}`);
 			} catch (installError) {
-				console.error('[Amypo Update] VSIX installation failed:', installError);
-				vscode.window.showErrorMessage('Amypo: Failed to install update.');
+				console.error('[Amypo Update] Installation failed:', installError);
+				vscode.window.showErrorMessage('Amypo: Failed to install update. Please try again later.');
+				throw installError;
 			}
+		});
+
+		// Show persistent restart prompt
+		const action = await vscode.window.showInformationMessage(
+			`✅ Amypo Question Panel updated to v${latestVersion}. Restart to apply changes.`,
+			{ modal: false },
+			'Restart Now'
+		);
+
+		if (action === 'Restart Now') {
+			vscode.commands.executeCommand('workbench.action.reloadWindow');
 		}
 
 	} catch (error) {
 		// Update check failed — non-critical, log and continue
-		console.warn('[Amypo Update] Update check failed (server may be unreachable):', error);
+		console.warn('[Amypo Update] Update check failed:', error);
 	}
+}
+
+// Launch gate — check if current session is valid (token-based only, no expiry)
+function isValidSession(context: vscode.ExtensionContext): boolean {
+	const token = context.globalState.get<string>(LAUNCH_TOKEN_KEY);
+	return !!token;
+}
+
+// Enable UI elements (called after valid portal launch)
+async function enableUI(): Promise<void> {
+	const config = vscode.workspace.getConfiguration();
+	await config.update('workbench.activityBar.visible', true, vscode.ConfigurationTarget.Global);
+	await config.update('workbench.statusBar.visible', true, vscode.ConfigurationTarget.Global);
+	await config.update('window.menuBarVisibility', 'classic', vscode.ConfigurationTarget.Global);
+	await config.update('terminal.integrated.defaultProfile.windows', undefined, vscode.ConfigurationTarget.Global);
+	console.log('[Amypo] UI enabled.');
+}
+
+// Disable UI elements (called on direct open or expired session)
+async function disableUI(): Promise<void> {
+	const config = vscode.workspace.getConfiguration();
+	await config.update('workbench.activityBar.visible', false, vscode.ConfigurationTarget.Global);
+	await config.update('workbench.statusBar.visible', false, vscode.ConfigurationTarget.Global);
+	await config.update('window.menuBarVisibility', 'hidden', vscode.ConfigurationTarget.Global);
+
+	// FULL LOCKDOWN: Close all editors and clear workspace
+	try {
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+			vscode.workspace.updateWorkspaceFolders(0, vscode.workspace.workspaceFolders.length);
+		}
+	} catch (e) {
+		console.error('[Amypo] Failed to clear workspace:', e);
+	}
+
+	console.log('[Amypo] Full UI Lockdown applied.');
 }
 
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
+
+	// Variable to handle the grace period for portal launch
+	let gateCheckTimeout: NodeJS.Timeout | undefined;
 
 	//  Security Layer 1 — App Name Check
 	if (!checkAppName()) {
@@ -143,13 +240,43 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	//  Auto-Update Check (async, non-blocking)
-	// checkForExtensionUpdate(secretKey).catch(err => {
-	// 	console.warn('[Amypo Update] Background update check error:', err);
-	// });
+	checkForExtensionUpdate(secretKey).catch(err => {
+		console.warn('[Amypo Update] Background update check error:', err);
+	});
 
+	// Register Block Action for Extensions View
+	context.subscriptions.push(
+		vscode.commands.registerCommand('amypo.blockAction', () => {
+			vscode.window.showWarningMessage('Amypo Coder: Access to this feature is restricted during testing.');
+		})
+	);
+
+	// ── Transient Security Gate (v2) ──
+	// Step 1: Immediately hide UI and clear session for a fresh start
+	await context.globalState.update(LAUNCH_TOKEN_KEY, undefined);
+	await disableUI();
+
+	// Step 2: Set a 1.5s grace period to wait for a portal deep link
+	gateCheckTimeout = setTimeout(async () => {
+		if (!isValidSession(context)) {
+			console.log('[Amypo Gate] Grace period expired - Blocking access.');
+
+			// Use Modal Warning (Center of screen, blocks all UI)
+			const choice = await vscode.window.showWarningMessage(
+				'Access Restricted: This application must be launched from the Amypo Student Portal.',
+				{ modal: true },
+				'Close Amypo Coder'
+			);
+
+			// Quit app immediately
+			vscode.commands.executeCommand('workbench.action.quit');
+		}
+	}, 1500); // 1.5 second grace period
+
+	// Always register URI handler (must work even when locked)
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
-			handleUri(uri: vscode.Uri) {
+			async handleUri(uri: vscode.Uri) {
 				console.log('========================================');
 				console.log('[Amypo] Deep link received!');
 				console.log('[Amypo] Full URI:', uri.toString());
@@ -180,7 +307,21 @@ export async function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 
-				console.log('[Amypo] All params valid — starting test...');
+				console.log('[Amypo] All params valid — saving launch token and enabling UI...');
+
+				// Cancel the gate lockout timer immediately
+				if (gateCheckTimeout) {
+					clearTimeout(gateCheckTimeout);
+					gateCheckTimeout = undefined;
+				}
+
+				// Save launch token for gate check
+				await context.globalState.update(LAUNCH_TOKEN_KEY, token);
+				await context.globalState.update('amypo.serverType', server_type);
+
+				// Enable UI elements
+				await enableUI();
+				await enableUI();
 
 				try {
 					vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
@@ -933,7 +1074,26 @@ export async function activate(context: vscode.ExtensionContext) {
 		}, 2000);
 	});
 
-	// Auto-start on activation with Workspace Guard
+	// ── Launch Gate Check ──
+	// If no valid session, lock down UI and block access
+	if (!isValidSession(context)) {
+		console.log('[Amypo] No valid session — blocking direct open.');
+		await disableUI();
+
+		const choice = await vscode.window.showWarningMessage(
+			'Access Restricted: Please launch Amypo Coder from the student portal.',
+			{ modal: true },
+			'Close'
+		);
+
+		vscode.commands.executeCommand('workbench.action.closeWindow');
+		return;
+	}
+
+	// Valid session — enable UI and proceed
+	console.log('[Amypo] Valid session detected — enabling UI.');
+	await enableUI();
+
 	try {
 		vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 	} catch { /* command not available */ }
@@ -951,164 +1111,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push({ dispose: () => clearInterval(autoSaveInterval) });
 	vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
 
-	// Check if test was already started (survives extension host restart)
-	const testAlreadyStarted = context.globalState.get<boolean>('amypo.testStarted') === true;
-
-	// Also check workspace folder as a fallback
-	// Normalize path separators and case to prevent mismatch on Windows
-	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	const amypoWorkspace = path.join(os.homedir(), 'amypo-workspace');
-	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
-	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
-	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
-
-	console.log('[Amypo] Guard check:', { currentFolder: normalizedCurrent, amypoWorkspace: normalizedAmypo, isInsideAmypoProject });
-
-	// Use testStarted (flag) AND isInsideAmypoProject (location) to decide whether to restore session automatically.
-	const shouldRestore = testAlreadyStarted && isInsideAmypoProject;
-
-	if (shouldRestore) {
-		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
-
-		// Restore saved data from globalState
-		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
-		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
-		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
-		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
-		const lastTest = context.globalState.get<any>('amypo.lastTest') ?? {
-			allocation_id: STATIC_ALLOCATION_ID,
-			test_type: STATIC_TEST_TYPE,
-			module_id: STATIC_MODULE_ID
-		};
-
-		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
-
-		// Restore metadata for API sync
-		const cachedDetails = context.globalState.get<any>('amypo.testDetails');
-		const cachedQuestions = context.globalState.get<any>('amypo.questionData');
-
-		if (cachedDetails) {
-			console.log('[Amypo] Restoring metadata from cache…');
-			activeAllocation = cachedDetails.allocation;
-		}
-		if (cachedQuestions) {
-			activeQuestionDatas = cachedQuestions;
-		}
-
-		// Wait for webview to signal 'ready' before sending data
-		eduViewProvider.setOnReady(async () => {
-			try {
-				console.log('[Amypo] Webview ready — restoring question…');
-
-				// Check if we have a cached question from a very recent transition
-				const cachedMsg = context.globalState.get<any>('amypo.cachedQuestion');
-				if (cachedMsg) {
-					console.log('[Amypo] Using cached question data (transition recovery)', cachedMsg);
-					eduViewProvider.postMessage(cachedMsg);
-					// Clear the cache after one use — subsequent reloads will fetch fresh data
-					await context.globalState.update('amypo.cachedQuestion', undefined);
-
-					// Also restore the course info UI
-					const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
-					console.log('[Amypo] Using cached course info (transition recovery)', savedCourseInfo);
-
-					if (savedCourseInfo) {
-						eduViewProvider.updateView(savedCourseInfo, () => { });
-					}
-
-					const savedTestData = context.globalState.get<any>('amypo.testData');
-					const elapsedSeconds = parseInt(savedTestData.time);
-					testStartTime = Date.now() - (elapsedSeconds * 1000);
-					return;
-				}
-
-				// Otherwise, perform fresh fetch (this handles manual vs code reloads)
-				const initResp = await checkStoreInitialData(
-					lastTest.allocation_id,
-					lastTest.test_type,
-					STATIC_TOKEN,
-					lastTest.module_id
-				);
-
-				if (!initResp) {
-					eduViewProvider.postMessage({ state: 'error', message: 'Failed to initialise test log.' });
-					return;
-				}
-
-				// Resume timer if test was already in progress
-				if (initResp.test_data?.time) {
-					const elapsedSeconds = parseInt(initResp.test_data.time);
-					testStartTime = Date.now() - (elapsedSeconds * 1000);
-					console.log(`[Amypo Restore] Resuming test timer from ${elapsedSeconds}s`);
-				}
-
-				// Cache test_data for restoration
-				await context.globalState.update('amypo.testData', initResp.test_data);
-
-				const questionDatas = initResp.question_datas ?? [];
-				activeQuestionDatas = questionDatas;
-				if (questionDatas.length === 0) {
-					eduViewProvider.postMessage({ state: 'error', message: 'No questions allocated.' });
-					return;
-				}
-
-				// Question stats
-				let submitted = 0, saved = 0, attended = 0;
-				questionDatas.forEach((q: any) => {
-					if (q.solve_status === 2) {
-						submitted++;
-					} else if (q.solve_status === 1) {
-						saved++;
-					} else if (q.solve_status === 0) {
-						attended++;
-					}
-				});
-
-				const statsObj = {
-					total: questionDatas.length,
-					submitted,
-					saved,
-					attended,
-					not_attended: questionDatas.length - (submitted + saved + attended)
-				};
-
-				const firstQuestionId = questionDatas[0]?.id;
-				const qData = await fetchQuestionById(
-					firstQuestionId,
-					lastTest.test_type,
-					lastTest.module_id,
-					STATIC_TOKEN
-				);
-
-				const questionMessage = qData
-					? { state: 'loaded', payload: qData, stats: statsObj }
-					: { state: 'error', message: 'Failed to retrieve question details.' };
-
-				eduViewProvider.postMessage(questionMessage);
-
-				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
-				if (savedCourseInfo) {
-					eduViewProvider.updateView(savedCourseInfo, () => { });
-				}
-
-			} catch (err) {
-				console.error('[Amypo] Session restore error:', err);
-				eduViewProvider.postMessage({ state: 'error', message: 'Error restoring session.' });
-			}
-		});
-
-	} else {
-		// Fresh launch — show Start Test
-		console.log('[Amypo] Fresh launch detected. Showing Start Test screen.');
-
-		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
-		if (normalizedCurrent === '') {
-			await context.globalState.update('amypo.cachedQuestion', undefined);
-			await context.globalState.update('amypo.courseInfo', undefined);
-		}
-
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
-	}
+	// Fresh launch via portal — start test flow
+	console.log('[Amypo] Portal launch — fetching test details.');
+	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 
 	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
 		const choice = await vscode.window.showWarningMessage(
@@ -1128,13 +1133,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		}, async (progress) => {
 			try {
 				progress.report({ message: "Syncing Git and Server state..." });
-				// syncGit('save') handles both Git push and Amypo state sync
 				await syncGit('save');
 
 				progress.report({ message: "Cleaning session state..." });
 				callMurugaExit();
 
-				// Clear persistent state
+				// Clear persistent state + launch token
 				await context.globalState.update('amypo.testStarted', false);
 				await context.globalState.update('amypo.allocationData', undefined);
 				await context.globalState.update('amypo.testDetails', undefined);
@@ -1142,6 +1146,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				await context.globalState.update('amypo.questionData', undefined);
 				await context.globalState.update('amypo.courseInfo', undefined);
 				await context.globalState.update('amypo.cachedQuestion', undefined);
+				await context.globalState.update(LAUNCH_TOKEN_KEY, undefined);
+
+				// Disable UI before closing
+				await disableUI();
 
 				// Final exit
 				vscode.commands.executeCommand('workbench.action.closeWindow');

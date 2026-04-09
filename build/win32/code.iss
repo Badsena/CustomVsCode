@@ -26,7 +26,7 @@ SetupIconFile={#RepoDir}\resources\win32\code.ico
 UninstallDisplayIcon={app}\{#ExeBasename}.exe
 ChangesEnvironment=true
 ChangesAssociations=true
-MinVersion=10.0
+MinVersion=6.1
 SourceDir={#SourceDir}
 AppVersion={#Version}
 VersionInfoVersion={#RawVersion}
@@ -133,11 +133,11 @@ Filename: "{app}\{#ExeBasename}.exe"; Description: "{cm:LaunchProgram,{#NameLong
 #define SoftwareClassesRootKey "HKLM"
 #endif
 
-; ✅ Register amypo:// Custom Protocol
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Protocol"; Flags: uninsdeletekey
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""
+; ✅ Register amypocoder:// Custom Protocol
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Coder Protocol"; Flags: uninsdeletekey
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""
 
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: none; ValueName: "{#RegValueName}"; Flags: deletevalue uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: string; ValueName: "{#RegValueName}.ascx"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associatewithfiles

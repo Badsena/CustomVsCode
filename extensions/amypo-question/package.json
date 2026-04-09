@@ -2,7 +2,7 @@
   "name": "amypo-question",
   "displayName": "Amypo Question Panel",
   "description": "Integrated Question Panel for Coding Problems.",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "publisher": "AMYPO",
   "engines": {
     "vscode": "^1.85.0"
@@ -40,11 +40,22 @@
       {
         "command": "amypo.exit",
         "title": "Exit Amypo Coder"
+      },
+      {
+        "command": "amypo.blockAction",
+        "title": "Access Restricted Block"
       }
     ],
-    "uriHandler": [
+    "keybindings": [
       {
-        "scheme": "amypo"
+        "command": "amypo.blockAction",
+        "key": "ctrl+shift+x",
+        "when": "true"
+      }
+    ],
+    "uriHandlers": [
+      {
+        "scheme": "amypocoder"
       }
     ]
   },
@@ -54,8 +65,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "compile": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
-    "watch": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch",
+    "compile": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
+    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch",
     "package": "npx @vscode/vsce package --no-dependencies"
   },
   "dependencies": {

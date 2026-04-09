@@ -1,7 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 import axios from 'axios'
 
 // Default API endpoint if environment variable is missing
-const BASE_URL = 'https://1102amy21.amypo.ai/api';
+let BASE_URL = 'https://1102amy21.amypo.ai/api';
+
+export function setBaseUrl(url: string) {
+	BASE_URL = url;
+}
 
 // to store 500 errors
 async function storeError(url: string, error: any): Promise<void> {
@@ -18,7 +26,7 @@ async function storeError(url: string, error: any): Promise<void> {
             `${BASE_URL}/store_errors`,
             payload,
             { headers: { 'Content-Type': 'application/json' } },
-        )
+        );
     } catch {
         // never propagate — error reporting must not break the app
     }
