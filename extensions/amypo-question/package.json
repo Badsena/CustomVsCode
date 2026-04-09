@@ -2,7 +2,7 @@
   "name": "amypo-question",
   "displayName": "Amypo Question Panel",
   "description": "Integrated Question Panel for Coding Problems.",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "publisher": "AMYPO",
   "engines": {
     "vscode": "^1.85.0"
@@ -42,9 +42,9 @@
         "title": "Exit Amypo Coder"
       }
     ],
-    "uriHandler": [
+    "uriHandlers": [
       {
-        "scheme": "amypo"
+        "scheme": "amypocoder"
       }
     ]
   },
@@ -54,8 +54,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "compile": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
-    "watch": "../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch",
+    "compile": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node",
+    "watch": "node ../../node_modules/esbuild/bin/esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --watch",
     "package": "npx @vscode/vsce package --no-dependencies"
   },
   "dependencies": {

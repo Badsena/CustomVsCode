@@ -6,7 +6,9 @@
 import '../../platform/update/common/update.config.contribution.js';
 
 import { app, dialog } from 'electron';
+import * as fs from 'fs';
 import { unlinkSync, promises } from 'fs';
+
 import { URI } from '../../base/common/uri.js';
 import { coalesce, distinct } from '../../base/common/arrays.js';
 import { Promises } from '../../base/common/async.js';
@@ -74,6 +76,8 @@ import { FileUserDataProvider } from '../../platform/userData/common/fileUserDat
 import { addUNCHostToAllowlist, getUNCHost } from '../../base/node/unc.js';
 import { ThemeMainService } from '../../platform/theme/electron-main/themeMainServiceImpl.js';
 import { LINUX_SYSTEM_POLICY_FILE_PATH } from '../../base/common/policy.js';
+import { enforcePortalLaunch } from './amypoGuard.js';
+
 
 /**
  * The main VS Code entry point.
@@ -85,7 +89,25 @@ import { LINUX_SYSTEM_POLICY_FILE_PATH } from '../../base/common/policy.js';
  */
 class CodeMain {
 
-	main(): void {
+	async main(): Promise<void> {
+		// ── STARTUP DEBUG LOGGER ───────────────────────────────
+		try {
+			const debugPath = 'C:\\Users\\Admin\\Desktop\\amypo-launch-debug.txt';
+			fs.writeFileSync(debugPath, JSON.stringify({
+				argv: process.argv,
+				env_token: process.env.AMYPO_PORTAL_TOKEN,
+				time: new Date().toISOString()
+			}, null, 2));
+		} catch (e) {
+			console.error('Failed to write debug log:', e);
+		}
+
+		// ── ABSOLUTE LOCKDOWN CHECK ────────────────────────────
+		const isAuthorized = await enforcePortalLaunch();
+		if (!isAuthorized) {
+			return; // Guard calls app.exit()
+		}
+
 		try {
 			this.startup();
 		} catch (error) {
@@ -99,6 +121,8 @@ class CodeMain {
 		// Set the error handler early enough so that we are not getting the
 		// default electron error dialog popping up
 		setUnexpectedErrorHandler(err => console.error(err));
+
+
 
 		// Create services
 		const [instantiationService, instanceEnvironment, environmentMainService, configurationService, stateMainService, bufferLogger, productService, userDataProfilesMainService] = this.createServices();
