@@ -1,0 +1,50 @@
+﻿[[90m11:18:10[39m] Using gulpfile ~\Documents\CustomVsCode\gulpfile.mjs
+[[90m11:18:10[39m] Starting 'vscode-win32-x64'...
+[[90m11:18:10[39m] Starting [36mcopy-codicons[39m ...
+[[90m11:18:10[39m] Finished [36mcopy-codicons[39m after [35m5 ms[39m
+[[90m11:18:10[39m] Starting [36mclean-extensions-build[39m ...
+[[90m11:18:11[39m] Finished [36mclean-extensions-build[39m after [35m323 ms[39m
+[[90m11:18:11[39m] Starting [36mbundle-marketplace-extensions-build[39m ...
+[[90m11:18:11[39m] [extensions] ms-vscode.js-debug-companion@1.1.3 up to date [32m✔︎[39m
+[[90m11:18:11[39m] [extensions] ms-vscode.js-debug@1.112.0 up to date [32m✔︎[39m
+[[90m11:18:11[39m] [extensions] ms-vscode.vscode-js-profile-table@1.0.10 up to date [32m✔︎[39m
+node : (node:17164) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+At line:1 char:1
++ node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js vscode ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:17164) [D... is deprecated.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[[90m11:18:12[39m] Finished [36mbundle-marketplace-extensions-build[39m after [35m1178 ms[39m
+[[90m11:18:12[39m] Starting [36mbundle-non-native-extensions-build[39m ...
+[[90m11:18:55[39m] Bundled extension: [33mipynb\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mtunnel-forwarding\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33msearch-result\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mgrunt\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mmermaid-chat-features\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mmedia-preview\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mjake\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mcss-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mgulp\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mextension-editing\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33memmet\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mgithub-authentication\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mconfiguration-editing\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mgit-base\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mdebug-server-ready\esbuild.mts[39m with 0 errors.
+[[90m11:18:55[39m] Bundled extension: [33mdebug-auto-launch\esbuild.mts[39m with 0 errors.
+[[90m11:18:56[39m] Bundled extension: [33mreferences-view\esbuild.mts[39m with 0 errors.
+[[90m11:18:56[39m] Bundled extension: [33msimple-browser\esbuild.mts[39m with 0 errors.
+[[90m11:18:58[39m] Bundled extension: [33mphp-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:18:59[39m] Bundled extension: [33mmarkdown-math\esbuild.mts[39m with 0 errors.
+[[90m11:19:22[39m] Bundled extension: [33mterminal-suggest\esbuild.mts[39m with 0 errors.
+[[90m11:19:35[39m] Bundled extension: [33mgithub\esbuild.mts[39m with 0 errors.
+[[90m11:19:46[39m] Bundled extension: [33mmerge-conflict\esbuild.mts[39m with 0 errors.
+[[90m11:19:48[39m] Bundled extension: [33mjson-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:19:54[39m] Bundled extension: [33mnpm\esbuild.mts[39m with 0 errors.
+[[90m11:19:56[39m] Bundled extension: [33mhtml-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:20:15[39m] Bundled extension: [33mtypescript-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:20:28[39m] Bundled extension: [33mmarkdown-language-features\esbuild.mts[39m with 0 errors.
+[[90m11:20:41[39m] 'vscode-win32-x64' errored after 2.52 min
+[[90m11:20:41[39m] Error: EISDIR: illegal operation on a directory, read

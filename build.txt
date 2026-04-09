@@ -1,0 +1,17 @@
+// to build the project
+yarn
+yarn compile
+// path -> ../VSCode-linux-x64
+yarn gulp vscode-linux-x64
+
+// system requirement for .deb
+sudo apt update
+sudo apt install fakeroot dpkg-dev
+
+// .deb
+yarn gulp vscode-linux-x64-build-deb
+
+
+ls -d ../VSCode-linux-x64
+grep -r "build-deb" gulpfile.mjs
+sudo apt install libarchive-tools

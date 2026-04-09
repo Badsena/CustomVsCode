@@ -57,7 +57,9 @@ export async function getDependencies(packageType: 'deb' | 'rpm', buildDir: stri
 	// Add the native modules
 	const files = findResult.stdout.toString().trimEnd().split('\n');
 	// Add the tunnel binary.
-	files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
+	if (product.tunnelApplicationName) {
+		files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
+	}
 	// Add the main executable.
 	files.push(appPath);
 	// Add chrome sandbox and crashpad handler.
