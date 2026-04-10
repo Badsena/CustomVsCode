@@ -5,119 +5,120 @@
 
 import * as vscode from 'vscode';
 export class EduViewProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'amypoEduView';
-    private _view?: vscode.WebviewView;
-    private _courseInfo?: any;
-    private _lastMessage?: any;
-    private _webviewReady = false;
-    private _onConfirm?: () => void;
+	public static readonly viewType = 'amypoEduView';
+	private _view?: vscode.WebviewView;
+	private _courseInfo?: any;
+	private _lastMessage?: any;
+	private _webviewReady = false;
+	private _onConfirm?: () => void;
 
-    constructor(private readonly _extensionUri: vscode.Uri) { }
+	constructor(private readonly _extensionUri: vscode.Uri) { }
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken,
-    ) {
-        this._view = webviewView;
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
-        webviewView.description = 'Amypo Question Panel';
-        webviewView.webview.onDidReceiveMessage((message) => {
-            switch (message.command) {
-                case 'ready':
-                    this._webviewReady = true;
-                    // Re-send last state if we have it
-                    if (this._lastMessage) {
-                        setTimeout(() => {
-                            this.postMessage(this._lastMessage);
-                        }, 100);
-                    }
-                    // Notify extension that webview is ready (for session restore)
-                    if (this._onReady) {
-                        this._onReady();
-                        this._onReady = undefined;
-                    }
-                    break;
-                case 'reload':
-                    if (this._onReload) {
-                        this._onReload();
-                    }
-                    break;
-                case 'save':
-                    if (this._onSave) {
-                        this._onSave();
-                    }
-                    break;
-                case 'verify':
-                    if (this._onVerify) {
-                        this._onVerify();
-                    }
-                    break;
-                case 'pull':
-                    if (this._onPull) {
-                        this._onPull();
-                    }
-                    break;
-                case 'startTest':
-                    if (this._onConfirm) {
-                        this._onConfirm();
-                    }
-                    break;
-            }
-        });
+	public resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken,
+	) {
+		this._view = webviewView;
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this._extensionUri]
+		};
+		webviewView.description = 'Amypo Question Panel';
+		webviewView.webview.onDidReceiveMessage((message) => {
+			switch (message.command) {
+				case 'ready':
+					this._webviewReady = true;
+					// Re-send last state if we have it
+					if (this._lastMessage) {
+						setTimeout(() => {
+							this.postMessage(this._lastMessage);
+						}, 100);
+					}
+					// Notify extension that webview is ready (for session restore)
+					if (this._onReady) {
+						this._onReady();
+						this._onReady = undefined;
+					}
+					break;
+				case 'reload':
+					if (this._onReload) {
+						this._onReload();
+					}
+					break;
+				case 'save':
+					if (this._onSave) {
+						this._onSave();
+					}
+					break;
+				case 'verify':
+					if (this._onVerify) {
+						this._onVerify();
+					}
+					break;
+				case 'pull':
+					if (this._onPull) {
+						this._onPull();
+					}
+					break;
+				case 'startTest':
+					if (this._onConfirm) {
+						this._onConfirm();
+					}
+					break;
+			}
+		});
 
-        // ✅ Always set HTML immediately
-        if (this._courseInfo) {
-            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
-        } else if (!this._view.webview.html) {
-            // Show loading state until courseInfo arrives
-            this._view.webview.html = this._getLoadingHtml();
-        }
-    }
+		// ✅ Always set HTML immediately
+		if (this._courseInfo) {
+			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
+		} else if (!this._view.webview.html) {
+			// Show loading state until courseInfo arrives
+			this._view.webview.html = this._getLoadingHtml();
+		}
+	}
 
-    private _onReload?: () => void;
-    private _onSave?: () => void;
-    private _onVerify?: () => void;
-    private _onPull?: () => void;
-    private _onReady?: () => void;
+	private _onReload?: () => void;
+	private _onSave?: () => void;
+	private _onVerify?: () => void;
+	private _onPull?: () => void;
+	private _onReady?: () => void;
 
-    public setOnReload(callback: () => void) { this._onReload = callback; }
-    public setOnSave(callback: () => void) { this._onSave = callback; }
-    public setOnVerify(callback: () => void) { this._onVerify = callback; }
-    public setOnPull(callback: () => void) { this._onPull = callback; }
-    public setOnReady(callback: () => void) {
-        if (this._webviewReady) {
-            // Webview already fired ready — call immediately
-            console.log('[Amypo] Webview already ready — firing callback immediately');
-            setTimeout(callback, 100);
-        } else {
-            this._onReady = callback;
-        }
-    }
+	public setOnReload(callback: () => void) { this._onReload = callback; }
+	public setOnSave(callback: () => void) { this._onSave = callback; }
+	public setOnVerify(callback: () => void) { this._onVerify = callback; }
+	public setOnPull(callback: () => void) { this._onPull = callback; }
+	public setOnReady(callback: () => void) {
+		if (this._webviewReady) {
+			// Webview already fired ready — call immediately
+			console.log('[Amypo] Webview already ready — firing callback immediately');
+			setTimeout(callback, 100);
+		} else {
+			this._onReady = callback;
+		}
+	}
 
-    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
-        this._courseInfo = courseInfo;
-        this._onConfirm = onConfirm;
-        this._webviewReady = false; // Reset — new HTML will fire 'ready' again
+	// public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
+	public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string }, onConfirm: () => void) {
+		this._courseInfo = courseInfo;
+		this._onConfirm = onConfirm;
+		this._webviewReady = false; // Reset — new HTML will fire 'ready' again
 
-        if (this._view) {
-            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
-            this._view.show?.(true);
-        }
-    }
+		if (this._view) {
+			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
+			this._view.show?.(true);
+		}
+	}
 
-    public postMessage(message: any) {
-        this._lastMessage = message;
-        if (this._view) {
-            this._view.webview.postMessage(message);
-        }
-    }
+	public postMessage(message: any) {
+		this._lastMessage = message;
+		if (this._view) {
+			this._view.webview.postMessage(message);
+		}
+	}
 
-    private _getLoadingHtml(): string {
-        return `<!DOCTYPE html>
+	private _getLoadingHtml(): string {
+		return `<!DOCTYPE html>
         <html><body style="display:flex;align-items:center;justify-content:center;height:100%;
         background:var(--vscode-editor-background);color:var(--vscode-foreground);font-family:var(--vscode-font-family);">
             <div style="text-align:center;">
@@ -130,19 +131,19 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 vscode.postMessage({ command: 'ready' });
             </script>
         </body></html>`;
-    }
+	}
 
-    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
-        const nonce = getNonce();
-        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
+	private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
+		const nonce = getNonce();
+		const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
 
-        const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
-            ? `<div class="languages">
+		const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
+			? `<div class="languages">
 				${courseInfo.languages.map((l: any) => `<span class="lang-tag">${l}</span>`).join('')}
 			   </div>`
-            : '';
+			: '';
 
-        return `<!DOCTYPE html>
+		return `<!DOCTYPE html>
         <html lang="en" style="height: 100%; margin: 0; padding: 0; overflow: hidden;">
         <head>
             <meta charset="UTF-8">
@@ -467,7 +468,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         <div class="subtext">${courseInfo.course_name}</div>
                         ${languagesHtml}
                         ${courseInfo.errorMessage ? `<div style="color: #e17055; margin-top: 16px; font-weight: 600; text-align: center; border: 1px solid #fab1a0; padding: 12px; border-radius: 8px; background: #fff5f5;">${courseInfo.errorMessage}</div>` :
-                `<div class="buttons">
+				`<div class="buttons">
                             <button class="btn-start" id="start">Start Test</button>
                         </div>`}
                     </div>
@@ -520,9 +521,13 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             </div>
                         </div>
                     </div>
-                    <div class="topbar-right">
-                        <button class="icon-btn" id="reload" title="Reload Extension">⟳</button>
-                    </div>
+
+  <div class="topbar-right" style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:11px;color:var(--vscode-descriptionForeground);
+                            background:var(--vscode-badge-background);
+                            padding:2px 8px;border-radius:10px;font-weight:600;">
+                            v${courseInfo.version ?? '1.0.6'}
+                        </span>
                 </div>
 
                 <div class="main-layout">
@@ -877,14 +882,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </script>
         </body>
         </html>`;
-    }
+	}
 }
 
 function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
