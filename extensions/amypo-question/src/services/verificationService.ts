@@ -4,6 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
 import * as vscode from 'vscode';
+import extract = require('extract-zip');
 
 const execAsync = promisify(exec);
 
@@ -23,8 +24,9 @@ async function hideTestFolder(projectPath: string, folderPattern: string, gitPat
 			if (fs.existsSync(gitExcludePath)) {
 				content = fs.readFileSync(gitExcludePath, 'utf8');
 			}
-			if (!content.includes(gitPattern)) {
-				fs.appendFileSync(gitExcludePath, `\n${gitPattern}\n`);
+			const gitPatternFormatted = gitPattern.replace(/\\/g, '/');
+			if (!content.includes(gitPatternFormatted)) {
+				fs.appendFileSync(gitExcludePath, `\n${gitPatternFormatted}\n`);
 			}
 		}
 	} catch (e) {
@@ -45,8 +47,9 @@ async function unhideTestFolder(projectPath: string, folderPattern: string, gitP
 		const gitExcludePath = path.join(projectPath, '.git', 'info', 'exclude');
 		if (fs.existsSync(gitExcludePath)) {
 			let content = fs.readFileSync(gitExcludePath, 'utf8');
-			if (content.includes(gitPattern)) {
-				const lines = content.split('\n').filter(line => line.trim() !== gitPattern);
+			const gitPatternFormatted = gitPattern.replace(/\\/g, '/');
+			if (content.includes(gitPatternFormatted)) {
+				const lines = content.split('\n').filter(line => line.trim() !== gitPatternFormatted);
 				fs.writeFileSync(gitExcludePath, lines.join('\n'));
 			}
 		}
@@ -244,8 +247,11 @@ export async function verifySpringBoot(request: VerificationRequest) {
 		fs.writeFileSync(zipFilePath, Buffer.from(response.data));
 
 		try {
-			await execAsync(`unzip -o "${zipFilePath}" -d "${localDestPath}"`);
+			await extract(zipFilePath, { dir: path.resolve(localDestPath) });
 			console.log('✓ Files extracted to project test directory');
+		} catch (extractErr) {
+			console.error('Failed to extract zip:', extractErr);
+			throw new Error('Testcase extraction failed. Please ensure you have sufficient permissions.');
 		} finally {
 			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
 		}
@@ -328,8 +334,11 @@ export async function verifyReact(request: VerificationRequest) {
 		fs.writeFileSync(zipFilePath, Buffer.from(response.data));
 
 		try {
-			await execAsync(`unzip -o "${zipFilePath}" -d "${localDestPath}"`);
+			await extract(zipFilePath, { dir: path.resolve(localDestPath) });
 			console.log('✓ Files extracted to project test directory');
+		} catch (extractErr) {
+			console.error('Failed to extract zip:', extractErr);
+			throw new Error('Testcase extraction failed. Please ensure you have sufficient permissions.');
 		} finally {
 			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
 		}
