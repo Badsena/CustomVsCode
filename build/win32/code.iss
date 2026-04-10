@@ -133,11 +133,25 @@ Filename: "{app}\{#ExeBasename}.exe"; Description: "{cm:LaunchProgram,{#NameLong
 #define SoftwareClassesRootKey "HKLM"
 #endif
 
-; ✅ Register amypocoder:// Custom Protocol
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Coder Protocol"; Flags: uninsdeletekey
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"
-Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""
+; ══════════════════════════════════════════════════════════
+; ✅ Register amypocoder:// URI Protocol Scheme
+; ══════════════════════════════════════════════════════════
+
+; Register under HKLM (System install) — works for ALL users
+Root: HKLM; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Coder Protocol"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Classes\amypocoder\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Classes\amypocoder\shell"; ValueType: string; ValueName: ""; ValueData: "open"; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Classes\amypocoder\shell\open"; ValueType: string; ValueName: ""; ValueData: ""; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Classes\amypocoder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""; Flags: uninsdeletevalue
+
+; Register under HKCU (User install) — works for current user
+Root: HKCU; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Coder Protocol"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\amypocoder"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\amypocoder\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\amypocoder\shell"; ValueType: string; ValueName: ""; ValueData: "open"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\amypocoder\shell\open"; ValueType: string; ValueName: ""; ValueData: ""; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\amypocoder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""; Flags: uninsdeletevalue
 
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: none; ValueName: "{#RegValueName}"; Flags: deletevalue uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: string; ValueName: "{#RegValueName}.ascx"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associatewithfiles
@@ -1300,7 +1314,19 @@ Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\Drive\shell\{#RegValu
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\Drive\shell\{#RegValueName}"; ValueType: expandsz; ValueName: "Icon"; ValueData: "{app}\{#ExeBasename}.exe"; Tasks: addcontextmenufolders; Check: ShouldInstallLegacyFolderContextMenu
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\Drive\shell\{#RegValueName}\command"; ValueType: expandsz; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""%V"""; Tasks: addcontextmenufolders; Check: ShouldInstallLegacyFolderContextMenu
 
-; Environment
+; ══════════════════════════════════════════════════════════
+; ✅ Register App Path (Install Location)
+; So Windows always knows where AmypoCoder is installed
+; ══════════════════════════════════════════════════════════
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ExeBasename}.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ExeBasename}.exe"; ValueType: string; ValueName: "Path"; ValueData: "{app}"; Flags: uninsdeletevalue
+
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ExeBasename}.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ExeBasename}.exe"; ValueType: string; ValueName: "Path"; ValueData: "{app}"; Flags: uninsdeletevalue
+
+; ══════════════════════════════════════════════════════════
+; ✅ Environment PATH
+; ══════════════════════════════════════════════════════════
 #if "user" == InstallTarget
 #define EnvironmentRootKey "HKCU"
 #define EnvironmentKey "Environment"
@@ -1314,10 +1340,6 @@ Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\Drive\shell\{#RegValu
 #endif
 
 Root: {#EnvironmentRootKey}; Subkey: "{#EnvironmentKey}"; ValueType: expandsz; ValueName: "Path"; ValueData: "{code:AddToPath|{app}\bin}"; Tasks: addtopath; Check: NeedsAddToPath(ExpandConstant('{app}\bin'))
-
-; App Paths - allows running code from Explorer address bar
-Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe"; Flags: uninsdeletekey
-Root: {#EnvironmentRootKey}; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#ApplicationName}.exe"; ValueType: string; ValueName: "Path"; ValueData: "{app}"; Flags: uninsdeletekey
 
 [Code]
 function IsBackgroundUpdate(): Boolean;
