@@ -746,7 +746,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				await vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 			} catch { /* command not available */ }
 
-			eduViewProvider.updateView(finalCourseInfo, async () => {
+			eduViewProvider.updateView(finalCourseInfo as any, async () => {
 				vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Starting test…', 5000);
 				eduViewProvider.postMessage({ state: 'loading' });
 
