@@ -8,7 +8,7 @@ import axios from 'axios'
 let BASE_URL = 'https://1102amy21.amypo.ai/api';
 
 export function setBaseUrl(url: string) {
-	BASE_URL = url;
+    BASE_URL = url;
 }
 
 // to store 500 errors
@@ -40,14 +40,13 @@ function getSafeToken(token: string | undefined): string {
     return token;
 }
 
-export async function fetchData(endpoint: any): Promise<any> {
-    const rawToken = '';
-    const token = getSafeToken(rawToken);
+export async function fetchData(endpoint: string, token: string = ''): Promise<any> {
+    const safeToken = getSafeToken(token);
 
     try {
         const response = await axios.get<any>(`${endpoint}`, {
             headers: {
-                Authorization: token ? `Bearer ${token}` : '',
+                Authorization: safeToken ? `Bearer ${safeToken}` : '',
             },
         })
         return response.data

@@ -12,7 +12,7 @@ import { promisify } from 'util';
 import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
-import { submitData, jsonsubmitData, setBaseUrl } from './services/axios/submissions';
+import { submitData, jsonsubmitData, fetchData } from './services/axios/submissions';
 import { verifySpringBoot, verifyReact } from './services/verificationService';
 
 const execAsync = promisify(exec);
@@ -21,44 +21,26 @@ const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api/extensions/latest-version.json' : 'https://endpoint.amypo.ai/api/extensions/latest-version.json';
 
-function readGithubToken(): string {
-	try {
-		const productJsonPath = path.join(vscode.env.appRoot, 'product.json');
-		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
-		return productJson.amypoGithubToken ?? '';
-	} catch {
-		return '';
-	}
-}
-
-const GITHUB_TOKEN = readGithubToken();
-
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
 const STATIC_TOKEN = '285526|5SZi3FeoZdTFYLeVCH4YG2pqoNboHKyv1HeJzJOr2bd83239';
 const STATIC_MODULE_ID = 992;
 
-const GITHUB_TOKEN = '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';
-const GIT_URL = 'https://github.com/Badsena/';
-
-// Launch gate constants
-const LAUNCH_TOKEN_KEY = 'amypo.launchToken';
+let GITHUB_TOKEN = '';
+let GIT_URL = '';
 
 // check App name
 function checkAppName(): boolean {
-	const appName = vscode.env.appName.toLowerCase();
-	const uriScheme = vscode.env.uriScheme.toLowerCase();
+	const appName = vscode.env.appName;
 	const appRoot = vscode.env.appRoot;
 
-	// Check for amypocoder scheme OR Amypo coder name OR dev path
 	const isAmypoCoder =
-		uriScheme === 'amypocoder' ||
-		uriScheme === 'amypo' ||
-		appName.includes('amypo') ||
-		appRoot.includes('CustomVsCode');
+		appName.includes('Amypo') ||
+		appRoot.toLowerCase().includes('amypo') ||
+		appRoot.includes('CustomVsCode'); // ← dev mode path
 
 	if (!isAmypoCoder) {
-		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host', uriScheme, appName, appRoot);
+		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
 		return false;
 	}
 	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
@@ -85,7 +67,7 @@ function readSecretKey(): string | null {
 	}
 }
 
-// Auto-Update — checks VS Code Marketplace directly, installs over built-in
+// Auto-Update
 async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 	try {
 		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
@@ -93,142 +75,62 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 
 		console.log(`[Amypo Update] Current extension version: ${currentVersion}`);
 
-		// Query VS Code Marketplace API for latest version
-		const marketplaceResp = await axios.post(
-			'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery',
-			{
-				filters: [{
-					criteria: [
-						{ filterType: 7, value: 'AMYPO.amypo-question' }
-					]
-				}],
-				flags: 914
-			},
-			{
-				headers: { 'Content-Type': 'application/json', 'Accept': 'application/json;api-version=6.0-preview.1' },
-				timeout: 8000,
-			}
-		);
+		const resp = await axios.get(EXTENSION_UPDATE_URL, {
+			headers: { 'X-Amypo-Key': secretKey },
+			timeout: 5000,
+		});
 
-		const extensions = marketplaceResp.data?.results?.[0]?.extensions;
-		if (!extensions || extensions.length === 0) {
-			console.log('[Amypo Update] Extension not found on marketplace.');
+		const { latestVersion, downloadUrl } = resp.data;
+
+		if (!latestVersion || !downloadUrl) {
+			console.log('[Amypo Update] Invalid server response — skipping update check.');
 			return;
 		}
-
-		const latestVersion = extensions[0]?.versions?.[0]?.version;
-		if (!latestVersion) {
-			console.log('[Amypo Update] Could not determine latest version.');
-			return;
-		}
-
-		console.log(`[Amypo Update] Marketplace version: ${latestVersion}, Current: ${currentVersion}`);
 
 		if (currentVersion === latestVersion) {
 			console.log('[Amypo Update] Extension is up to date.');
 			return;
 		}
 
-		// Compare versions (simple string compare works for semver with same digit count)
-		const current = currentVersion.split('.').map(Number);
-		const latest = latestVersion.split('.').map(Number);
-		let isNewer = false;
-		for (let i = 0; i < 3; i++) {
-			if ((latest[i] || 0) > (current[i] || 0)) { isNewer = true; break; }
-			if ((latest[i] || 0) < (current[i] || 0)) { break; }
-		}
-
-		if (!isNewer) {
-			console.log('[Amypo Update] Built-in version is same or newer than marketplace.');
-			return;
-		}
-
 		console.log(`[Amypo Update] New version available: ${latestVersion} (current: ${currentVersion})`);
 
-		// Auto-install from marketplace with progress notification
-		await vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: `Amypo Question Panel: Updating to v${latestVersion}...`,
-			cancellable: false
-		}, async (progress) => {
-			try {
-				progress.report({ message: 'Downloading from marketplace...' });
-
-				// Install from marketplace by extension ID
-				await vscode.commands.executeCommand(
-					'workbench.extensions.installExtension',
-					'AMYPO.amypo-question'
-				);
-
-				progress.report({ message: 'Installed successfully!' });
-
-				console.log(`[Amypo Update] Successfully updated to v${latestVersion}`);
-			} catch (installError) {
-				console.error('[Amypo Update] Installation failed:', installError);
-				vscode.window.showErrorMessage('Amypo: Failed to install update. Please try again later.');
-				throw installError;
-			}
-		});
-
-		// Show persistent restart prompt
-		const action = await vscode.window.showInformationMessage(
-			`✅ Amypo Question Panel updated to v${latestVersion}. Restart to apply changes.`,
-			{ modal: false },
-			'Restart Now'
+		const choice = await vscode.window.showInformationMessage(
+			`Amypo Question update available (v${latestVersion})`,
+			'Update Now',
+			'Later'
 		);
 
-		if (action === 'Restart Now') {
-			vscode.commands.executeCommand('workbench.action.reloadWindow');
+		if (choice === 'Update Now') {
+			vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Installing update…', 15000);
+
+			try {
+				await vscode.commands.executeCommand(
+					'workbench.extensions.installExtension',
+					vscode.Uri.parse(downloadUrl)
+				);
+				vscode.window.showInformationMessage(
+					`Amypo Question updated to v${latestVersion}! Restart to apply.`,
+					'Restart Now'
+				).then(action => {
+					if (action === 'Restart Now') {
+						vscode.commands.executeCommand('workbench.action.reloadWindow');
+					}
+				});
+			} catch (installError) {
+				console.error('[Amypo Update] VSIX installation failed:', installError);
+				vscode.window.showErrorMessage('Amypo: Failed to install update.');
+			}
 		}
 
 	} catch (error) {
 		// Update check failed — non-critical, log and continue
-		console.warn('[Amypo Update] Update check failed:', error);
+		console.warn('[Amypo Update] Update check failed (server may be unreachable):', error);
 	}
-}
-
-// Launch gate — check if current session is valid (token-based only, no expiry)
-function isValidSession(context: vscode.ExtensionContext): boolean {
-	const token = context.globalState.get<string>(LAUNCH_TOKEN_KEY);
-	return !!token;
-}
-
-// Enable UI elements (called after valid portal launch)
-async function enableUI(): Promise<void> {
-	const config = vscode.workspace.getConfiguration();
-	await config.update('workbench.activityBar.visible', true, vscode.ConfigurationTarget.Global);
-	await config.update('workbench.statusBar.visible', true, vscode.ConfigurationTarget.Global);
-	await config.update('window.menuBarVisibility', 'classic', vscode.ConfigurationTarget.Global);
-	await config.update('terminal.integrated.defaultProfile.windows', undefined, vscode.ConfigurationTarget.Global);
-	console.log('[Amypo] UI enabled.');
-}
-
-// Disable UI elements (called on direct open or expired session)
-async function disableUI(): Promise<void> {
-	const config = vscode.workspace.getConfiguration();
-	await config.update('workbench.activityBar.visible', false, vscode.ConfigurationTarget.Global);
-	await config.update('workbench.statusBar.visible', false, vscode.ConfigurationTarget.Global);
-	await config.update('window.menuBarVisibility', 'hidden', vscode.ConfigurationTarget.Global);
-
-	// FULL LOCKDOWN: Close all editors and clear workspace
-	try {
-		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-			vscode.workspace.updateWorkspaceFolders(0, vscode.workspace.workspaceFolders.length);
-		}
-	} catch (e) {
-		console.error('[Amypo] Failed to clear workspace:', e);
-	}
-
-	console.log('[Amypo] Full UI Lockdown applied.');
 }
 
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
-
-	// Variable to handle the grace period for portal launch
-	let gateCheckTimeout: NodeJS.Timeout | undefined;
 
 	//  Security Layer 1 — App Name Check
 	if (!checkAppName()) {
@@ -244,43 +146,13 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	//  Auto-Update Check (async, non-blocking)
-	checkForExtensionUpdate(secretKey).catch(err => {
-		console.warn('[Amypo Update] Background update check error:', err);
-	});
+	// checkForExtensionUpdate(secretKey).catch(err => {
+	// 	console.warn('[Amypo Update] Background update check error:', err);
+	// });
 
-	// Register Block Action for Extensions View
-	context.subscriptions.push(
-		vscode.commands.registerCommand('amypo.blockAction', () => {
-			vscode.window.showWarningMessage('Amypo Coder: Access to this feature is restricted during testing.');
-		})
-	);
-
-	// ── Transient Security Gate (v2) ──
-	// Step 1: Immediately hide UI and clear session for a fresh start
-	await context.globalState.update(LAUNCH_TOKEN_KEY, undefined);
-	await disableUI();
-
-	// Step 2: Set a 1.5s grace period to wait for a portal deep link
-	gateCheckTimeout = setTimeout(async () => {
-		if (!isValidSession(context)) {
-			console.log('[Amypo Gate] Grace period expired - Blocking access.');
-
-			// Use Modal Warning (Center of screen, blocks all UI)
-			const choice = await vscode.window.showWarningMessage(
-				'Access Restricted: This application must be launched from the Amypo Student Portal.',
-				{ modal: true },
-				'Close Amypo Coder'
-			);
-
-			// Quit app immediately
-			vscode.commands.executeCommand('workbench.action.quit');
-		}
-	}, 1500); // 1.5 second grace period
-
-	// Always register URI handler (must work even when locked)
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
-			async handleUri(uri: vscode.Uri) {
+			handleUri(uri: vscode.Uri) {
 				console.log('========================================');
 				console.log('[Amypo] Deep link received!');
 				console.log('[Amypo] Full URI:', uri.toString());
@@ -311,21 +183,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 
-				console.log('[Amypo] All params valid — saving launch token and enabling UI...');
-
-				// Cancel the gate lockout timer immediately
-				if (gateCheckTimeout) {
-					clearTimeout(gateCheckTimeout);
-					gateCheckTimeout = undefined;
-				}
-
-				// Save launch token for gate check
-				await context.globalState.update(LAUNCH_TOKEN_KEY, token);
-				await context.globalState.update('amypo.serverType', server_type);
-
-				// Enable UI elements
-				await enableUI();
-				await enableUI();
+				console.log('[Amypo] All params valid — starting test...');
 
 				try {
 					vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
@@ -757,6 +615,24 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	const fetchGitDetails = async (token: string): Promise<void> => {
+		try {
+			const resp = await fetchData(`${API_URL}/sandbox/git_details`, token);
+			console.log('[Amypo] Git details response:', resp);
+
+			if (resp) {
+				const { git_username, git_token } = resp;
+				if (git_username && git_token) {
+					GITHUB_TOKEN = git_token;
+					GIT_URL = `https://github.com/${git_username}/`;
+					console.log('[Amypo] Git credentials updated successfully for:', git_username);
+				}
+			}
+		} catch (error) {
+			console.error('[Amypo] Error fetching git details:', error);
+		}
+	};
+
 	// Main: Get Test Details
 	const getTestDetails = async (
 		allocation_id: number,
@@ -778,6 +654,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			const resp = await submitData(payload, endpoint, 0, token);
 			console.log('[Amypo EduTech] Test details response:', resp);
+
+			// Fetch Git details in parallel or sequence
+			await fetchGitDetails(token);
 
 			// Error: no data
 			if (resp?.status !== 200 || !resp?.data) {
@@ -1143,26 +1022,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// ── Launch Gate Check ──
-	// If no valid session, lock down UI and block access
-	if (!isValidSession(context)) {
-		console.log('[Amypo] No valid session — blocking direct open.');
-		await disableUI();
-
-		const choice = await vscode.window.showWarningMessage(
-			'Access Restricted: Please launch Amypo Coder from the student portal.',
-			{ modal: true },
-			'Close'
-		);
-
-		vscode.commands.executeCommand('workbench.action.closeWindow');
-		return;
-	}
-
-	// Valid session — enable UI and proceed
-	console.log('[Amypo] Valid session detected — enabling UI.');
-	await enableUI();
-
+	// Auto-start on activation with Workspace Guard
 	try {
 		vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 	} catch { /* command not available */ }
@@ -1347,12 +1207,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		}, async (progress) => {
 			try {
 				progress.report({ message: "Syncing Git and Server state..." });
+				// syncGit('save') handles both Git push and Amypo state sync
 				await syncGit('save');
 
 				progress.report({ message: "Cleaning session state..." });
 				callMurugaExit();
 
-				// Clear persistent state + launch token
+				// Clear persistent state
 				await context.globalState.update('amypo.testStarted', false);
 				await context.globalState.update('amypo.allocationData', undefined);
 				await context.globalState.update('amypo.testDetails', undefined);
@@ -1360,10 +1221,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				await context.globalState.update('amypo.questionData', undefined);
 				await context.globalState.update('amypo.courseInfo', undefined);
 				await context.globalState.update('amypo.cachedQuestion', undefined);
-				await context.globalState.update(LAUNCH_TOKEN_KEY, undefined);
-
-				// Disable UI before closing
-				await disableUI();
 
 				// Final exit
 				vscode.commands.executeCommand('workbench.action.closeWindow');
