@@ -19,11 +19,10 @@ const execAsync = promisify(exec);
 
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
-const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api/extensions/latest-version.json' : 'https://endpoint.amypo.ai/api/extensions/latest-version.json';
-
+const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285557|6i9uJtzPlH0TYMiios7ndSZ4BZvK5kj8DptLjCR1ed253fc9';
+const STATIC_TOKEN = '285565|iNLNMWfcrueaZmOPwB28J5nI78NVPOeZmtQRkxIC498867c3';
 const STATIC_MODULE_ID = 992;
 
 let GITHUB_TOKEN = '';
@@ -72,60 +71,102 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 	try {
 		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
 		const currentVersion = ext?.packageJSON?.version ?? '0.0.0';
+		console.log(`[Amypo Update] Current version: ${currentVersion}`);
 
-		console.log(`[Amypo Update] Current extension version: ${currentVersion}`);
-
-		const resp = await axios.get(EXTENSION_UPDATE_URL, {
-			headers: { 'X-Amypo-Key': secretKey },
-			timeout: 5000,
-		});
-
-		const { latestVersion, downloadUrl } = resp.data;
-
-		if (!latestVersion || !downloadUrl) {
-			console.log('[Amypo Update] Invalid server response — skipping update check.');
-			return;
-		}
-
-		if (currentVersion === latestVersion) {
-			console.log('[Amypo Update] Extension is up to date.');
-			return;
-		}
-
-		console.log(`[Amypo Update] New version available: ${latestVersion} (current: ${currentVersion})`);
-
-		const choice = await vscode.window.showInformationMessage(
-			`Amypo Question update available (v${latestVersion})`,
-			'Update Now',
-			'Later'
+		// ── Fetch version.json from private server
+		const versionResp = await axios.get(
+			'https://1102amy21.amypo.ai/storage/version.json',
+			{
+				timeout: 5000,
+				validateStatus: (status) => status === 200
+			}
 		);
 
-		if (choice === 'Update Now') {
-			vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Installing update…', 15000);
+		// ✅ Server returns "version" not "latestVersion"
+		const { version: latestVersion, downloadUrl } = versionResp.data;
 
-			try {
-				await vscode.commands.executeCommand(
-					'workbench.extensions.installExtension',
-					vscode.Uri.parse(downloadUrl)
-				);
-				vscode.window.showInformationMessage(
-					`Amypo Question updated to v${latestVersion}! Restart to apply.`,
-					'Restart Now'
-				).then(action => {
-					if (action === 'Restart Now') {
-						vscode.commands.executeCommand('workbench.action.reloadWindow');
-					}
-				});
-			} catch (installError) {
-				console.error('[Amypo Update] VSIX installation failed:', installError);
-				vscode.window.showErrorMessage('Amypo: Failed to install update.');
-			}
+		if (!latestVersion || !downloadUrl) {
+			console.log('[Amypo Update] Invalid version.json — skipping.');
+			return;
 		}
 
-	} catch (error) {
-		// Update check failed — non-critical, log and continue
-		console.warn('[Amypo Update] Update check failed (server may be unreachable):', error);
+		console.log(`[Amypo Update] Server: ${latestVersion} | Current: ${currentVersion}`);
+
+		if (currentVersion === latestVersion) {
+			console.log('[Amypo Update] Already up to date.');
+			return;
+		}
+
+		if (!compareVersions(latestVersion, currentVersion)) {
+			console.log('[Amypo Update] No newer version.');
+			return;
+		}
+
+		console.log(`[Amypo Update] New version found: ${latestVersion}`);
+
+		// ── Download VSIX from private server
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: `Amypo: Updating to v${latestVersion}...`,
+			cancellable: false
+		}, async (progress) => {
+
+			progress.report({ message: 'Downloading...' });
+
+			const vsixResp = await axios.get(downloadUrl, {
+				responseType: 'arraybuffer',
+				timeout: 60000
+			});
+
+			progress.report({ message: 'Saving...' });
+
+			const tempDir = path.join(os.tmpdir(), 'amypo-updates');
+			await fs.promises.mkdir(tempDir, { recursive: true });
+
+			const vsixPath = path.join(
+				tempDir,
+				`amypo - question - ${latestVersion}.vsix`
+			);
+
+			await fs.promises.writeFile(vsixPath, Buffer.from(vsixResp.data));
+			console.log(`[Amypo Update] VSIX saved: ${vsixPath}`);
+
+			progress.report({ message: 'Installing...' });
+
+			await vscode.commands.executeCommand(
+				'workbench.extensions.installExtension',
+				vscode.Uri.file(vsixPath)
+			);
+
+			try { await fs.promises.unlink(vsixPath); } catch { }
+
+			progress.report({ message: 'Done!' });
+		});
+
+		// ── Show Restart button
+		const action = await vscode.window.showInformationMessage(
+			`✅ Amypo updated to v${latestVersion}. Restart required.`,
+			'Restart Now'
+		);
+
+		if (action === 'Restart Now') {
+			vscode.commands.executeCommand('workbench.action.reloadWindow');
+		}
+
+	} catch (error: any) {
+		console.warn('[Amypo Update] Update check skipped:', error.message);
 	}
+}
+
+// ── Version compare helper
+function compareVersions(versionA: string, versionB: string): boolean {
+	const a = versionA.split('.').map(Number);
+	const b = versionB.split('.').map(Number);
+	for (let i = 0; i < 3; i++) {
+		if ((a[i] || 0) > (b[i] || 0)) return true;
+		if ((a[i] || 0) < (b[i] || 0)) return false;
+	}
+	return false;
 }
 
 //  Activate
@@ -502,10 +543,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.projectPath', projectPath);
 			await context.globalState.update('amypo.repoUrl', currentRepoUrl);
 			await context.globalState.update('amypo.projectType', currentProjectType);
+			await context.globalState.update('amypo.token', activeToken);
 			await context.globalState.update('amypo.lastTest', {
-				allocation_id: STATIC_ALLOCATION_ID,
-				test_type: STATIC_TEST_TYPE,
-				module_id: STATIC_MODULE_ID
+				allocation_id: activeAllocation?.id ?? STATIC_ALLOCATION_ID,
+				test_type: activeTestType,
+				module_id: activeModuleId
 			});
 			console.log('[Amypo] State saved to globalState before workspace change.');
 
@@ -640,6 +682,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		token: string,
 		moduleId?: number
 	): Promise<void> => {
+		console.log('[Amypo EduTech] testdatails called:', token);
+
 		try {
 			vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Fetching test details…', 10000);
 
@@ -651,6 +695,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			const endpoint = test_type === 2
 				? `${API_URL}/sandbox/fetch_link_test_details`
 				: `${API_URL}/sandbox/fetch_test_details`;
+
+			console.log('[Amypo EduTech] Test details token:', token);
 
 			const resp = await submitData(payload, endpoint, 0, token);
 			console.log('[Amypo EduTech] Test details response:', resp);
@@ -888,6 +934,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const workingDir = fs.existsSync(path.join(fullPath, '.git')) ? fullPath : currentProjectPath;
 
 			console.log(`[Amypo Git] ${action} in ${workingDir}`);
+			vscode.window.setStatusBarMessage(`$(sync~spin) Amypo: ${action === 'save' ? 'Saving' : 'Pulling'} changes…`, 10000);
 			eduViewProvider.postMessage({
 				state: 'status',
 				type: 'info',
@@ -897,25 +944,48 @@ export async function activate(context: vscode.ExtensionContext) {
 			const authenticatedUrl = injectToken(currentRepoUrl, GITHUB_TOKEN);
 
 			if (action === 'save') {
+				// Ensure Git user identity is set (critical for container/production environments)
+				try {
+					const courseInfo = context.globalState.get<any>('amypo.courseInfo');
+					const userName = courseInfo?.user_name || 'Amypo Student';
+					const userEmail = (courseInfo?.user_email && courseInfo.user_email !== 'N/A') ? courseInfo.user_email : 'student@amypo.ai';
+
+					await execAsync(`git config user.email "${userEmail}"`, { cwd: workingDir });
+					await execAsync(`git config user.name "${userName}"`, { cwd: workingDir });
+				} catch (confErr) {
+					console.warn('[Amypo Git] Failed to set Git user identity:', confErr);
+				}
+
 				await execAsync('git add .', { cwd: workingDir });
 
 				try {
 					await execAsync('git commit -m "User commit"', { cwd: workingDir });
-				} catch {
-					console.log('[Amypo Git] Nothing new to commit.');
+				} catch (commitErr: any) {
+					const commitMsg = commitErr.stderr ?? commitErr.message ?? '';
+					if (commitMsg.includes('nothing to commit')) {
+						console.log('[Amypo Git] Nothing new to commit.');
+					} else {
+						console.warn('[Amypo Git] Commit failed:', commitMsg);
+					}
 				}
 
 				try {
-					await execAsync(`git push ${authenticatedUrl} main`, { cwd: workingDir });
+					console.log(`[Amypo Git] Pushing to: ${authenticatedUrl.replace(GITHUB_TOKEN, '***')}`);
+					await execAsync(`git push "${authenticatedUrl}" main`, { cwd: workingDir });
 				} catch (error: any) {
 					console.error('[Amypo Git] Error during push:', error);
 					const errMsg = error.stderr ?? error.message ?? 'Git push failed';
-					eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Failed to push: ${errMsg}` });
+					eduViewProvider.postMessage({
+						state: 'status',
+						type: 'error',
+						text: `Failed to push: ${errMsg.length > 100 ? errMsg.substring(0, 100) + '...' : errMsg}`
+					});
 					return;
 				}
 
 				const timestamp = Date.now();
 				vscode.window.showInformationMessage('Changes pushed to Git successfully!');
+				vscode.window.setStatusBarMessage('$(check) Amypo: Saved to cloud.', 5000);
 				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Saved to cloud successfully!' });
 				eduViewProvider.postMessage({ state: 'saved', timestamp });
 
@@ -929,8 +999,20 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 			} else {
-				await execAsync(`git pull ${authenticatedUrl} main`, { cwd: workingDir });
-				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Pulled latest changes!' });
+				try {
+					console.log(`[Amypo Git] Pulling from: ${authenticatedUrl.replace(GITHUB_TOKEN, '***')}`);
+					await execAsync(`git pull "${authenticatedUrl}" main`, { cwd: workingDir });
+					vscode.window.setStatusBarMessage('$(check) Amypo: Pulled latest changes.', 5000);
+					eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Pulled latest changes!' });
+				} catch (pullErr: any) {
+					console.error('[Amypo Git] Error during pull:', pullErr);
+					const errMsg = pullErr.stderr ?? pullErr.message ?? 'Git pull failed';
+					eduViewProvider.postMessage({
+						state: 'status',
+						type: 'error',
+						text: `Failed to pull: ${errMsg.length > 100 ? errMsg.substring(0, 100) + '...' : errMsg}`
+					});
+				}
 			}
 
 		} catch (error: any) {
@@ -1064,6 +1146,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
 		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
+		activeToken = context.globalState.get<string>('amypo.token') ?? STATIC_TOKEN;
 		const lastTest = context.globalState.get<any>('amypo.lastTest') ?? {
 			allocation_id: STATIC_ALLOCATION_ID,
 			test_type: STATIC_TEST_TYPE,
@@ -1088,6 +1171,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		eduViewProvider.setOnReady(async () => {
 			try {
 				console.log('[Amypo] Webview ready — restoring question…');
+
+				// Always ensure Git credentials are ready after a restart
+				await fetchGitDetails(activeToken);
 
 				// Check if we have a cached question from a very recent transition
 				const cachedMsg = context.globalState.get<any>('amypo.cachedQuestion');
@@ -1115,7 +1201,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				const initResp = await checkStoreInitialData(
 					lastTest.allocation_id,
 					lastTest.test_type,
-					STATIC_TOKEN,
+					activeToken,
 					lastTest.module_id
 				);
 
@@ -1162,11 +1248,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				};
 
 				const firstQuestionId = questionDatas[0]?.id;
+
 				const qData = await fetchQuestionById(
 					firstQuestionId,
 					lastTest.test_type,
 					lastTest.module_id,
-					STATIC_TOKEN
+					activeToken
 				);
 
 				const questionMessage = qData
