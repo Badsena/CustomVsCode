@@ -57,7 +57,9 @@ yarn gulp vscode-linux-x64-prepare-deb
 yarn gulp vscode-linux-x64-build-deb
 
 
-sudo dpkg -i .build/linux/deb/amd64/deb/amypocoder_1.113.4-1775735141_amd64.deb
+sudo dpkg -i .build/linux/deb/amd64/deb/amypocoder_1.113.4-1775814809_amd64.deb
+
+
 
 
 # clear cache

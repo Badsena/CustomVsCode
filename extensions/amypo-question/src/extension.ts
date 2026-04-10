@@ -23,7 +23,7 @@ const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai
 
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285526|5SZi3FeoZdTFYLeVCH4YG2pqoNboHKyv1HeJzJOr2bd83239';
+const STATIC_TOKEN = '285557|6i9uJtzPlH0TYMiios7ndSZ4BZvK5kj8DptLjCR1ed253fc9';
 const STATIC_MODULE_ID = 992;
 
 let GITHUB_TOKEN = '';

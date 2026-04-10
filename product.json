@@ -3,7 +3,10 @@
 	"nameLong": "AmypoCoder",
 	"authenticationProviders": {
 		"github": {
-			"scopes": ["user:email", "repo"]
+			"scopes": [
+				"user:email",
+				"repo"
+			]
 		}
 	},
 	"applicationName": "amypocoder",
@@ -11,7 +14,6 @@
 	"enabledApiProposals": [
 		"portAutoForward"
 	],
-
 	"dataFolderName": ".amypocoder",
 	"win32MutexName": "amypocoder",
 	"licenseName": "MIT",
@@ -55,18 +57,12 @@
 	"reportIssueUrl": "https://github.com/amypo-coder/amypo-coder/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "amypocoder",
-
 	"webviewContentExternalBaseUrlTemplate": "",
 	"builtInExtensions": [
 		{
 			"name": "ms-vscode.js-debug",
 			"version": "2022.8.1217",
 			"repo": "https://github.com/microsoft/vscode-js-debug"
-		},
-		{
-			"name": "AMYPO.amypo-question",
-			"version": "1.0.5",
-			"repo": "https://github.com/amypo-coder/amypo-coder"
 		}
 	],
 	"webBuiltInExtensions": [],
