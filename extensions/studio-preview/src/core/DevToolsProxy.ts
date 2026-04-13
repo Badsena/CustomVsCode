@@ -250,6 +250,11 @@ export class DevToolsProxy {
 			delete headers['content-length'];
 			headers['content-length'] = Buffer.byteLength(html, 'utf8');
 
+			// ✅ THE FIX: Force HTML type so the browser renders it and executes the scripts
+			if (!isHtml) {
+				headers['content-type'] = 'text/html; charset=utf-8';
+			}
+
 			clientRes.writeHead(proxyRes.statusCode || 200, headers);
 			clientRes.end(html, 'utf8');
 		});
