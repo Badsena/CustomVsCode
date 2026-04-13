@@ -234,6 +234,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	const STATIC_ALLOCATION_ID = 4090;
+	const STATIC_TEST_TYPE = 0;
+	const STATIC_TOKEN = '285600|CyFx3k6u4h4Gqvuz621sZMKS8hDVujaIXJ4pck2Jf91cd7bd';
+	const STATIC_MODULE_ID = 992;
+
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -439,10 +444,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		langId?: number
 	): Promise<void> => {
 		const parentPath = path.join(os.homedir(), 'amypo-workspace');
-		const projectPath = path.join(parentPath, String(testId));
+		const projectPath = path.join(parentPath, String(repoUrl));
 
 		let finalUrl = repoUrl ?? null;
 		let isTemplate = false;
+
+		console.log('repoUrl for project path');
 
 		if (finalUrl) {
 			const exists = await checkRepoExists(finalUrl);
@@ -655,6 +662,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	const getUserDetails = async (db?: string, token: string = ''): Promise<any> => {
+		try {
+			const endpoint = db === 'link_test'
+				? `${API_URL}/sandbox/link_test_user_details`
+				: `${API_URL}/sandbox/user_details`;
+
+			const resp = await fetchData(endpoint, token);
+			console.log('[Amypo] getUserDetails response:', resp);
+			return resp?.data ?? resp;
+		} catch (error) {
+			console.error('[Amypo] getUserDetails error:', error);
+			return null;
+		}
+	};
+
 	const fetchGitDetails = async (token: string): Promise<void> => {
 		try {
 			const resp = await fetchData(`${API_URL}/sandbox/git_details`, token);
@@ -720,7 +742,40 @@ export async function activate(context: vscode.ExtensionContext) {
 			const test = resp.data.test ?? {};
 			const course_details = resp.data.couse_details ?? {};
 			const topic_details = resp.data.topic_details ?? {};
-			const user_details = resp.data.user_details ?? {};
+
+			// Fetch user details separately if not in response
+			let user_details = resp.data.user_details;
+			if (!user_details) {
+				console.log('[Amypo] user_details missing in response, fetching separately...');
+				user_details = await getUserDetails(test_type === 2 ? 'link_test' : undefined, token);
+			}
+
+			// Process AI features
+			let aiDebugerOptimizer = {
+				debuger: false,
+				optimizer: false,
+				debuger_count: -1,
+				optimizer_count: -1,
+			};
+
+			if (user_details?.ai_features != null) {
+				try {
+					const ai_features = typeof user_details.ai_features === 'string'
+						? JSON.parse(user_details.ai_features)
+						: user_details.ai_features;
+
+					aiDebugerOptimizer = {
+						debuger: ai_features?.student?.ai_debugger ? false : true,
+						optimizer: ai_features?.student?.ai_optimizer ? false : true,
+						debuger_count: ai_features?.student?.ai_debugger || 0,
+						optimizer_count: ai_features?.student?.ai_optimizer || 0,
+					};
+					console.log('[Amypo] AI Features processed:', aiDebugerOptimizer);
+				} catch (e) {
+					console.error('[Amypo] Error parsing ai_features:', e);
+				}
+			}
+			await context.globalState.update('amypo.aiFeatures', aiDebugerOptimizer);
 
 			// Cache full data for restoration
 			await context.globalState.update('amypo.testDetails', resp.data);
@@ -740,7 +795,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				module_name: (test_type === 0 ? test?.module_name : test?.testName) ?? 'N/A',
 				course_type: course_details?.type ?? 0,
 				test_type: test_type === 0 ? 'Practice' : 'Assessment',
-				user_name: user_details?.name ?? user_details?.first_name ?? 'Student',
+				user_name: user_details?.name ?? user_details?.full_name ?? user_details?.first_name ?? 'Student',
 				user_email: user_details?.email ?? 'N/A',
 				user_roll_no: user_details?.roll_no ?? 'N/A',
 				user_college: user_details?.college_name ?? 'N/A',
@@ -845,12 +900,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 				// Fetch first question
-				const repo_name = '9239_4090_0_476';
-				const repo_url = `${GIT_URL}${repo_name}`;
+
 
 				const qData = await fetchQuestionById(firstQuestionId, test_type, moduleId ?? 0, token);
 				console.log('[Amypo] qData:', qData);
 				console.log('[Amypo] questionDatas:', questionDatas);
+
+				const repo_name = `${user_details?.id}_${allocation_id}_${test_type}_${firstQuestionId}`;
+				const repo_url = `${GIT_URL}${repo_name}`;
 
 				let primaryLanguageId: number | undefined;
 				try {
@@ -862,7 +919,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				await cloneAndOpenRepo(repo_url, moduleId, primaryLanguageId);
 
 				if (qData) {
-					const msg = { state: 'loaded', payload: qData, stats: statsObj };
+					const msg = { state: 'loaded', payload: qData, stats: statsObj, aiFeatures: aiDebugerOptimizer };
 					eduViewProvider.postMessage(msg);
 					// Cache the data for immediate restoration after host restart
 					await context.globalState.update('amypo.cachedQuestion', msg);
@@ -893,6 +950,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			}, () => { });
 		}
 	};
+	// comment this while building for production
+	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+
 
 	// Webview Provider Setup
 	const eduViewProvider = new EduViewProvider(context.extensionUri);
@@ -1021,11 +1081,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			isSyncing = false;
 		}
 	};
-
-	// eduViewProvider.setOnReload(() => {
-	// 	console.log("[Amypo] Reloading test details");
-	// 	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
-	// });
 
 	eduViewProvider.setOnSave(() => syncGit('save'));
 	eduViewProvider.setOnPull(() => syncGit('pull'));
@@ -1160,6 +1215,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (cachedQuestions) {
 			activeQuestionDatas = cachedQuestions;
 		}
+		const aiFeatures = context.globalState.get<any>('amypo.aiFeatures');
 
 		// Wait for webview to signal 'ready' before sending data
 		eduViewProvider.setOnReady(async () => {
@@ -1259,7 +1315,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				);
 
 				const questionMessage = qData
-					? { state: 'loaded', payload: qData, stats: statsObj }
+					? { state: 'loaded', payload: qData, stats: statsObj, aiFeatures }
 					: { state: 'error', message: 'Failed to retrieve question details.' };
 
 				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
@@ -1279,17 +1335,19 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 	} else {
-		// Fresh launch — show Start Test
-		console.log('[Amypo] Fresh launch detected. Showing Start Test screen.');
+		// Fresh launch — show error instead of loading indefinitely
+		vscode.window.showErrorMessage('Amypo: Test details not received from URL.');
+		eduViewProvider.updateView({
+			course_name: 'Amypo coder',
+			module_name: 'Datas Not Received',
+			errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
+		}, () => { });
 
 		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
 		if (normalizedCurrent === '') {
 			await context.globalState.update('amypo.cachedQuestion', undefined);
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
-
-		// No automatic test start without URL or restored session
-
 	}
 
 	const doExitAndSave = async () => {
