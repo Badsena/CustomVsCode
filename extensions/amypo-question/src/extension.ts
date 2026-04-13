@@ -20,10 +20,8 @@ const execAsync = promisify(exec);
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
-const STATIC_ALLOCATION_ID = 4060;
-const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285570|kuRyR8ZRuPphmuO6mKFTkbGLNOXBHmIsq3D85qbf528ae5b7';
-const STATIC_MODULE_ID = 992;
+// static details removed to use URL params only
+
 
 let GITHUB_TOKEN = '';
 let GIT_URL = '';
@@ -243,11 +241,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	let currentProjectType: 'react' | 'fullstack' | 'spring' = 'spring';
 
 	// Test state for API synchronization
-	let activeTestType: number = STATIC_TEST_TYPE;
-	let activeModuleId: number = STATIC_MODULE_ID;
-	let activeToken: string = STATIC_TOKEN;
+	let activeTestType: number = 0;
+	let activeModuleId: number = 0;
+	let activeToken: string = '';
 	let activeQuestionDatas: any[] = [];
-	let activeAllocation: any = context.globalState.get<any>('amypo.testDetails')?.allocation ?? STATIC_ALLOCATION_ID;
+	let activeAllocation: any = context.globalState.get<any>('amypo.testDetails')?.allocation ?? null;
 	let testStartTime = Date.now();
 
 	//  Exit
@@ -545,7 +543,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.projectType', currentProjectType);
 			await context.globalState.update('amypo.token', activeToken);
 			await context.globalState.update('amypo.lastTest', {
-				allocation_id: activeAllocation?.id ?? STATIC_ALLOCATION_ID,
+				allocation_id: activeAllocation?.id,
 				test_type: activeTestType,
 				module_id: activeModuleId
 			});
@@ -1146,12 +1144,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
 		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
-		activeToken = context.globalState.get<string>('amypo.token') ?? STATIC_TOKEN;
-		const lastTest = context.globalState.get<any>('amypo.lastTest') ?? {
-			allocation_id: STATIC_ALLOCATION_ID,
-			test_type: STATIC_TEST_TYPE,
-			module_id: STATIC_MODULE_ID
-		};
+		activeToken = context.globalState.get<string>('amypo.token') ?? '';
+		const lastTest = context.globalState.get<any>('amypo.lastTest');
 
 		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
 
@@ -1200,6 +1194,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 				// Otherwise, perform fresh fetch (this handles manual vs code reloads)
+				if (!lastTest) {
+					console.warn('[Amypo Restore] No lastTest metadata found — cannot restore session details.');
+					eduViewProvider.postMessage({ state: 'error', message: 'Session metadata missing.' });
+					return;
+				}
+
 				const initResp = await checkStoreInitialData(
 					lastTest.allocation_id,
 					lastTest.test_type,
@@ -1288,7 +1288,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
 
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		// No automatic test start without URL or restored session
+
 	}
 
 	const doExitAndSave = async () => {
