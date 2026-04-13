@@ -16,12 +16,12 @@ import { append, $, Dimension, hide, show, DragAndDropObserver, trackFocus, addD
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IExtensionsWorkbenchService, IExtensionsViewPaneContainer, VIEWLET_ID, CloseExtensionDetailsOnViewChangeKey, INSTALL_EXTENSION_FROM_VSIX_COMMAND_ID, /* WORKSPACE_RECOMMENDATIONS_VIEW_ID, OUTDATED_EXTENSIONS_VIEW_ID, CONTEXT_HAS_GALLERY, */ AutoCheckUpdatesConfigurationKey, extensionsSearchActionsMenu, AutoRestartConfigurationKey, ExtensionRuntimeActionType, SearchMcpServersContext, SearchAgentPluginsContext, DefaultViewsContext, CONTEXT_EXTENSIONS_GALLERY_STATUS } from '../common/extensions.js';
+import { IExtensionsWorkbenchService, IExtensionsViewPaneContainer, VIEWLET_ID, CloseExtensionDetailsOnViewChangeKey, INSTALL_EXTENSION_FROM_VSIX_COMMAND_ID, /* WORKSPACE_RECOMMENDATIONS_VIEW_ID, OUTDATED_EXTENSIONS_VIEW_ID, */ CONTEXT_HAS_GALLERY, AutoCheckUpdatesConfigurationKey, extensionsSearchActionsMenu, AutoRestartConfigurationKey, ExtensionRuntimeActionType, SearchMcpServersContext, SearchAgentPluginsContext, DefaultViewsContext, CONTEXT_EXTENSIONS_GALLERY_STATUS } from '../common/extensions.js';
 import { InstallLocalExtensionsInRemoteAction, InstallRemoteExtensionsInLocalAction } from './extensionsActions.js';
 import { IExtensionManagementService, ILocalExtension } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { IWorkbenchExtensionEnablementService, IExtensionManagementServerService, IExtensionManagementServer } from '../../../services/extensionManagement/common/extensionManagement.js';
 import { ExtensionsInput } from '../common/extensionsInput.js';
-import { ExtensionsListView, /* RecommendedExtensionsView, WorkspaceRecommendedExtensionsView, */ ServerInstalledExtensionsView, DefaultRecommendedExtensionsView, /* UntrustedWorkspaceUnsupportedExtensionsView, UntrustedWorkspacePartiallySupportedExtensionsView, VirtualWorkspaceUnsupportedExtensionsView, VirtualWorkspacePartiallySupportedExtensionsView, DeprecatedExtensionsView, SearchMarketplaceExtensionsView, RecentlyUpdatedExtensionsView, OutdatedExtensionsView, StaticQueryExtensionsView, NONE_CATEGORY, */ AbstractExtensionsListView } from './extensionsViews.js';
+import { ExtensionsListView, /* RecommendedExtensionsView, WorkspaceRecommendedExtensionsView, */ ServerInstalledExtensionsView, DefaultRecommendedExtensionsView, SearchMarketplaceExtensionsView, /* UntrustedWorkspaceUnsupportedExtensionsView, UntrustedWorkspacePartiallySupportedExtensionsView, VirtualWorkspaceUnsupportedExtensionsView, VirtualWorkspacePartiallySupportedExtensionsView, DeprecatedExtensionsView, RecentlyUpdatedExtensionsView, OutdatedExtensionsView, StaticQueryExtensionsView, NONE_CATEGORY, */ AbstractExtensionsListView } from './extensionsViews.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import Severity from '../../../../base/common/severity.js';
@@ -115,8 +115,8 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		/* Default views */
 		viewDescriptors.push(...this.createDefaultExtensionsViewDescriptors());
 
-		/* Search views - DISABLED */
-		// viewDescriptors.push(...this.createSearchExtensionsViewDescriptors());
+		/* Search views - RESTORED BUT FILTERED */
+		viewDescriptors.push(...this.createSearchExtensionsViewDescriptors());
 
 		/* Recommendations views - DISABLED */
 		// viewDescriptors.push(...this.createRecommendedExtensionsViewDescriptors());
@@ -298,7 +298,6 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 		return viewDescriptors;
 	}
 
-	/*
 	private createSearchExtensionsViewDescriptors(): IViewDescriptor[] {
 		const viewDescriptors: IViewDescriptor[] = [];
 
@@ -316,53 +315,8 @@ export class ExtensionsViewletViewsContribution extends Disposable implements IW
 			when: ContextKeyExpr.or(ContextKeyExpr.has('searchInstalledExtensions'), ContextKeyExpr.has('installedExtensions')),
 		});
 
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.searchRecentlyUpdated',
-			name: localize2('recently updated', "Recently Updated"),
-			ctorDescriptor: new SyncDescriptor(RecentlyUpdatedExtensionsView, [{}]),
-			when: ContextKeyExpr.or(SearchExtensionUpdatesContext, ContextKeyExpr.has('searchRecentlyUpdatedExtensions')),
-			order: 2,
-		});
-
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.searchEnabled',
-			name: localize2('enabled', "Enabled"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
-			when: ContextKeyExpr.and(ContextKeyExpr.has('searchEnabledExtensions')),
-		});
-
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.searchDisabled',
-			name: localize2('disabled', "Disabled"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
-			when: ContextKeyExpr.and(ContextKeyExpr.has('searchDisabledExtensions')),
-		});
-
-		viewDescriptors.push({
-			id: OUTDATED_EXTENSIONS_VIEW_ID,
-			name: localize2('availableUpdates', "Available Updates"),
-			ctorDescriptor: new SyncDescriptor(OutdatedExtensionsView, [{}]),
-			when: ContextKeyExpr.or(SearchExtensionUpdatesContext, ContextKeyExpr.has('searchOutdatedExtensions')),
-			order: 1,
-		});
-
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.searchBuiltin',
-			name: localize2('builtin', "Builtin"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
-			when: ContextKeyExpr.and(ContextKeyExpr.has('searchBuiltInExtensions')),
-		});
-
-		viewDescriptors.push({
-			id: 'workbench.views.extensions.searchWorkspaceUnsupported',
-			name: localize2('workspaceUnsupported', "Workspace Unsupported"),
-			ctorDescriptor: new SyncDescriptor(ExtensionsListView, [{}]),
-			when: ContextKeyExpr.and(ContextKeyExpr.has('searchWorkspaceUnsupportedExtensions')),
-		});
-
 		return viewDescriptors;
 	}
-	*/
 
 	/*
 	private createRecommendedExtensionsViewDescriptors(): IViewDescriptor[] {

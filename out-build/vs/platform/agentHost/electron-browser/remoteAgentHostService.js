@@ -1,0 +1,9 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+import { registerSingleton } from '../../instantiation/common/extensions.js';
+import { IRemoteAgentHostService } from '../common/remoteAgentHostService.js';
+import { RemoteAgentHostService } from './remoteAgentHostServiceImpl.js';
+registerSingleton(IRemoteAgentHostService, RemoteAgentHostService, 1 /* InstantiationType.Delayed */);
+//# sourceMappingURL=remoteAgentHostService.js.map

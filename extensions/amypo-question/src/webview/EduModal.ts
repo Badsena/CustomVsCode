@@ -404,7 +404,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     background: var(--vscode-editorWidget-background, white);
                     color: var(--vscode-editor-foreground, black); border: 1px solid var(--vscode-widget-border, #ccc);
                     padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    z-index: 100; font-size: 13px; font-weight: normal; white-space: nowrap; line-height: 1.6;
+                    z-index: 100; font-size: 13px; font-weight: normal; white-space: normal; line-height: 1.6; max-width: 250px;
                 }
                 .tooltip-content p { margin: 4px 0; }
                 .tooltip-container:hover .tooltip-content,
@@ -422,6 +422,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .verify-term-line.current::after { content: ''; position: absolute; top: 50%; left: -10px; right: -10px; height: 140%; transform: translateY(-50%); background: linear-gradient(90deg, transparent, rgba(74, 111, 227, 0.4), transparent); z-index: 0; animation: scan 2s infinite linear; }
                 .verify-term-line span { position: relative; z-index: 1; }
                 @keyframes scan { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+                .verify-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(139, 178, 255, 0.3); border-radius: 50%; border-top-color: #8bb2ff; animation: spin 0.8s linear infinite; margin-left: 8px; vertical-align: middle; }
 
                 /* Results Modal */
                 .result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: none; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
@@ -593,7 +594,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             <div class="verify-term-line" id="vline-3"><span>> Validating signature...</span></div>
                             <div class="verify-term-line" id="vline-4"><span>> Running scan...</span></div>
                             <div class="verify-term-line" id="vline-5"><span>> Checking dependencies...</span></div>
-                            <div class="verify-term-line" id="vline-6"><span>> Verification in progress...</span></div>
+                            <div class="verify-term-line" id="vline-6"><span>> Verification in progress...<div class="verify-spinner"></div></span></div>
                         </div>
                         <div class="verify-text">Verification is in Progress...</div>
                     </div>
@@ -646,8 +647,6 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 if (resClose) {
                     resClose.onclick = () => { if(resOverlay) resOverlay.style.display = 'none'; };
                 }
-
-                vscode.postMessage({ command: 'ready' });
 
                 const startBtn = document.getElementById('start');
                 if (startBtn) {
@@ -879,6 +878,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         }
                     }
                 });
+
+                vscode.postMessage({ command: 'ready' });
             </script>
         </body>
         </html>`;

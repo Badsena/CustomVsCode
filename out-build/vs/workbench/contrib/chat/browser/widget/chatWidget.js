@@ -1,0 +1,2270 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var ChatWidget_1;
+import './media/chat.css';
+import './media/chatAgentHover.css';
+import './media/chatViewWelcome.css';
+import * as dom from '../../../../../base/browser/dom.js';
+import { status } from '../../../../../base/browser/ui/aria/aria.js';
+import { disposableTimeout, timeout } from '../../../../../base/common/async.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { hash } from '../../../../../base/common/hash.js';
+import { MarkdownString } from '../../../../../base/common/htmlContent.js';
+import { Iterable } from '../../../../../base/common/iterator.js';
+import { Disposable, DisposableStore, MutableDisposable, thenIfNotDisposed } from '../../../../../base/common/lifecycle.js';
+import { ResourceSet } from '../../../../../base/common/map.js';
+import { Schemas } from '../../../../../base/common/network.js';
+import { IsSessionsWindowContext } from '../../../../common/contextkeys.js';
+import { filter } from '../../../../../base/common/objects.js';
+import { autorun, derived, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { extUri, isEqual } from '../../../../../base/common/resources.js';
+import { MicrotaskDelay } from '../../../../../base/common/symbols.js';
+import { isDefined } from '../../../../../base/common/types.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
+import { OffsetRange } from '../../../../../editor/common/core/ranges/offsetRange.js';
+import { Range } from '../../../../../editor/common/core/range.js';
+import { localize } from '../../../../../nls.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { bindContextKey } from '../../../../../platform/observable/common/platformObservableUtils.js';
+import product from '../../../../../platform/product/common/product.js';
+import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
+import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
+import { checkModeOption } from '../../common/chat.js';
+import { IChatAgentService } from '../../common/participants/chatAgents.js';
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+import { applyingChatEditsFailedContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, inChatEditingSessionContextKey } from '../../common/editing/chatEditingService.js';
+import { IChatLayoutService } from '../../common/widget/chatLayoutService.js';
+import { ChatMode, getModeNameForTelemetry, IChatModeService } from '../../common/chatModes.js';
+import { chatAgentLeader, ChatRequestAgentPart, ChatRequestDynamicVariablePart, ChatRequestSlashPromptPart, ChatRequestToolPart, ChatRequestToolSetPart, chatSubcommandLeader, formatChatQuestion, IParsedChatRequest } from '../../common/requestParser/chatParserTypes.js';
+import { ChatRequestParser } from '../../common/requestParser/chatRequestParser.js';
+import { getDynamicVariablesForWidget, getSelectedToolAndToolSetsForWidget } from '../attachments/chatVariables.js';
+import { ChatSendResult, IChatService } from '../../common/chatService/chatService.js';
+import { IChatSessionsService } from '../../common/chatSessionsService.js';
+import { IChatSlashCommandService } from '../../common/participants/chatSlashCommands.js';
+import { IChatArtifactsService } from '../../common/tools/chatArtifactsService.js';
+import { IChatTodoListService } from '../../common/tools/chatTodoListService.js';
+import { isPromptFileVariableEntry, isPromptTextVariableEntry, isWorkspaceVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
+import { ChatViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
+import { CodeBlockModelCollection } from '../../common/widget/codeBlockModelCollection.js';
+import { ChatConfiguration, ChatModeKind, ChatPermissionLevel, ThinkingDisplayMode } from '../../common/constants.js';
+import { ILanguageModelToolsService, isToolSet } from '../../common/tools/languageModelToolsService.js';
+import { ComputeAutomaticInstructions } from '../../common/promptSyntax/computeAutomaticInstructions.js';
+import { IPromptsService, PromptsStorage } from '../../common/promptSyntax/service/promptsService.js';
+import { GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID, handleModeSwitch } from '../actions/chatActions.js';
+import { IChatAccessibilityService, IChatWidgetService, isIChatResourceViewContext, isIChatViewViewContext } from '../chat.js';
+import { IChatAttachmentResolveService } from '../attachments/chatAttachmentResolveService.js';
+import { ChatDynamicVariableModel } from '../attachments/chatDynamicVariables.js';
+import { ChatSuggestNextWidget } from './chatContentParts/chatSuggestNextWidget.js';
+import { ChatInputPart } from './input/chatInputPart.js';
+import { ChatListWidget } from './chatListWidget.js';
+import { ChatEditorOptions } from './chatOptions.js';
+import { ChatViewWelcomePart } from '../viewsWelcome/chatViewWelcomeController.js';
+import { IChatTipService } from '../chatTipService.js';
+import { ChatTipContentPart } from './chatContentParts/chatTipContentPart.js';
+import { ChatContentMarkdownRenderer } from './chatContentMarkdownRenderer.js';
+import { IAgentSessionsService } from '../agentSessions/agentSessionsService.js';
+import { IChatDebugService } from '../../common/chatDebugService.js';
+const $ = dom.$;
+export function isQuickChat(widget) {
+    return isIChatResourceViewContext(widget.viewContext) && Boolean(widget.viewContext.isQuickChat);
+}
+function isInlineChat(widget) {
+    return isIChatResourceViewContext(widget.viewContext) && Boolean(widget.viewContext.isInlineChat);
+}
+const supportsAllAttachments = {
+    supportsFileAttachments: true,
+    supportsToolAttachments: true,
+    supportsMCPAttachments: true,
+    supportsImageAttachments: true,
+    supportsSearchResultAttachments: true,
+    supportsInstructionAttachments: true,
+    supportsSourceControlAttachments: true,
+    supportsProblemAttachments: true,
+    supportsSymbolAttachments: true,
+    supportsTerminalAttachments: true,
+    supportsPromptAttachments: true,
+    supportsHandOffs: true,
+};
+const DISCLAIMER = localize(8176, null);
+let ChatWidget = class ChatWidget extends Disposable {
+    static { ChatWidget_1 = this; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static { this.CONTRIBS = []; }
+    get domNode() { return this.container; }
+    get visible() { return this._visible; }
+    set viewModel(viewModel) {
+        if (this._viewModel === viewModel) {
+            return;
+        }
+        const previousSessionResource = this._viewModel?.sessionResource;
+        this.viewModelDisposables.clear();
+        this._viewModel = viewModel;
+        if (viewModel) {
+            this.viewModelDisposables.add(viewModel);
+            this.logService.debug('ChatWidget#setViewModel: have viewModel');
+            // If switching to a model with a request in progress, play progress sound
+            if (viewModel.model.requestInProgress.get()) {
+                this.chatAccessibilityService.acceptRequest(viewModel.sessionResource, true);
+            }
+        }
+        else {
+            this.logService.debug('ChatWidget#setViewModel: no viewModel');
+        }
+        this._onDidChangeViewModel.fire({ previousSessionResource, currentSessionResource: this._viewModel?.sessionResource });
+    }
+    get viewModel() {
+        return this._viewModel;
+    }
+    get parsedInput() {
+        if (this.parsedChatRequest === undefined) {
+            if (!this.viewModel) {
+                return { text: '', parts: [] };
+            }
+            this.parsedChatRequest = this.instantiationService.createInstance(ChatRequestParser)
+                .parseChatRequestWithReferences(getDynamicVariablesForWidget(this), getSelectedToolAndToolSetsForWidget(this), this.getInput(), this.location, {
+                selectedAgent: this._lastSelectedAgent,
+                mode: this.input.currentModeKind,
+                attachmentCapabilities: this.attachmentCapabilities,
+                forcedAgent: this._lockedAgent?.id ? this.chatAgentService.getAgent(this._lockedAgent.id) : undefined
+            });
+            this._onDidChangeParsedInput.fire();
+        }
+        return this.parsedChatRequest;
+    }
+    get scopedContextKeyService() {
+        return this.contextKeyService;
+    }
+    get location() {
+        return this._location.location;
+    }
+    get supportsChangingModes() {
+        return !!this.viewOptions.supportsChangingModes;
+    }
+    get locationData() {
+        return this._location.resolveData?.();
+    }
+    constructor(location, viewContext, viewOptions, styles, codeEditorService, configurationService, dialogService, contextKeyService, instantiationService, chatService, chatAgentService, chatWidgetService, chatAccessibilityService, logService, themeService, chatSlashCommandService, chatEditingService, telemetryService, promptsService, toolsService, chatModeService, chatLayoutService, chatEntitlementService, chatSessionsService, agentSessionsService, chatTodoListService, chatArtifactsService, lifecycleService, chatAttachmentResolveService, chatTipService, chatDebugService) {
+        super();
+        this.viewOptions = viewOptions;
+        this.styles = styles;
+        this.codeEditorService = codeEditorService;
+        this.configurationService = configurationService;
+        this.dialogService = dialogService;
+        this.contextKeyService = contextKeyService;
+        this.instantiationService = instantiationService;
+        this.chatService = chatService;
+        this.chatAgentService = chatAgentService;
+        this.chatWidgetService = chatWidgetService;
+        this.chatAccessibilityService = chatAccessibilityService;
+        this.logService = logService;
+        this.themeService = themeService;
+        this.chatSlashCommandService = chatSlashCommandService;
+        this.telemetryService = telemetryService;
+        this.promptsService = promptsService;
+        this.toolsService = toolsService;
+        this.chatModeService = chatModeService;
+        this.chatLayoutService = chatLayoutService;
+        this.chatEntitlementService = chatEntitlementService;
+        this.chatSessionsService = chatSessionsService;
+        this.agentSessionsService = agentSessionsService;
+        this.chatTodoListService = chatTodoListService;
+        this.chatArtifactsService = chatArtifactsService;
+        this.lifecycleService = lifecycleService;
+        this.chatAttachmentResolveService = chatAttachmentResolveService;
+        this.chatTipService = chatTipService;
+        this.chatDebugService = chatDebugService;
+        this._onDidSubmitAgent = this._register(new Emitter());
+        this.onDidSubmitAgent = this._onDidSubmitAgent.event;
+        this._onDidChangeAgent = this._register(new Emitter());
+        this.onDidChangeAgent = this._onDidChangeAgent.event;
+        this._onDidFocus = this._register(new Emitter());
+        this.onDidFocus = this._onDidFocus.event;
+        this._onDidChangeViewModel = this._register(new Emitter());
+        this.onDidChangeViewModel = this._onDidChangeViewModel.event;
+        this._onDidScroll = this._register(new Emitter());
+        this.onDidScroll = this._onDidScroll.event;
+        this._onDidAcceptInput = this._register(new Emitter());
+        this.onDidAcceptInput = this._onDidAcceptInput.event;
+        this._onDidHide = this._register(new Emitter());
+        this.onDidHide = this._onDidHide.event;
+        this._onDidShow = this._register(new Emitter());
+        this.onDidShow = this._onDidShow.event;
+        this._onDidChangeParsedInput = this._register(new Emitter());
+        this.onDidChangeParsedInput = this._onDidChangeParsedInput.event;
+        this._onDidChangeActiveInputEditor = this._register(new Emitter());
+        this.onDidChangeActiveInputEditor = this._onDidChangeActiveInputEditor.event;
+        this._onWillMaybeChangeHeight = this._register(new Emitter());
+        this.onWillMaybeChangeHeight = this._onWillMaybeChangeHeight.event;
+        this._onDidChangeHeight = this._register(new Emitter());
+        this.onDidChangeHeight = this._onDidChangeHeight.event;
+        this._onDidChangeContentHeight = this._register(new Emitter());
+        this.onDidChangeContentHeight = this._onDidChangeContentHeight.event;
+        this._onDidChangeEmptyState = this._register(new Emitter());
+        this.onDidChangeEmptyState = this._onDidChangeEmptyState.event;
+        this.contribs = [];
+        this.visibilityTimeoutDisposable = this._register(new MutableDisposable());
+        this.visibilityAnimationFrameDisposable = this._register(new MutableDisposable());
+        this.inputPartDisposable = this._register(new MutableDisposable());
+        this.inlineInputPartDisposable = this._register(new MutableDisposable());
+        this.recentlyRestoredCheckpoint = false;
+        this.welcomePart = this._register(new MutableDisposable());
+        this._gettingStartedTipPart = this._register(new MutableDisposable());
+        this.visibleChangeCount = 0;
+        this._visible = false;
+        this._isRenderingWelcome = false;
+        this._attachmentCapabilities = supportsAllAttachments;
+        this.viewModelDisposables = this._register(new DisposableStore());
+        this._editingSession = observableValue(this, undefined);
+        this._viewModelObs = observableFromEvent(this, this.onDidChangeViewModel, () => this.viewModel);
+        this._lockedToCodingAgentContextKey = ChatContextKeys.lockedToCodingAgent.bindTo(this.contextKeyService);
+        this._lockedCodingAgentIdContextKey = ChatContextKeys.lockedCodingAgentId.bindTo(this.contextKeyService);
+        this._chatSessionSupportsForkContextKey = ChatContextKeys.chatSessionSupportsFork.bindTo(this.contextKeyService);
+        this._agentSupportsAttachmentsContextKey = ChatContextKeys.agentSupportsAttachments.bindTo(this.contextKeyService);
+        this._sessionIsEmptyContextKey = ChatContextKeys.chatSessionIsEmpty.bindTo(this.contextKeyService);
+        this._hasPendingRequestsContextKey = ChatContextKeys.hasPendingRequests.bindTo(this.contextKeyService);
+        this._sessionHasDebugDataContextKey = ChatContextKeys.chatSessionHasDebugData.bindTo(this.contextKeyService);
+        this._register(this.chatDebugService.onDidAddEvent(e => {
+            const sessionResource = this.viewModel?.sessionResource;
+            if (sessionResource && e.sessionResource.toString() === sessionResource.toString()) {
+                this._sessionHasDebugDataContextKey.set(true);
+            }
+        }));
+        this.viewContext = viewContext ?? {};
+        const viewModelObs = this._viewModelObs;
+        if (typeof location === 'object') {
+            this._location = location;
+        }
+        else {
+            this._location = { location };
+        }
+        ChatContextKeys.inChatSession.bindTo(contextKeyService).set(true);
+        ChatContextKeys.location.bindTo(contextKeyService).set(this._location.location);
+        ChatContextKeys.inQuickChat.bindTo(contextKeyService).set(isQuickChat(this));
+        this.agentInInput = ChatContextKeys.inputHasAgent.bindTo(contextKeyService);
+        this.requestInProgress = ChatContextKeys.requestInProgress.bindTo(contextKeyService);
+        this._register(this.chatEntitlementService.onDidChangeAnonymous(() => this.renderWelcomeViewContentIfNeeded()));
+        this._register(this.configurationService.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('chat.tips.enabled')) {
+                if (!this.configurationService.getValue('chat.tips.enabled')) {
+                    // Clear the existing tip so it doesn't linger
+                    if (this.inputPart) {
+                        this._gettingStartedTipPartRef = undefined;
+                        this._gettingStartedTipPart.clear();
+                        const tipContainer = this.inputPart.gettingStartedTipContainerElement;
+                        dom.clearNode(tipContainer);
+                        dom.setVisibility(false, tipContainer);
+                    }
+                }
+                else {
+                    this.updateChatViewVisibility();
+                }
+            }
+        }));
+        this._register(bindContextKey(decidedChatEditingResourceContextKey, contextKeyService, (reader) => {
+            const currentSession = this._editingSession.read(reader);
+            if (!currentSession) {
+                return;
+            }
+            const entries = currentSession.entries.read(reader);
+            const decidedEntries = entries.filter(entry => entry.state.read(reader) !== 0 /* ModifiedFileEntryState.Modified */);
+            return decidedEntries.map(entry => entry.entryId);
+        }));
+        this._register(bindContextKey(hasUndecidedChatEditingResourceContextKey, contextKeyService, (reader) => {
+            const currentSession = this._editingSession.read(reader);
+            const entries = currentSession?.entries.read(reader) ?? []; // using currentSession here
+            const decidedEntries = entries.filter(entry => entry.state.read(reader) === 0 /* ModifiedFileEntryState.Modified */);
+            return decidedEntries.length > 0;
+        }));
+        this._register(bindContextKey(hasAppliedChatEditsContextKey, contextKeyService, (reader) => {
+            const currentSession = this._editingSession.read(reader);
+            if (!currentSession) {
+                return false;
+            }
+            const entries = currentSession.entries.read(reader);
+            return entries.length > 0;
+        }));
+        this._register(bindContextKey(inChatEditingSessionContextKey, contextKeyService, (reader) => {
+            return this._editingSession.read(reader) !== null;
+        }));
+        this._register(bindContextKey(ChatContextKeys.chatEditingCanUndo, contextKeyService, (r) => {
+            return this._editingSession.read(r)?.canUndo.read(r) || false;
+        }));
+        this._register(bindContextKey(ChatContextKeys.chatEditingCanRedo, contextKeyService, (r) => {
+            return this._editingSession.read(r)?.canRedo.read(r) || false;
+        }));
+        this._register(bindContextKey(applyingChatEditsFailedContextKey, contextKeyService, (r) => {
+            const chatModel = viewModelObs.read(r)?.model;
+            const editingSession = this._editingSession.read(r);
+            if (!editingSession || !chatModel) {
+                return false;
+            }
+            const lastResponse = observableFromEvent(this, chatModel.onDidChange, () => chatModel.getRequests().at(-1)?.response).read(r);
+            return lastResponse?.result?.errorDetails && !lastResponse?.result?.errorDetails.responseIsIncomplete;
+        }));
+        this._codeBlockModelCollection = this._register(instantiationService.createInstance(CodeBlockModelCollection, undefined));
+        this.chatSuggestNextWidget = this._register(this.instantiationService.createInstance(ChatSuggestNextWidget));
+        this._register(autorun(r => {
+            const viewModel = viewModelObs.read(r);
+            const sessions = chatEditingService.editingSessionsObs.read(r);
+            const session = sessions.find(candidate => isEqual(candidate.chatSessionResource, viewModel?.sessionResource));
+            this._editingSession.set(undefined, undefined);
+            this.renderChatEditingSessionState(); // this is necessary to make sure we dispose previous buttons, etc.
+            if (!session) {
+                // none or for a different chat widget
+                return;
+            }
+            const entries = session.entries.read(r);
+            for (const entry of entries) {
+                entry.state.read(r); // SIGNAL
+            }
+            this._editingSession.set(session, undefined);
+            r.store.add(session.onDidDispose(() => {
+                this._editingSession.set(undefined, undefined);
+                this.renderChatEditingSessionState();
+            }));
+            r.store.add(this.inputEditor.onDidChangeModelContent(() => {
+                if (this.getInput() === '') {
+                    this.refreshParsedInput();
+                }
+            }));
+            this.renderChatEditingSessionState();
+        }));
+        this._register(this.codeEditorService.registerCodeEditorOpenHandler(async (input, _source, _sideBySide) => {
+            const resource = input.resource;
+            if (resource.scheme !== Schemas.vscodeChatCodeBlock) {
+                return null;
+            }
+            const responseId = resource.path.split('/').at(1);
+            if (!responseId) {
+                return null;
+            }
+            const item = this.viewModel?.getItems().find(item => item.id === responseId);
+            if (!item) {
+                return null;
+            }
+            // TODO: needs to reveal the chat view
+            this.reveal(item);
+            await timeout(0); // wait for list to actually render
+            for (const codeBlockPart of this.listWidget.editorsInUse()) {
+                if (extUri.isEqual(codeBlockPart.uri, resource, true)) {
+                    const editor = codeBlockPart.editor;
+                    let relativeTop = 0;
+                    const editorDomNode = editor.getDomNode();
+                    if (editorDomNode) {
+                        const row = dom.findParentWithClass(editorDomNode, 'monaco-list-row');
+                        if (row) {
+                            relativeTop = dom.getTopLeftOffset(editorDomNode).top - dom.getTopLeftOffset(row).top;
+                        }
+                    }
+                    if (input.options?.selection) {
+                        const editorSelectionTopOffset = editor.getTopForPosition(input.options.selection.startLineNumber, input.options.selection.startColumn);
+                        relativeTop += editorSelectionTopOffset;
+                        editor.focus();
+                        editor.setSelection({
+                            startLineNumber: input.options.selection.startLineNumber,
+                            startColumn: input.options.selection.startColumn,
+                            endLineNumber: input.options.selection.endLineNumber ?? input.options.selection.startLineNumber,
+                            endColumn: input.options.selection.endColumn ?? input.options.selection.startColumn
+                        });
+                    }
+                    this.reveal(item, relativeTop);
+                    return editor;
+                }
+            }
+            return null;
+        }));
+        this._register(this.onDidChangeParsedInput(() => this.updateChatInputContext()));
+        this._register(this.chatTodoListService.onDidUpdateTodos((sessionResource) => {
+            if (isEqual(this.viewModel?.sessionResource, sessionResource)) {
+                this.inputPart.renderChatTodoListWidget(sessionResource);
+            }
+        }));
+        this._register(this.chatArtifactsService.onDidUpdateArtifacts((sessionResource) => {
+            if (isEqual(this.viewModel?.sessionResource, sessionResource)) {
+                this.inputPart.renderArtifactsWidget(sessionResource);
+            }
+        }));
+    }
+    set lastSelectedAgent(agent) {
+        this.parsedChatRequest = undefined;
+        this._lastSelectedAgent = agent;
+        this._updateAgentCapabilitiesContextKeys(agent);
+        this._onDidChangeParsedInput.fire();
+    }
+    get lastSelectedAgent() {
+        return this._lastSelectedAgent;
+    }
+    _updateAgentCapabilitiesContextKeys(agent) {
+        // Check if the agent has capabilities defined directly
+        const capabilities = agent?.capabilities ?? (this._lockedAgent ? this.chatSessionsService.getCapabilitiesForSessionType(this._lockedAgent.id) : undefined);
+        this._attachmentCapabilities = capabilities ?? supportsAllAttachments;
+        const supportsAttachments = Object.keys(filter(this._attachmentCapabilities, (key, value) => value === true)).length > 0;
+        this._agentSupportsAttachmentsContextKey.set(supportsAttachments);
+    }
+    get supportsFileReferences() {
+        return !!this.viewOptions.supportsFileReferences;
+    }
+    get attachmentCapabilities() {
+        return this._attachmentCapabilities;
+    }
+    /**
+     * Either the inline input (when editing) or the main input part
+     */
+    get input() {
+        return this.viewModel?.editing && this.configurationService.getValue('chat.editRequests') !== 'input' ? this.inlineInputPart : this.inputPart;
+    }
+    /**
+     * The main input part at the buttom of the chat widget. Use `input` to get the active input (main or inline editing part).
+     */
+    get inputPart() {
+        return this.inputPartDisposable.value;
+    }
+    get inlineInputPart() {
+        return this.inlineInputPartDisposable.value;
+    }
+    get inputEditor() {
+        return this.input.inputEditor;
+    }
+    get contentHeight() {
+        return this.input.height.get() + this.listWidget.contentHeight + this.chatSuggestNextWidget.height;
+    }
+    get scrollTop() {
+        return this.listWidget.scrollTop;
+    }
+    set scrollTop(value) {
+        this.listWidget.scrollTop = value;
+    }
+    get attachmentModel() {
+        return this.input.attachmentModel;
+    }
+    render(parent) {
+        const viewId = isIChatViewViewContext(this.viewContext) ? this.viewContext.viewId : undefined;
+        this.editorOptions = this._register(this.instantiationService.createInstance(ChatEditorOptions, viewId, this.styles.listForeground, this.styles.inputEditorBackground, this.styles.resultEditorBackground));
+        const renderInputOnTop = this.viewOptions.renderInputOnTop ?? false;
+        const renderFollowups = this.viewOptions.renderFollowups ?? !renderInputOnTop;
+        const renderStyle = this.viewOptions.renderStyle;
+        const renderInputToolbarBelowInput = this.viewOptions.renderInputToolbarBelowInput ?? false;
+        this.container = dom.append(parent, $('.interactive-session'));
+        this.welcomeMessageContainer = dom.append(this.container, $('.chat-welcome-view-container', { style: 'display: none' }));
+        this._register(dom.addStandardDisposableListener(this.welcomeMessageContainer, dom.EventType.CLICK, () => this.focusInput()));
+        this._register(this.chatSuggestNextWidget.onDidChangeHeight(() => {
+            if (this.bodyDimension) {
+                this.layout(this.bodyDimension.height, this.bodyDimension.width);
+            }
+        }));
+        this._register(this.chatSuggestNextWidget.onDidSelectPrompt(({ handoff, agentId, withAutopilot }) => {
+            this.handleNextPromptSelection(handoff, agentId, withAutopilot);
+        }));
+        if (renderInputOnTop) {
+            this.createInput(this.container, { renderFollowups, renderStyle, renderInputToolbarBelowInput });
+            this.listContainer = dom.append(this.container, $(`.interactive-list`));
+        }
+        else {
+            this.listContainer = dom.append(this.container, $(`.interactive-list`));
+            dom.append(this.container, this.chatSuggestNextWidget.domNode);
+            this.createInput(this.container, { renderFollowups, renderStyle, renderInputToolbarBelowInput });
+        }
+        this.renderWelcomeViewContentIfNeeded();
+        this.createList(this.listContainer, { editable: !isInlineChat(this) && !isQuickChat(this), ...this.viewOptions.rendererOptions, renderStyle });
+        // Forward scroll events from the parent container margins (outside the max-width area) to the chat list
+        this._register(dom.addDisposableListener(parent, dom.EventType.MOUSE_WHEEL, (e) => {
+            if (e.defaultPrevented) {
+                return;
+            }
+            if (dom.isAncestor(e.target, this.container)) {
+                return;
+            }
+            this.listWidget.delegateScrollFromMouseWheelEvent(e);
+        }));
+        // Update the font family and size
+        this._register(autorun(reader => {
+            const fontFamily = this.chatLayoutService.fontFamily.read(reader);
+            const fontSize = this.chatLayoutService.fontSize.read(reader);
+            this.container.style.setProperty('--vscode-chat-font-family', fontFamily);
+            this.container.style.fontSize = `${fontSize}px`;
+            if (this.visible) {
+                this.listWidget.rerender();
+            }
+        }));
+        this._register(Event.runAndSubscribe(this.editorOptions.onDidChange, () => this.onDidStyleChange()));
+        // Do initial render
+        if (this.viewModel) {
+            this.onDidChangeItems();
+            this.listWidget.scrollToEnd();
+        }
+        this.contribs = ChatWidget_1.CONTRIBS.map(contrib => {
+            try {
+                return this._register(this.instantiationService.createInstance(contrib, this));
+            }
+            catch (err) {
+                this.logService.error('Failed to instantiate chat widget contrib', toErrorMessage(err));
+                return undefined;
+            }
+        }).filter(isDefined);
+        this._register(this.chatWidgetService.register(this));
+        const parsedInput = observableFromEvent(this.onDidChangeParsedInput, () => this.parsedInput);
+        this._register(autorun(r => {
+            const input = parsedInput.read(r);
+            const newPromptAttachments = new Map();
+            const oldPromptAttachments = new Set();
+            // get all attachments, know those that are prompt-referenced
+            for (const attachment of this.attachmentModel.attachments) {
+                if (attachment.range) {
+                    oldPromptAttachments.add(attachment.id);
+                }
+            }
+            // update/insert prompt-referenced attachments
+            for (const part of input.parts) {
+                if (part instanceof ChatRequestToolPart || part instanceof ChatRequestToolSetPart || part instanceof ChatRequestDynamicVariablePart) {
+                    const entry = part.toVariableEntry();
+                    newPromptAttachments.set(entry.id, entry);
+                    oldPromptAttachments.delete(entry.id);
+                }
+            }
+            this.attachmentModel.updateContext(oldPromptAttachments, newPromptAttachments.values());
+        }));
+        if (!this.focusedInputDOM) {
+            this.focusedInputDOM = this.container.appendChild(dom.$('.focused-input-dom'));
+        }
+    }
+    focusInput() {
+        this.input.focus();
+        // Sometimes focusing the input part is not possible,
+        // but we'd like to be the last focused chat widget,
+        // so we emit an optimistic onDidFocus event nonetheless.
+        this._onDidFocus.fire();
+    }
+    focusTodosView() {
+        if (!this.input.hasVisibleTodos()) {
+            return false;
+        }
+        return this.input.focusTodoList();
+    }
+    toggleTodosViewFocus() {
+        if (!this.input.hasVisibleTodos()) {
+            return false;
+        }
+        if (this.input.isTodoListFocused()) {
+            this.focusInput();
+            return true;
+        }
+        return this.input.focusTodoList();
+    }
+    focusQuestionCarousel() {
+        if (!this.input.questionCarousel) {
+            return false;
+        }
+        return this.input.focusQuestionCarousel();
+    }
+    toggleQuestionCarouselFocus() {
+        if (!this.input.questionCarousel) {
+            return false;
+        }
+        if (this.input.isQuestionCarouselFocused()) {
+            this.focusInput();
+            return true;
+        }
+        return this.input.focusQuestionCarousel();
+    }
+    navigateToPreviousQuestion() {
+        if (!this.input.questionCarousel) {
+            return false;
+        }
+        return this.input.navigateToPreviousQuestion();
+    }
+    navigateToNextQuestion() {
+        if (!this.input.questionCarousel) {
+            return false;
+        }
+        return this.input.navigateToNextQuestion();
+    }
+    toggleTipFocus() {
+        if (this._gettingStartedTipPartRef?.hasFocus()) {
+            this.focusInput();
+            return true;
+        }
+        if (!this._gettingStartedTipPartRef) {
+            return false;
+        }
+        this._gettingStartedTipPartRef.focus();
+        return true;
+    }
+    hasInputFocus() {
+        return this.input.hasFocus();
+    }
+    refreshParsedInput() {
+        if (!this.viewModel) {
+            return;
+        }
+        const previous = this.parsedChatRequest;
+        this.parsedChatRequest = this.instantiationService.createInstance(ChatRequestParser).parseChatRequestWithReferences(getDynamicVariablesForWidget(this), getSelectedToolAndToolSetsForWidget(this), this.getInput(), this.location, { selectedAgent: this._lastSelectedAgent, mode: this.input.currentModeKind, attachmentCapabilities: this.attachmentCapabilities });
+        if (!previous || !IParsedChatRequest.equals(previous, this.parsedChatRequest)) {
+            this._onDidChangeParsedInput.fire();
+        }
+    }
+    getSibling(item, type) {
+        if (!isResponseVM(item)) {
+            return;
+        }
+        const items = this.viewModel?.getItems();
+        if (!items) {
+            return;
+        }
+        const responseItems = items.filter(i => isResponseVM(i));
+        const targetIndex = responseItems.indexOf(item);
+        if (targetIndex === undefined) {
+            return;
+        }
+        const indexToFocus = type === 'next' ? targetIndex + 1 : targetIndex - 1;
+        if (indexToFocus < 0 || indexToFocus > responseItems.length - 1) {
+            return;
+        }
+        return responseItems[indexToFocus];
+    }
+    async clear() {
+        this.logService.debug('ChatWidget#clear');
+        if (this._dynamicMessageLayoutData) {
+            this._dynamicMessageLayoutData.enabled = true;
+        }
+        if (this.viewModel?.editing) {
+            this.finishedEditing();
+        }
+        if (this.viewModel) {
+            this.viewModel.resetInputPlaceholder();
+        }
+        if (this._lockedAgent) {
+            this.lockToCodingAgent(this._lockedAgent.name, this._lockedAgent.displayName, this._lockedAgent.id);
+        }
+        else {
+            this.unlockFromCodingAgent();
+        }
+        this.inputPart.clearTodoListWidget(this.viewModel?.sessionResource, true);
+        this.chatSuggestNextWidget.hide();
+        await this.viewOptions.clear?.();
+    }
+    onDidChangeItems(skipDynamicLayout) {
+        if (this._visible || !this.viewModel) {
+            const items = this.viewModel?.getItems() ?? [];
+            if (items.length > 0) {
+                this.updateChatViewVisibility();
+            }
+            else {
+                this.renderWelcomeViewContentIfNeeded();
+            }
+            this._onWillMaybeChangeHeight.fire();
+            // Update list widget state and refresh
+            this.listWidget.setVisibleChangeCount(this.visibleChangeCount);
+            this.listWidget.refresh();
+            if (!skipDynamicLayout && this._dynamicMessageLayoutData) {
+                this.layoutDynamicChatTreeItemMode();
+            }
+            this.renderFollowups();
+        }
+    }
+    /**
+     * Updates the DOM visibility of welcome view and chat list immediately
+     */
+    updateChatViewVisibility() {
+        if (this.viewModel) {
+            const isStandardLayout = this.viewOptions.renderStyle !== 'compact' && this.viewOptions.renderStyle !== 'minimal';
+            const numItems = this.viewModel.getItems().length;
+            dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
+            dom.setVisibility(numItems !== 0, this.listContainer);
+            // Show/hide the getting-started tip container based on empty state.
+            // Only use this in the standard chat layout where the welcome view is shown.
+            if (isStandardLayout && this.inputPart) {
+                const tipContainer = this.inputPart.gettingStartedTipContainerElement;
+                if (numItems === 0) {
+                    this.renderGettingStartedTipIfNeeded();
+                }
+                else {
+                    // Dispose the cached tip part so the next empty state picks a
+                    // fresh (rotated) tip instead of re-showing the stale one.
+                    this._gettingStartedTipPartRef = undefined;
+                    this._gettingStartedTipPart.clear();
+                    dom.clearNode(tipContainer);
+                    dom.setVisibility(false, tipContainer);
+                }
+            }
+        }
+        // Only show welcome getting started until extension is installed
+        this.container.classList.toggle('chat-view-getting-started-disabled', this.chatEntitlementService.sentiment.installed);
+        this._onDidChangeEmptyState.fire();
+    }
+    isEmpty() {
+        return (this.viewModel?.getItems().length ?? 0) === 0;
+    }
+    /**
+     * Renders the welcome view content when needed.
+     */
+    renderWelcomeViewContentIfNeeded() {
+        if (this._isRenderingWelcome) {
+            return;
+        }
+        this._isRenderingWelcome = true;
+        try {
+            if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal' || this.lifecycleService.willShutdown) {
+                return;
+            }
+            const numItems = this.viewModel?.getItems().length ?? 0;
+            if (!numItems) {
+                const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
+                let additionalMessage;
+                if (this.chatEntitlementService.anonymous && !this.chatEntitlementService.sentiment.installed) {
+                    const providers = product.defaultChatAgent.provider;
+                    additionalMessage = new MarkdownString(localize(8177, null, providers.default.name, providers.default.name, product.defaultChatAgent.termsStatementUrl, product.defaultChatAgent.privacyStatementUrl), { isTrusted: true });
+                }
+                else {
+                    additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
+                }
+                if (!additionalMessage && !this._lockedAgent) {
+                    additionalMessage = this._getGenerateInstructionsMessage();
+                }
+                const welcomeContent = this.getWelcomeViewContent(additionalMessage);
+                if (!this.welcomePart.value || this.welcomePart.value.needsRerender(welcomeContent)) {
+                    dom.clearNode(this.welcomeMessageContainer);
+                    this.welcomePart.value = this.instantiationService.createInstance(ChatViewWelcomePart, welcomeContent, {
+                        location: this.location,
+                        isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
+                    });
+                    dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+                }
+            }
+            this.updateChatViewVisibility();
+        }
+        finally {
+            this._isRenderingWelcome = false;
+        }
+    }
+    renderGettingStartedTipIfNeeded() {
+        if (!this.inputPart) {
+            return;
+        }
+        const tipContainer = this.inputPart.gettingStartedTipContainerElement;
+        const tip = this.chatTipService.getWelcomeTip(this.contextKeyService);
+        if (!tip) {
+            if (this._gettingStartedTipPart.value) {
+                this._gettingStartedTipPartRef = undefined;
+                this._gettingStartedTipPart.clear();
+                dom.clearNode(tipContainer);
+            }
+            dom.setVisibility(false, tipContainer);
+            return;
+        }
+        // Already showing an eligible tip
+        if (this._gettingStartedTipPart.value) {
+            dom.setVisibility(true, tipContainer);
+            return;
+        }
+        const store = new DisposableStore();
+        const renderer = this.instantiationService.createInstance(ChatContentMarkdownRenderer);
+        const tipPart = store.add(this.instantiationService.createInstance(ChatTipContentPart, tip, renderer));
+        this._gettingStartedTipPartRef = tipPart;
+        store.add(tipPart.onDidHide(() => {
+            tipPart.domNode.remove();
+            this._gettingStartedTipPartRef = undefined;
+            this._gettingStartedTipPart.clear();
+            dom.setVisibility(false, tipContainer);
+            this.focusInput();
+        }));
+        // Set the guard before appending to DOM so that any re-entrant calls
+        // triggered by context-key changes during construction see the guard
+        // and return early without adding a duplicate tip node.
+        this._gettingStartedTipPart.value = store;
+        // Clear any stale nodes left from a previous tip that was not properly
+        // removed (e.g. if re-entrancy bypassed the guard above).
+        dom.clearNode(tipContainer);
+        tipContainer.appendChild(tipPart.domNode);
+        dom.setVisibility(true, tipContainer);
+    }
+    _getGenerateInstructionsMessage() {
+        // Start checking for instruction files immediately if not already done
+        if (!this._instructionFilesCheckPromise) {
+            this._instructionFilesCheckPromise = this._checkForAgentInstructionFiles();
+            // Use VS Code's idiomatic pattern for disposal-safe promise callbacks
+            this._register(thenIfNotDisposed(this._instructionFilesCheckPromise, hasFiles => {
+                this._instructionFilesExist = hasFiles;
+                // Only re-render if the current view still doesn't have items and we're showing the welcome message
+                const hasViewModelItems = this.viewModel?.getItems().length ?? 0;
+                if (hasViewModelItems === 0) {
+                    this.renderWelcomeViewContentIfNeeded();
+                }
+            }));
+        }
+        // If we already know the result, use it
+        if (this._instructionFilesExist === true) {
+            // Don't show generate instructions message if files exist
+            return new MarkdownString('');
+        }
+        else if (this._instructionFilesExist === false) {
+            // Show generate instructions message if no files exist
+            return new MarkdownString(localize(8178, null, `command:${GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID}`), { isTrusted: { enabledCommands: [GENERATE_AGENT_INSTRUCTIONS_COMMAND_ID] } });
+        }
+        // While checking, don't show the generate instructions message
+        return new MarkdownString('');
+    }
+    /**
+     * Checks if any agent instruction files (.github/copilot-instructions.md or AGENTS.md) exist in the workspace.
+     * Used to determine whether to show the "Generate Agent Instructions" hint.
+     *
+     * @returns true if instruction files exist OR if instruction features are disabled (to hide the hint)
+     */
+    async _checkForAgentInstructionFiles() {
+        try {
+            return (await this.promptsService.listAgentInstructions(CancellationToken.None)).length > 0;
+        }
+        catch (error) {
+            // On error, assume no instruction files exist to be safe
+            this.logService.warn('[ChatWidget] Error checking for instruction files:', error);
+            return false;
+        }
+    }
+    getWelcomeViewContent(additionalMessage) {
+        if (this.isLockedToCodingAgent) {
+            // Check for provider-specific customizations from chat sessions service
+            const contribution = this._lockedAgent ? this.chatSessionsService.getChatSessionContribution(this._lockedAgent.id) : undefined;
+            const providerIcon = contribution?.icon;
+            const providerTitle = contribution?.welcomeTitle;
+            const providerMessage = contribution?.welcomeMessage;
+            // Fallback to default messages if provider doesn't specify
+            const message = providerMessage
+                ? new MarkdownString(providerMessage)
+                : (this._lockedAgent?.prefix === '@copilot '
+                    ? new MarkdownString(localize(8179, null, this._lockedAgent.prefix, 'https://aka.ms/coding-agent-docs') + DISCLAIMER, { isTrusted: true })
+                    : new MarkdownString(localize(8180, null, this._lockedAgent?.prefix) + DISCLAIMER));
+            return {
+                title: providerTitle ?? localize(8181, null, this._lockedAgent?.prefix),
+                message,
+                icon: providerIcon ?? Codicon.sendToRemoteAgent,
+                additionalMessage,
+                useLargeIcon: !!providerIcon,
+            };
+        }
+        let title;
+        if (this.input.currentModeKind === ChatModeKind.Ask) {
+            title = localize(8182, null);
+        }
+        else if (this.input.currentModeKind === ChatModeKind.Edit) {
+            title = localize(8183, null);
+        }
+        else {
+            title = localize(8184, null);
+        }
+        return {
+            title,
+            message: new MarkdownString(DISCLAIMER),
+            icon: Codicon.chatSparkle,
+            additionalMessage,
+        };
+    }
+    async renderChatEditingSessionState() {
+        if (!this.input) {
+            return;
+        }
+        this.input.renderChatEditingSessionState(this._editingSession.get() ?? null);
+    }
+    async renderFollowups() {
+        const lastItem = this.listWidget.lastItem;
+        if (lastItem && isResponseVM(lastItem) && lastItem.isComplete) {
+            this.input.renderFollowups(lastItem.replyFollowups, lastItem);
+        }
+        else {
+            this.input.renderFollowups(undefined, undefined);
+        }
+    }
+    renderChatSuggestNextWidget() {
+        if (this.lifecycleService.willShutdown) {
+            return;
+        }
+        // Skip rendering in coding agent sessions unless the agent supports hand-offs
+        if (this.isLockedToCodingAgent && !this._attachmentCapabilities.supportsHandOffs) {
+            this.chatSuggestNextWidget.hide();
+            return;
+        }
+        const items = this.viewModel?.getItems() ?? [];
+        if (!items.length) {
+            return;
+        }
+        const lastItem = items[items.length - 1];
+        const lastResponseComplete = lastItem && isResponseVM(lastItem) && lastItem.isComplete;
+        if (!lastResponseComplete || lastItem.isCanceled) {
+            this.chatSuggestNextWidget.hide();
+            return;
+        }
+        // Derive handoffs from the mode that generated the last response, not the current UI selection.
+        // This ensures handoffs reflect what the response agent offers, regardless of mode picker state.
+        // Fall back to the current mode picker for old sessions where modeInfo was not persisted.
+        const modeInfo = lastItem.model.request?.modeInfo;
+        let responseMode;
+        if (modeInfo?.modeInstructions?.name) {
+            responseMode = this.chatModeService.findModeByName(modeInfo.modeInstructions.name);
+        }
+        else if (modeInfo?.modeId) {
+            responseMode = this.chatModeService.findModeById(modeInfo.modeId);
+        }
+        else {
+            responseMode = this.input.currentModeObs.get();
+        }
+        const handoffs = responseMode?.handOffs?.get();
+        if (responseMode && handoffs && handoffs.length > 0) {
+            // In Autopilot mode, automatically trigger the first auto-send handoff
+            // so the plan flows seamlessly into implementation without user interaction.
+            const permissionLevel = this.inputPart.currentModeInfo.permissionLevel;
+            if (permissionLevel === ChatPermissionLevel.Autopilot) {
+                const autoSendHandoff = handoffs.find(h => h.send);
+                if (autoSendHandoff) {
+                    this.handleNextPromptSelection(autoSendHandoff);
+                    return;
+                }
+            }
+            // Log telemetry only when widget transitions from hidden to visible
+            const wasHidden = this.chatSuggestNextWidget.domNode.style.display === 'none';
+            this.chatSuggestNextWidget.render(responseMode);
+            if (wasHidden) {
+                this.telemetryService.publicLog2('chat.handoffWidgetShown', {
+                    agent: getModeNameForTelemetry(responseMode),
+                    handoffCount: handoffs.length
+                });
+            }
+        }
+        else {
+            this.chatSuggestNextWidget.hide();
+        }
+        // Trigger layout update
+        if (this.bodyDimension) {
+            this.layout(this.bodyDimension.height, this.bodyDimension.width);
+        }
+    }
+    handleNextPromptSelection(handoff, agentId, withAutopilot) {
+        // Hide the widget after selection
+        this.chatSuggestNextWidget.hide();
+        // If starting with Autopilot, set permission level before submitting
+        if (withAutopilot) {
+            this.inputPart.setPermissionLevel(ChatPermissionLevel.Autopilot);
+        }
+        const promptToUse = handoff.prompt;
+        // Log telemetry
+        const currentMode = this.input.currentModeObs.get();
+        const toMode = handoff.agent ? this.chatModeService.findModeByName(handoff.agent) : undefined;
+        this.telemetryService.publicLog2('chat.handoffClicked', {
+            fromAgent: getModeNameForTelemetry(currentMode),
+            toAgent: agentId || (toMode ? getModeNameForTelemetry(toMode) : ''),
+            hasPrompt: Boolean(promptToUse),
+            autoSend: Boolean(handoff.send)
+        });
+        this.executeHandoff(handoff, agentId).catch(e => {
+            const target = agentId ?? handoff.agent ?? 'unknown';
+            this.logService.error(`[Handoff] Failed to execute handoff '${handoff.label}' to '${target}'`, e);
+        });
+    }
+    async executeHandoff(handoff, agentId) {
+        this.chatSuggestNextWidget.hide();
+        const promptToUse = handoff.prompt;
+        // If agentId is provided (from chevron dropdown), delegate to that chat session
+        // Otherwise, switch to the handoff agent
+        if (agentId) {
+            // Delegate to chat session (e.g., @background or @cloud)
+            this.input.setValue(`@${agentId} ${promptToUse}`, false);
+            this.input.focus();
+            // Auto-submit for delegated chat sessions
+            this.acceptInput().catch(e => this.logService.error(`[Handoff] Failed to submit delegated handoff to '@${agentId}'`, e));
+        }
+        else if (handoff.agent) {
+            // Regular handoff to specified agent
+            this._switchToAgentByName(handoff.agent);
+            // Switch to the specified model if provided
+            if (handoff.model) {
+                this.input.switchModelByQualifiedName([handoff.model]);
+            }
+            // Insert the handoff prompt into the input
+            this.input.setValue(promptToUse, false);
+            this.input.focus();
+            // Auto-submit if send flag is true
+            if (handoff.send) {
+                this.acceptInput();
+            }
+        }
+    }
+    async handleDelegationExitIfNeeded(sourceAgent, targetAgent) {
+        if (!this._shouldExitAfterDelegation(sourceAgent, targetAgent)) {
+            return;
+        }
+        this.logService.debug(`[Delegation] Will exit after delegation: sourceAgent=${sourceAgent?.id}, targetAgent=${targetAgent?.id}`);
+        try {
+            await this._handleDelegationExit();
+        }
+        catch (e) {
+            this.logService.error('[Delegation] Failed to handle delegation exit', e);
+        }
+    }
+    _shouldExitAfterDelegation(sourceAgent, targetAgent) {
+        if (!targetAgent) {
+            this.logService.debug('[Delegation] _shouldExitAfterDelegation: false (no targetAgent)');
+            return false;
+        }
+        if (!this.configurationService.getValue(ChatConfiguration.ExitAfterDelegation)) {
+            this.logService.debug('[Delegation] _shouldExitAfterDelegation: false (ExitAfterDelegation config disabled)');
+            return false;
+        }
+        // Never exit if the source and target are the same (that means that you're providing a follow up, etc.)
+        // NOTE: sourceAgent would be the chatWidget's 'lockedAgent'
+        if (sourceAgent && sourceAgent.id === targetAgent.id) {
+            this.logService.debug('[Delegation] _shouldExitAfterDelegation: false (source and target agents are the same)');
+            return false;
+        }
+        if (!isIChatViewViewContext(this.viewContext)) {
+            this.logService.debug('[Delegation] _shouldExitAfterDelegation: false (not in chat view context)');
+            return false;
+        }
+        const contribution = this.chatSessionsService.getChatSessionContribution(targetAgent.id);
+        if (!contribution) {
+            this.logService.debug(`[Delegation] _shouldExitAfterDelegation: false (no contribution found for targetAgent.id=${targetAgent.id})`);
+            return false;
+        }
+        if (contribution.canDelegate !== true) {
+            this.logService.debug(`[Delegation] _shouldExitAfterDelegation: false (contribution.canDelegate=${contribution.canDelegate}, expected true)`);
+            return false;
+        }
+        this.logService.debug('[Delegation] _shouldExitAfterDelegation: true');
+        return true;
+    }
+    /**
+     * Handles the exit of the panel chat when a delegation to another session occurs.
+     * Waits for the response to complete and any pending confirmations to be resolved,
+     * then clears the widget unless the final message is an error.
+     */
+    async _handleDelegationExit() {
+        const viewModel = this.viewModel;
+        if (!viewModel) {
+            this.logService.debug('[Delegation] _handleDelegationExit: no viewModel, returning');
+            return;
+        }
+        const parentSessionResource = viewModel.sessionResource;
+        this.logService.debug(`[Delegation] _handleDelegationExit: parentSessionResource=${parentSessionResource.toString()}`);
+        // Check if response is complete, not pending confirmation, and has no error
+        const checkIfShouldClear = () => {
+            const items = viewModel.getItems();
+            const lastItem = items[items.length - 1];
+            if (lastItem && isResponseVM(lastItem) && lastItem.model && lastItem.isComplete && !lastItem.model.isPendingConfirmation.get()) {
+                const hasError = Boolean(lastItem.result?.errorDetails);
+                return !hasError;
+            }
+            return false;
+        };
+        if (checkIfShouldClear()) {
+            this.logService.debug('[Delegation] Response complete, archiving session before clearing');
+            // Archive BEFORE clearing to ensure session still exists in agentSessionsService
+            await this.archiveLocalParentSession(parentSessionResource);
+            await this.clear();
+            return;
+        }
+        this.logService.debug('[Delegation] Waiting for response to complete...');
+        const shouldClear = await new Promise(resolve => {
+            const disposable = viewModel.onDidChange(() => {
+                const result = checkIfShouldClear();
+                if (result) {
+                    cleanup();
+                    resolve(true);
+                }
+            });
+            const timeout = setTimeout(() => {
+                this.logService.debug('[Delegation] Timeout waiting for response to complete');
+                cleanup();
+                resolve(false);
+            }, 30_000); // 30 second timeout
+            const cleanup = () => {
+                clearTimeout(timeout);
+                disposable.dispose();
+            };
+        });
+        if (shouldClear) {
+            this.logService.debug('[Delegation] Response completed, archiving session before clearing');
+            await this.archiveLocalParentSession(parentSessionResource);
+            await this.clear();
+        }
+        else {
+            this.logService.debug('[Delegation] Not clearing (timeout or error)');
+        }
+    }
+    async archiveLocalParentSession(sessionResource) {
+        // In the regular workbench, only archive local chat sessions.
+        // In the sessions window, allow archiving any session type after delegation.
+        if (sessionResource.scheme !== Schemas.vscodeLocalChatSession && !IsSessionsWindowContext.getValue(this.contextKeyService)) {
+            return;
+        }
+        this.logService.debug(`[Delegation] archiveLocalParentSession: archiving session ${sessionResource.toString()}`);
+        // Implicitly keep parent session's changes as they've now been delegated to the new agent.
+        await this.chatService.getSession(sessionResource)?.editingSession?.accept();
+        const session = this.agentSessionsService.getSession(sessionResource);
+        if (session) {
+            session.setArchived(true);
+            this.logService.debug('[Delegation] archiveLocalParentSession: session archived successfully');
+        }
+        else {
+            this.logService.warn(`[Delegation] archiveLocalParentSession: session not found in agentSessionsService for ${sessionResource.toString()}`);
+        }
+    }
+    setVisible(visible) {
+        const wasVisible = this._visible;
+        this._visible = visible;
+        this.visibleChangeCount++;
+        this.listWidget.setVisible(visible);
+        this.input.setVisible(visible);
+        if (visible) {
+            if (!wasVisible) {
+                this.visibilityTimeoutDisposable.value = disposableTimeout(() => {
+                    // Progressive rendering paused while hidden, so start it up again.
+                    // Do it after a timeout because the container is not visible yet (it should be but offsetHeight returns 0 here)
+                    if (this._visible) {
+                        this.onDidChangeItems(true);
+                    }
+                }, 0);
+                this.visibilityAnimationFrameDisposable.value = dom.scheduleAtNextAnimationFrame(dom.getWindow(this.listContainer), () => {
+                    this._onDidShow.fire();
+                });
+            }
+        }
+        else if (wasVisible) {
+            this._onDidHide.fire();
+        }
+    }
+    createList(listContainer, options) {
+        // Create a dom element to hold UI from editor widgets embedded in chat messages
+        const overflowWidgetsContainer = document.createElement('div');
+        overflowWidgetsContainer.classList.add('chat-overflow-widget-container', 'monaco-editor');
+        listContainer.append(overflowWidgetsContainer);
+        // Create chat list widget
+        this.listWidget = this._register(this.instantiationService.createInstance(ChatListWidget, listContainer, {
+            rendererOptions: options,
+            renderStyle: this.viewOptions.renderStyle,
+            defaultElementHeight: this.viewOptions.defaultElementHeight ?? 200,
+            overflowWidgetsDomNode: overflowWidgetsContainer,
+            styles: {
+                listForeground: this.styles.listForeground,
+                listBackground: this.styles.listBackground,
+            },
+            currentChatMode: () => this.input.currentModeKind,
+            filter: this.viewOptions.filter ? { filter: this.viewOptions.filter.bind(this.viewOptions) } : undefined,
+            codeBlockModelCollection: this._codeBlockModelCollection,
+            viewModel: this.viewModel,
+            editorOptions: this.editorOptions,
+            location: this.location,
+            getCurrentLanguageModelId: () => this.input.currentLanguageModel,
+            getCurrentModeInfo: () => this.input.currentModeInfo,
+        }));
+        // Wire up ChatWidget-specific list widget events
+        this._register(this.listWidget.onDidClickRequest(async (item) => {
+            this.clickedRequest(item);
+        }));
+        this._register(this.listWidget.onDidRerender(item => {
+            if (isRequestVM(item.currentElement) && this.configurationService.getValue('chat.editRequests') !== 'input') {
+                if (!item.rowContainer.contains(this.inputContainer)) {
+                    item.rowContainer.appendChild(this.inputContainer);
+                }
+                this.input.focus();
+            }
+        }));
+        this._register(this.listWidget.onDidDispose(() => {
+            this.focusedInputDOM.appendChild(this.inputContainer);
+            this.input.focus();
+        }));
+        this._register(this.listWidget.onDidFocusOutside(() => {
+            this.finishedEditing();
+        }));
+        this._register(this.listWidget.onDidClickFollowup(item => {
+            // is this used anymore?
+            this.acceptInput(item.message);
+        }));
+        this._register(this.listWidget.onDidChangeContentHeight(() => {
+            this._onDidChangeContentHeight.fire();
+        }));
+        this._register(this.listWidget.onDidFocus(() => {
+            this._onDidFocus.fire();
+        }));
+        this._register(this.listWidget.onDidScroll(() => {
+            this._onDidScroll.fire();
+        }));
+    }
+    startEditing(requestId) {
+        const editedRequest = this.listWidget.getTemplateDataForRequestId(requestId);
+        if (editedRequest) {
+            this.clickedRequest(editedRequest);
+        }
+    }
+    clickedRequest(item) {
+        const currentElement = item.currentElement;
+        if (isRequestVM(currentElement) && !this.viewModel?.editing) {
+            const requests = this.viewModel?.model.getRequests();
+            if (!requests || !this.viewModel?.sessionResource) {
+                return;
+            }
+            // this will only ever be true if we restored a checkpoint
+            if (this.viewModel?.model.checkpoint) {
+                this.recentlyRestoredCheckpoint = true;
+            }
+            this.viewModel?.model.setCheckpoint(currentElement.id);
+            // set contexts and request to false
+            const currentContext = [];
+            const addedContextIds = new Set();
+            const addToContext = (entry) => {
+                const dedupKey = entry.range ? `${entry.id}:${entry.range.start}-${entry.range.endExclusive}` : entry.id;
+                if (addedContextIds.has(dedupKey) || isWorkspaceVariableEntry(entry)) {
+                    return;
+                }
+                if ((isPromptFileVariableEntry(entry) || isPromptTextVariableEntry(entry)) && entry.automaticallyAdded) {
+                    return;
+                }
+                addedContextIds.add(dedupKey);
+                currentContext.push(entry);
+            };
+            for (let i = requests.length - 1; i >= 0; i -= 1) {
+                const request = requests[i];
+                if (request.id === currentElement.id) {
+                    request.setShouldBeBlocked(false); // unblocking just this request.
+                    request.attachedContext?.forEach(addToContext);
+                }
+            }
+            currentElement.variables.forEach(addToContext);
+            // set states
+            this.viewModel?.setEditing(currentElement);
+            if (item?.contextKeyService) {
+                ChatContextKeys.currentlyEditing.bindTo(item.contextKeyService).set(true);
+            }
+            const isEditingSentRequest = currentElement.pendingKind === undefined
+                ? "s" /* ChatContextKeys.EditingRequestType.Sent */
+                : currentElement.pendingKind === "queued" /* ChatRequestQueueKind.Queued */
+                    ? "q" /* ChatContextKeys.EditingRequestType.Queue */
+                    : "st" /* ChatContextKeys.EditingRequestType.Steer */;
+            const isInput = this.configurationService.getValue('chat.editRequests') === 'input';
+            this.inputPart?.setEditing(!!this.viewModel?.editing && isInput, isEditingSentRequest);
+            if (!isInput) {
+                const rowContainer = item.rowContainer;
+                this.inputContainer = dom.$('.chat-edit-input-container');
+                rowContainer.appendChild(this.inputContainer);
+                this.createInput(this.inputContainer);
+                this.input.setChatMode(this.inputPart.currentModeObs.get().id);
+                this.input.setPermissionLevel(this.inputPart.currentModeInfo.permissionLevel ?? ChatPermissionLevel.Default);
+                this.input.setEditing(true, isEditingSentRequest);
+                this._onDidChangeActiveInputEditor.fire();
+            }
+            else {
+                this.inputPart.element.classList.add('editing');
+            }
+            this.inputPart.toggleChatInputOverlay(!isInput);
+            if (currentContext.length > 0) {
+                this.input.attachmentModel.addContext(...currentContext);
+            }
+            // rerenders
+            this.inputPart.dnd.setDisabledOverlay(!isInput);
+            this.input.renderAttachedContext();
+            this.input.setValue(currentElement.messageText, false);
+            // restore dynamic variables in the model so decorations and parsing work
+            const dynamicVariableModel = this.getContrib(ChatDynamicVariableModel.ID);
+            const editorModel = this.input.inputEditor.getModel();
+            if (dynamicVariableModel && editorModel) {
+                const modelTextLength = editorModel.getValueLength();
+                for (const entry of currentContext) {
+                    if (entry.range) {
+                        if (entry.range.start >= entry.range.endExclusive) {
+                            continue;
+                        }
+                        if (entry.range.start < 0 || entry.range.endExclusive > modelTextLength) {
+                            continue;
+                        }
+                        const startPos = editorModel.getPositionAt(entry.range.start);
+                        const endPos = editorModel.getPositionAt(entry.range.endExclusive);
+                        dynamicVariableModel.addReference({
+                            id: entry.id,
+                            range: new Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
+                            data: entry.value,
+                            fullName: entry.fullName,
+                            icon: entry.icon,
+                            modelDescription: entry.modelDescription,
+                            isFile: entry.kind === 'file',
+                            isDirectory: entry.kind === 'directory',
+                        });
+                    }
+                }
+            }
+            this.listWidget.suppressAutoScroll = true;
+            this.onDidChangeItems();
+            this.input.inputEditor.focus();
+            this._register(this.inputPart.onDidClickOverlay(() => {
+                if (this.viewModel?.editing && this.configurationService.getValue('chat.editRequests') !== 'input') {
+                    this.finishedEditing();
+                }
+            }));
+            // listeners
+            if (!isInput) {
+                this._register(this.inlineInputPart.inputEditor.onDidChangeModelContent(() => {
+                    this.listWidget.scrollToCurrentItem(currentElement);
+                }));
+                this._register(this.inlineInputPart.inputEditor.onDidChangeCursorSelection((e) => {
+                    this.listWidget.scrollToCurrentItem(currentElement);
+                }));
+            }
+        }
+        this.telemetryService.publicLog2('chat.startEditingRequests', {
+            editRequestType: this.configurationService.getValue('chat.editRequests'),
+        });
+    }
+    finishedEditing(completedEdit) {
+        // reset states
+        this.listWidget.suppressAutoScroll = false;
+        const editedRequest = this.listWidget.getTemplateDataForRequestId(this.viewModel?.editing?.id);
+        if (this.recentlyRestoredCheckpoint) {
+            this.recentlyRestoredCheckpoint = false;
+        }
+        else {
+            this.viewModel?.model.setCheckpoint(undefined);
+        }
+        this.inputPart.dnd.setDisabledOverlay(false);
+        if (editedRequest?.contextKeyService) {
+            ChatContextKeys.currentlyEditing.bindTo(editedRequest.contextKeyService).set(false);
+        }
+        const isInput = this.configurationService.getValue('chat.editRequests') === 'input';
+        if (!isInput) {
+            this.inputPart.setChatMode(this.input.currentModeObs.get().id);
+            this.inputPart.setPermissionLevel(this.input.currentModeInfo.permissionLevel ?? ChatPermissionLevel.Default);
+            const currentModel = this.input.selectedLanguageModel.get();
+            if (currentModel) {
+                this.inputPart.switchModel(currentModel.metadata);
+            }
+            this.inputPart?.toggleChatInputOverlay(false);
+            try {
+                if (editedRequest?.rowContainer?.contains(this.inputContainer)) {
+                    editedRequest.rowContainer.removeChild(this.inputContainer);
+                }
+                else if (this.inputContainer.parentElement) {
+                    this.inputContainer.parentElement.removeChild(this.inputContainer);
+                }
+            }
+            catch (e) {
+                this.logService.error('Error occurred while finishing editing:', e);
+            }
+            this.inputContainer = dom.$('.empty-chat-state');
+            // only dispose if we know the input is not the bottom input object.
+            this.input.dispose();
+        }
+        if (isInput) {
+            this.inputPart.element.classList.remove('editing');
+        }
+        this.viewModel?.setEditing(undefined);
+        this.inputPart?.setEditing(false, undefined);
+        if (!isInput) {
+            this._onDidChangeActiveInputEditor.fire();
+        }
+        this.onDidChangeItems();
+        this.telemetryService.publicLog2('chat.editRequestsFinished', {
+            editRequestType: this.configurationService.getValue('chat.editRequests'),
+            editCanceled: !completedEdit
+        });
+        this.inputPart.focus();
+    }
+    getWidgetViewKindTag() {
+        if (!this.viewContext) {
+            return 'editor';
+        }
+        else if (isIChatViewViewContext(this.viewContext)) {
+            return 'view';
+        }
+        else {
+            return 'quick';
+        }
+    }
+    createInput(container, options) {
+        const commonConfig = {
+            renderFollowups: options?.renderFollowups ?? true,
+            renderStyle: options?.renderStyle === 'minimal' ? 'compact' : options?.renderStyle,
+            renderInputToolbarBelowInput: options?.renderInputToolbarBelowInput ?? false,
+            menus: {
+                executeToolbar: MenuId.ChatExecute,
+                telemetrySource: 'chatWidget',
+                ...this.viewOptions.menus
+            },
+            editorOverflowWidgetsDomNode: this.viewOptions.editorOverflowWidgetsDomNode,
+            enableImplicitContext: this.viewOptions.enableImplicitContext,
+            renderWorkingSet: this.viewOptions.enableWorkingSet === 'explicit',
+            supportsChangingModes: this.viewOptions.supportsChangingModes,
+            dndContainer: this.viewOptions.dndContainer,
+            inputEditorMinLines: this.viewOptions.inputEditorMinLines,
+            widgetViewKindTag: this.getWidgetViewKindTag(),
+            defaultMode: this.viewOptions.defaultMode,
+            sessionTypePickerDelegate: this.viewOptions.sessionTypePickerDelegate,
+            workspacePickerDelegate: this.viewOptions.workspacePickerDelegate,
+            isSessionsWindow: this.viewOptions.isSessionsWindow,
+        };
+        if (this.viewModel?.editing) {
+            const editedRequest = this.listWidget.getTemplateDataForRequestId(this.viewModel?.editing?.id);
+            const scopedInstantiationService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, editedRequest?.contextKeyService])));
+            this.inlineInputPartDisposable.value = scopedInstantiationService.createInstance(ChatInputPart, this.location, commonConfig, this.styles, true);
+        }
+        else {
+            this.inputPartDisposable.value = this.instantiationService.createInstance(ChatInputPart, this.location, commonConfig, this.styles, false);
+            this._register(autorun(reader => {
+                this.inputPart.height.read(reader);
+                if (!this.listWidget) {
+                    // This is set up before the list/renderer are created
+                    return;
+                }
+                if (this.bodyDimension) {
+                    this.layout(this.bodyDimension.height, this.bodyDimension.width);
+                }
+                this._onDidChangeContentHeight.fire();
+            }));
+        }
+        this.input.render(container, '', this);
+        if (this.bodyDimension?.width) {
+            this.input.layout(this.bodyDimension.width);
+        }
+        this._register(this.input.onDidLoadInputState(() => {
+            this.refreshParsedInput();
+        }));
+        this._register(this.input.onDidFocus(() => this._onDidFocus.fire()));
+        this._register(this.input.onDidAcceptFollowup(e => {
+            if (!this.viewModel) {
+                return;
+            }
+            let msg = '';
+            if (e.followup.agentId && e.followup.agentId !== this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind)?.id) {
+                const agent = this.chatAgentService.getAgent(e.followup.agentId);
+                if (!agent) {
+                    return;
+                }
+                this.lastSelectedAgent = agent;
+                msg = `${chatAgentLeader}${agent.name} `;
+                if (e.followup.subCommand) {
+                    msg += `${chatSubcommandLeader}${e.followup.subCommand} `;
+                }
+            }
+            else if (!e.followup.agentId && e.followup.subCommand && this.chatSlashCommandService.hasCommand(e.followup.subCommand)) {
+                msg = `${chatSubcommandLeader}${e.followup.subCommand} `;
+            }
+            msg += e.followup.message;
+            this.acceptInput(msg);
+            if (!e.response) {
+                // Followups can be shown by the welcome message, then there is no response associated.
+                // At some point we probably want telemetry for these too.
+                return;
+            }
+            this.chatService.notifyUserAction({
+                sessionResource: this.viewModel.sessionResource,
+                requestId: e.response.requestId,
+                agentId: e.response.agent?.id,
+                command: e.response.slashCommand?.name,
+                result: e.response.result,
+                action: {
+                    kind: 'followUp',
+                    followup: e.followup
+                },
+            });
+        }));
+        this._register(this.inputEditor.onDidChangeModelContent(() => {
+            this.parsedChatRequest = undefined;
+            this.updateChatInputContext();
+        }));
+        this._register(this.chatAgentService.onDidChangeAgents(() => {
+            this.parsedChatRequest = undefined;
+            // Tools agent loads -> welcome content changes
+            this.renderWelcomeViewContentIfNeeded();
+        }));
+        this._register(this.input.onDidChangeCurrentChatMode(() => {
+            this.renderWelcomeViewContentIfNeeded();
+            this.refreshParsedInput();
+            this.renderFollowups();
+            this.renderChatSuggestNextWidget();
+        }));
+        const foregroundSessionCountContextKeys = new Set([ChatContextKeys.foregroundSessionCount.key]);
+        this._register(this.contextKeyService.onDidChangeContext(e => {
+            if (e.affectsSome(foregroundSessionCountContextKeys) && this.isEmpty()) {
+                this.renderGettingStartedTipIfNeeded();
+            }
+        }));
+        let previousModelIdentifier;
+        this._register(autorun(reader => {
+            const modelIdentifier = this.inputPart.selectedLanguageModel.read(reader)?.identifier;
+            if (previousModelIdentifier === undefined) {
+                previousModelIdentifier = modelIdentifier;
+                return;
+            }
+            if (previousModelIdentifier === modelIdentifier) {
+                return;
+            }
+            previousModelIdentifier = modelIdentifier;
+            if (!this._gettingStartedTipPartRef) {
+                return;
+            }
+            this.chatTipService.getWelcomeTip(this.contextKeyService);
+        }));
+        this._register(autorun(r => {
+            const toolSetIds = new Set();
+            const toolIds = new Set();
+            for (const [entry, enabled] of this.input.selectedToolsModel.entriesMap.read(r)) {
+                if (enabled) {
+                    if (isToolSet(entry)) {
+                        toolSetIds.add(entry.id);
+                    }
+                    else {
+                        toolIds.add(entry.id);
+                    }
+                }
+            }
+            const disabledTools = this.input.attachmentModel.attachments
+                .filter(a => a.kind === 'tool' && !toolIds.has(a.id) || a.kind === 'toolset' && !toolSetIds.has(a.id))
+                .map(a => a.id);
+            this.input.attachmentModel.updateContext(disabledTools, Iterable.empty());
+            this.refreshParsedInput();
+        }));
+    }
+    onDidStyleChange() {
+        this.container.style.setProperty('--vscode-interactive-result-editor-background-color', this.editorOptions.configuration.resultEditor.backgroundColor?.toString() ?? '');
+        this.container.style.setProperty('--vscode-interactive-session-foreground', this.editorOptions.configuration.foreground?.toString() ?? '');
+        this.container.style.setProperty('--vscode-chat-list-background', this.themeService.getColorTheme().getColor(this.styles.listBackground)?.toString() ?? '');
+    }
+    setModel(model) {
+        if (!this.container) {
+            throw new Error('Call render() before setModel()');
+        }
+        if (!model) {
+            if (this.viewModel?.editing) {
+                this.finishedEditing();
+            }
+            this.viewModel = undefined;
+            this.onDidChangeItems();
+            this._hasPendingRequestsContextKey.set(false);
+            return;
+        }
+        if (isEqual(model.sessionResource, this.viewModel?.sessionResource)) {
+            return;
+        }
+        if (this.viewModel?.editing) {
+            this.finishedEditing();
+        }
+        this.inputPart.clearTodoListWidget(model.sessionResource, false);
+        this.chatSuggestNextWidget.hide();
+        this.chatTipService.resetSession();
+        // Switching sessions resets tip service state; clear any rendered tip so
+        // empty-state rendering picks a fresh, context-appropriate tip.
+        this._gettingStartedTipPartRef = undefined;
+        this._gettingStartedTipPart.clear();
+        const tipContainer = this.inputPart.gettingStartedTipContainerElement;
+        dom.clearNode(tipContainer);
+        dom.setVisibility(false, tipContainer);
+        this._codeBlockModelCollection.clear();
+        // Set the input model on the inputPart before assigning this.viewModel. Assigning this.viewModel
+        // fires onDidChangeViewModel, which ChatInputPart listens to and expects the input model to be initialized.
+        // Pass input model reference to input part for state syncing
+        this.inputPart.setInputModel(model.inputModel, model.getRequests().length === 0);
+        this.viewModel = this.instantiationService.createInstance(ChatViewModel, model, this._codeBlockModelCollection, undefined);
+        this.listWidget.setViewModel(this.viewModel);
+        if (this._lockedAgent) {
+            let placeholder = this.chatSessionsService.getChatSessionContribution(this._lockedAgent.id)?.inputPlaceholder;
+            if (!placeholder) {
+                placeholder = localize(8185, null, this._lockedAgent.displayName || this._lockedAgent.name);
+            }
+            this.viewModel.setInputPlaceholder(placeholder);
+            this.inputEditor.updateOptions({ placeholder });
+        }
+        else if (this.viewModel.inputPlaceholder) {
+            this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
+        }
+        const renderImmediately = this.configurationService.getValue('chat.experimental.renderMarkdownImmediately');
+        const delay = renderImmediately ? MicrotaskDelay : 0;
+        this.viewModelDisposables.add(Event.runAndSubscribe(Event.accumulate(this.viewModel.onDidChange, delay), (events => {
+            if (!this.viewModel || this._store.isDisposed) {
+                // See https://github.com/microsoft/vscode/issues/278969
+                return;
+            }
+            this.requestInProgress.set(this.viewModel.model.requestInProgress.get());
+            // Update the editor's placeholder text when it changes in the view model
+            if (events?.some(e => e?.kind === 'changePlaceholder')) {
+                this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
+            }
+            this.onDidChangeItems();
+            if (events?.some(e => e?.kind === 'addRequest') && this.visible) {
+                this.listWidget.scrollToEnd();
+            }
+        })));
+        this.viewModelDisposables.add(this.viewModel.onDidDisposeModel(() => {
+            // Ensure that view state is saved here, because we will load it again when a new model is assigned
+            if (this.viewModel?.editing) {
+                this.finishedEditing();
+            }
+            // Disposes the viewmodel and listeners
+            this.viewModel = undefined;
+            this.onDidChangeItems();
+        }));
+        this._sessionIsEmptyContextKey.set(model.getRequests().length === 0);
+        const supportsFork = this.chatSessionsService.sessionSupportsFork(model.sessionResource);
+        this._chatSessionSupportsForkContextKey.set(supportsFork);
+        this.listWidget?.updateRendererOptions({ supportsFork });
+        this._sessionHasDebugDataContextKey.set(this.chatDebugService.getEvents(model.sessionResource).length > 0);
+        let lastSteeringCount = 0;
+        const updatePendingRequestKeys = (announceSteering) => {
+            const pendingRequests = model.getPendingRequests();
+            const pendingCount = pendingRequests.length;
+            this._hasPendingRequestsContextKey.set(pendingCount > 0);
+            const steeringCount = pendingRequests.filter(pending => pending.kind === "steering" /* ChatRequestQueueKind.Steering */).length;
+            if (announceSteering && steeringCount > 0 && lastSteeringCount === 0) {
+                status(localize(8186, null));
+            }
+            lastSteeringCount = steeringCount;
+        };
+        updatePendingRequestKeys(false);
+        this.viewModelDisposables.add(model.onDidChangePendingRequests(() => updatePendingRequestKeys(true)));
+        this.refreshParsedInput();
+        this.viewModelDisposables.add(model.onDidChange((e) => {
+            if (e.kind === 'setAgent') {
+                this._onDidChangeAgent.fire({ agent: e.agent, slashCommand: e.command });
+                // Update capabilities context keys when agent changes
+                this._updateAgentCapabilitiesContextKeys(e.agent);
+            }
+            if (e.kind === 'addRequest') {
+                this.inputPart.clearTodoListWidget(this.viewModel?.sessionResource, false);
+                this._sessionIsEmptyContextKey.set(false);
+                this.chatSuggestNextWidget.hide();
+            }
+            // Hide widget on request removal
+            if (e.kind === 'removeRequest') {
+                this.inputPart.clearTodoListWidget(this.viewModel?.sessionResource, true);
+                this.chatSuggestNextWidget.hide();
+                this._sessionIsEmptyContextKey.set((this.viewModel?.model.getRequests().length ?? 0) === 0);
+            }
+            // Show next steps widget when response completes (not when request starts)
+            if (e.kind === 'completedRequest') {
+                const lastRequest = this.viewModel?.model.getRequests().at(-1);
+                const wasCancelled = lastRequest?.response?.isCanceled ?? false;
+                if (wasCancelled) {
+                    // Clear todo list when request is cancelled
+                    this.inputPart.clearTodoListWidget(this.viewModel?.sessionResource, true);
+                }
+                // Only show if response wasn't canceled
+                this.renderChatSuggestNextWidget();
+                // Mark the session as read when the request completes and the widget is visible
+                if (this.visible && this.viewModel?.sessionResource) {
+                    this.agentSessionsService.getSession(this.viewModel.sessionResource)?.setRead(true);
+                }
+            }
+        }));
+        if (this.listWidget && this.visible) {
+            this.onDidChangeItems();
+            this.listWidget.scrollToEnd();
+        }
+        this.renderChatSuggestNextWidget();
+        this.updateChatInputContext();
+        this.input.renderChatTodoListWidget(this.viewModel.sessionResource);
+        this.input.renderArtifactsWidget(this.viewModel.sessionResource);
+    }
+    getFocus() {
+        return this.listWidget.getFocus()[0] ?? undefined;
+    }
+    reveal(item, relativeTop) {
+        this.listWidget.reveal(item, relativeTop);
+    }
+    focus(item) {
+        if (!this.listWidget.hasElement(item)) {
+            return;
+        }
+        this.listWidget.focusItem(item);
+    }
+    setInputPlaceholder(placeholder) {
+        this.viewModel?.setInputPlaceholder(placeholder);
+    }
+    resetInputPlaceholder() {
+        this.viewModel?.resetInputPlaceholder();
+    }
+    setInput(value = '') {
+        this.input.setValue(value, false);
+        this.refreshParsedInput();
+    }
+    getInput() {
+        return this.input.inputEditor.getValue();
+    }
+    getContrib(id) {
+        return this.contribs.find(c => c.id === id);
+    }
+    // Coding agent locking methods
+    lockToCodingAgent(name, displayName, agentId) {
+        this._lockedAgent = {
+            id: agentId,
+            name,
+            prefix: `@${name} `,
+            displayName
+        };
+        this._lockedToCodingAgentContextKey.set(true);
+        this._lockedCodingAgentIdContextKey.set(agentId);
+        this.renderWelcomeViewContentIfNeeded();
+        // Update capabilities for the locked agent
+        const agent = this.chatAgentService.getAgent(agentId);
+        this._updateAgentCapabilitiesContextKeys(agent);
+        this.listWidget?.updateRendererOptions({ restorable: false, editable: false, noFooter: true, progressMessageAtBottomOfResponse: true });
+        if (this.visible) {
+            this.listWidget?.rerender();
+        }
+    }
+    unlockFromCodingAgent() {
+        // Clear all state related to locking
+        this._lockedAgent = undefined;
+        this._lockedToCodingAgentContextKey.set(false);
+        this._lockedCodingAgentIdContextKey.set('');
+        this._chatSessionSupportsForkContextKey.set(false);
+        this._updateAgentCapabilitiesContextKeys(undefined);
+        // Explicitly update the DOM to reflect unlocked state
+        this.renderWelcomeViewContentIfNeeded();
+        // Reset to default placeholder
+        if (this.viewModel) {
+            this.viewModel.resetInputPlaceholder();
+        }
+        this.inputEditor?.updateOptions({ placeholder: undefined });
+        this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+        if (this.visible) {
+            this.listWidget?.rerender();
+        }
+    }
+    get isLockedToCodingAgent() {
+        return !!this._lockedAgent;
+    }
+    get lockedAgentId() {
+        return this._lockedAgent?.id;
+    }
+    logInputHistory() {
+        this.input.logInputHistory();
+    }
+    async acceptInput(query, options) {
+        return this._acceptInput(query ? { query } : undefined, options);
+    }
+    async rerunLastRequest() {
+        if (!this.viewModel) {
+            return;
+        }
+        const sessionResource = this.viewModel.sessionResource;
+        const lastRequest = this.chatService.getSession(sessionResource)?.getRequests().at(-1);
+        if (!lastRequest) {
+            return;
+        }
+        const options = {
+            attempt: lastRequest.attempt + 1,
+            location: this.location,
+            userSelectedModelId: this.input.currentLanguageModel,
+            modeInfo: this.input.currentModeInfo,
+        };
+        const result = await this.chatService.resendRequest(lastRequest, options);
+        this.logThinkingStyleUsage('rerun');
+        return result;
+    }
+    getConfiguredThinkingStyle() {
+        const thinkingStyle = this.configurationService.getValue(ChatConfiguration.ThinkingStyle);
+        switch (thinkingStyle) {
+            case ThinkingDisplayMode.Collapsed:
+            case ThinkingDisplayMode.CollapsedPreview:
+            case ThinkingDisplayMode.FixedScrolling:
+                return thinkingStyle;
+            default:
+                return ThinkingDisplayMode.FixedScrolling;
+        }
+    }
+    logThinkingStyleUsage(requestKind) {
+        this.telemetryService.publicLog2('chat.thinkingStyleUsage', {
+            thinkingStyle: this.getConfiguredThinkingStyle(),
+            location: this.location,
+            requestKind,
+        });
+    }
+    async _applyPromptFileIfSet(requestInput) {
+        // first check if the input has a prompt slash command
+        const agentSlashPromptPart = this.parsedInput.parts.find((r) => r instanceof ChatRequestSlashPromptPart);
+        if (!agentSlashPromptPart) {
+            return;
+        }
+        // Prompt slash commands are transformed out of the input before sendRequest.
+        // Track them now so tip exclusions still update for commands like /init.
+        this.chatTipService.recordSlashCommandUsage(agentSlashPromptPart.name);
+        // need to resolve the slash command to get the prompt file
+        const slashCommand = await this.promptsService.resolvePromptSlashCommand(agentSlashPromptPart.name, CancellationToken.None);
+        if (!slashCommand) {
+            return;
+        }
+        const parseResult = slashCommand.parsedPromptFile;
+        // add the prompt file to the context
+        const refs = parseResult.body?.variableReferences.map(({ name, offset }) => ({ name, range: new OffsetRange(offset, offset + name.length + 1) })) ?? [];
+        const toolReferences = this.toolsService.toToolReferences(refs);
+        requestInput.attachedContext.insertFirst(toPromptFileVariableEntry(parseResult.uri, PromptFileVariableKind.PromptFile, undefined, true, toolReferences));
+        const promptPath = slashCommand.promptPath;
+        const promptRunEvent = {
+            storage: promptPath.storage,
+        };
+        if (promptPath.storage === PromptsStorage.extension) {
+            promptRunEvent.extensionId = promptPath.extension.identifier.value;
+            promptRunEvent.promptName = slashCommand.name;
+        }
+        else {
+            promptRunEvent.promptNameHash = hash(slashCommand.name).toString(16);
+        }
+        this.telemetryService.publicLog2('chat.promptRun', promptRunEvent);
+        if (parseResult.header) {
+            await this._applyPromptMetadata(parseResult.header, requestInput);
+        }
+    }
+    async _acceptInput(query, options = {}) {
+        if (!query && this.input.generating) {
+            // if the user submits the input and generation finishes quickly, just submit it for them
+            const generatingAutoSubmitWindow = 500;
+            const start = Date.now();
+            await this.input.generating;
+            if (Date.now() - start > generatingAutoSubmitWindow) {
+                return;
+            }
+        }
+        while (!this._viewModel && !this._store.isDisposed) {
+            await Event.toPromise(this.onDidChangeViewModel, this._store);
+        }
+        if (!this.viewModel) {
+            return;
+        }
+        // Check if a custom submit handler wants to handle this submission
+        if (this.viewOptions.submitHandler) {
+            const inputValue = !query ? this.getInput() : query.query;
+            const handled = await this.viewOptions.submitHandler(inputValue, this.input.currentModeKind);
+            if (handled) {
+                return;
+            }
+        }
+        this._onDidAcceptInput.fire();
+        this.listWidget.setScrollLock(this.isLockedToCodingAgent || !!checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll));
+        const editorValue = this.getInput();
+        const requestInputs = {
+            input: !query ? editorValue : query.query,
+            attachedContext: options?.enableImplicitContext === false ? this.input.getAttachedContext() : this.input.getAttachedAndImplicitContext(),
+        };
+        const isUserQuery = !query;
+        const isEditing = this.viewModel?.editing;
+        if (isEditing) {
+            const editingPendingRequest = this.viewModel.editing.pendingKind;
+            if (editingPendingRequest !== undefined) {
+                const editingRequestId = this.viewModel.editing.id;
+                this.chatService.removePendingRequest(this.viewModel.sessionResource, editingRequestId);
+                options.queue ??= editingPendingRequest;
+            }
+            else {
+                await this.chatService.cancelCurrentRequestForSession(this.viewModel.sessionResource, 'acceptInput-editing');
+                options.queue = undefined;
+            }
+            this.finishedEditing(true);
+            this.viewModel.model?.setCheckpoint(undefined);
+        }
+        const model = this.viewModel.model;
+        const requestInProgress = model.requestInProgress.get();
+        // Cancel the request if the user chooses to take a different path.
+        // This is a bit of a heuristic for the common case of tool confirmation+reroute.
+        // But we don't do this if there are queued messages, because we would either
+        // discard them or need a prompt (as in `confirmPendingRequestsBeforeSend`)
+        // which could be a surprising behavior if the user finishes typing a steering
+        // request just as confirmation is triggered.
+        if (model.requestNeedsInput.get() && !model.getPendingRequests().length) {
+            await this.chatService.cancelCurrentRequestForSession(this.viewModel.sessionResource, 'acceptInput-needsInput');
+            options.queue ??= "queued" /* ChatRequestQueueKind.Queued */;
+        }
+        if (requestInProgress) {
+            options.queue ??= "queued" /* ChatRequestQueueKind.Queued */;
+        }
+        if (!requestInProgress && !isEditing && !(await this.confirmPendingRequestsBeforeSend(model, options))) {
+            return;
+        }
+        // process the prompt command
+        await this._applyPromptFileIfSet(requestInputs);
+        await this._autoAttachInstructions(requestInputs);
+        if (this.viewOptions.enableWorkingSet !== undefined && this.input.currentModeKind === ChatModeKind.Edit) {
+            const uniqueWorkingSetEntries = new ResourceSet(); // NOTE: this is used for bookkeeping so the UI can avoid rendering references in the UI that are already shown in the working set
+            const editingSessionAttachedContext = requestInputs.attachedContext;
+            // Collect file variables from previous requests before sending the request
+            const previousRequests = this.viewModel.model.getRequests();
+            for (const request of previousRequests) {
+                for (const variable of request.variableData.variables) {
+                    if (URI.isUri(variable.value) && variable.kind === 'file') {
+                        const uri = variable.value;
+                        if (!uniqueWorkingSetEntries.has(uri)) {
+                            editingSessionAttachedContext.add(variable);
+                            uniqueWorkingSetEntries.add(variable.value);
+                        }
+                    }
+                }
+            }
+            requestInputs.attachedContext = editingSessionAttachedContext;
+            this.telemetryService.publicLog2('chatEditing/workingSetSize', { originalSize: uniqueWorkingSetEntries.size, actualSize: uniqueWorkingSetEntries.size });
+        }
+        this.input.validateAgentMode();
+        if (this.viewModel.model.checkpoint) {
+            const requests = this.viewModel.model.getRequests();
+            for (let i = requests.length - 1; i >= 0; i -= 1) {
+                const request = requests[i];
+                if (request.shouldBeBlocked) {
+                    this.chatService.removeRequest(this.viewModel.sessionResource, request.id);
+                }
+            }
+        }
+        // Expand directory attachments: extract images as binary entries
+        const resolvedImageVariables = await this._resolveDirectoryImageAttachments(requestInputs.attachedContext.asArray());
+        const submittedSessionResource = this.viewModel.sessionResource;
+        const result = await this.chatService.sendRequest(this.viewModel.sessionResource, requestInputs.input, {
+            userSelectedModelId: this.input.currentLanguageModel,
+            location: this.location,
+            locationData: this._location.resolveData?.(),
+            parserContext: { selectedAgent: this._lastSelectedAgent, mode: this.input.currentModeKind, attachmentCapabilities: this._lastSelectedAgent?.capabilities ?? this.attachmentCapabilities },
+            attachedContext: requestInputs.attachedContext.asArray(),
+            resolvedVariables: resolvedImageVariables,
+            noCommandDetection: options?.noCommandDetection,
+            ...this.getModeRequestOptions(),
+            modeInfo: this.input.currentModeInfo,
+            agentIdSilent: this._lockedAgent?.id,
+            queue: options?.queue,
+        });
+        if (ChatSendResult.isRejected(result)) {
+            return;
+        }
+        this.logThinkingStyleUsage('submit');
+        // visibility sync before firing events to hide the welcome view
+        this.updateChatViewVisibility();
+        this.input.acceptInput(options?.storeToHistory ?? isUserQuery);
+        const sent = ChatSendResult.isQueued(result) ? await result.deferred : result;
+        if (!ChatSendResult.isSent(sent)) {
+            return;
+        }
+        this._onDidSubmitAgent.fire({ agent: sent.data.agent, slashCommand: sent.data.slashCommand });
+        this.handleDelegationExitIfNeeded(this._lockedAgent, sent.data.agent);
+        // If the session was replaced (untitled -> real contributed session), swap the widget's model
+        if (sent.newSessionResource) {
+            const newModel = this.chatService.getSession(sent.newSessionResource);
+            if (newModel) {
+                this.setModel(newModel);
+            }
+        }
+        sent.data.responseCreatedPromise.then(() => {
+            // Only start accessibility progress once a real request/response model exists.
+            this.chatAccessibilityService.acceptRequest(submittedSessionResource);
+            sent.data.responseCompletePromise.then(() => {
+                const responses = this.viewModel?.getItems().filter(isResponseVM);
+                const lastResponse = responses?.[responses.length - 1];
+                this.chatAccessibilityService.acceptResponse(this, this.container, lastResponse, submittedSessionResource, options?.isVoiceInput);
+                if (lastResponse?.result?.nextQuestion) {
+                    const { prompt, participant, command } = lastResponse.result.nextQuestion;
+                    const question = formatChatQuestion(this.chatAgentService, this.location, prompt, participant, command);
+                    if (question) {
+                        this.input.setValue(question, false);
+                    }
+                }
+            });
+        });
+        return sent.data.responseCreatedPromise;
+    }
+    // Resolve images from directory attachments to send as additional variables.
+    async _resolveDirectoryImageAttachments(attachments) {
+        const imagePromises = [];
+        for (const attachment of attachments) {
+            if (attachment.kind === 'directory' && URI.isUri(attachment.value)) {
+                imagePromises.push(this.chatAttachmentResolveService.resolveDirectoryImages(attachment.value));
+            }
+        }
+        if (imagePromises.length === 0) {
+            return [];
+        }
+        const resolved = await Promise.all(imagePromises);
+        return resolved.flat();
+    }
+    async confirmPendingRequestsBeforeSend(model, options) {
+        if (options.queue) {
+            return true;
+        }
+        const hasPendingRequests = model.getPendingRequests().length > 0;
+        if (!hasPendingRequests) {
+            return true;
+        }
+        const promptResult = await this.dialogService.prompt({
+            type: 'question',
+            message: localize(8187, null),
+            detail: localize(8188, null),
+            buttons: [
+                {
+                    label: localize(8189, null),
+                    run: () => 'keep'
+                },
+                {
+                    label: localize(8190, null),
+                    run: () => 'remove'
+                }
+            ],
+            cancelButton: true
+        });
+        if (!promptResult.result) {
+            return false;
+        }
+        if (promptResult.result === 'remove') {
+            for (const pendingRequest of [...model.getPendingRequests()]) {
+                this.chatService.removePendingRequest(model.sessionResource, pendingRequest.request.id);
+            }
+        }
+        return true;
+    }
+    getModeRequestOptions() {
+        const sessionResource = this.viewModel?.sessionResource;
+        const capturedModeId = this.input.currentModeObs.get().id;
+        const userSelectedTools = this.input.selectedToolsModel.userSelectedTools;
+        let lastToolsSnapshot = userSelectedTools.get();
+        // When the widget has loaded a new session, return a snapshot of the tools for this session.
+        // Only sync with the tools model when this session is shown with the same mode.
+        const scopedTools = derived(reader => {
+            const activeSession = this._viewModelObs.read(reader)?.sessionResource;
+            const currentModeId = this.input.currentModeObs.read(reader).id;
+            if (isEqual(activeSession, sessionResource) && currentModeId === capturedModeId) {
+                const tools = userSelectedTools.read(reader);
+                lastToolsSnapshot = tools;
+                return tools;
+            }
+            return lastToolsSnapshot;
+        });
+        return {
+            modeInfo: this.input.currentModeInfo,
+            userSelectedTools: scopedTools,
+        };
+    }
+    getCodeBlockInfosForResponse(response) {
+        return this.listWidget.getCodeBlockInfosForResponse(response);
+    }
+    getCodeBlockInfoForEditor(uri) {
+        return this.listWidget.getCodeBlockInfoForEditor(uri);
+    }
+    getFileTreeInfosForResponse(response) {
+        return this.listWidget.getFileTreeInfosForResponse(response);
+    }
+    getLastFocusedFileTreeForResponse(response) {
+        return this.listWidget.getLastFocusedFileTreeForResponse(response);
+    }
+    focusResponseItem(lastFocused) {
+        this.listWidget.focusLastItem(lastFocused);
+    }
+    layout(height, width) {
+        width = Math.min(width, this.viewOptions.renderStyle === 'minimal' ? width : 950); // no min width of inline chat
+        this.bodyDimension = new dom.Dimension(width, height);
+        if (this.viewModel?.editing) {
+            this.inlineInputPart?.layout(width);
+        }
+        this.inputPart.layout(width);
+        const inputHeight = this.inputPart.height.get();
+        const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
+        const lastElementVisible = this.listWidget.isScrolledToBottom;
+        const lastItem = this.listWidget.lastItem;
+        const contentHeight = Math.max(0, height - inputHeight - chatSuggestNextWidgetHeight);
+        this.listWidget.layout(contentHeight, width);
+        this.welcomeMessageContainer.style.height = `${contentHeight}px`;
+        const lastResponseIsRendering = isResponseVM(lastItem) && lastItem.renderData;
+        if (lastElementVisible && (!lastResponseIsRendering || checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll))) {
+            this.listWidget.scrollToEnd();
+        }
+        this.listContainer.style.height = `${contentHeight}px`;
+        this._onDidChangeHeight.fire(height);
+    }
+    // An alternative to layout, this allows you to specify the number of ChatTreeItems
+    // you want to show, and the max height of the container. It will then layout the
+    // tree to show that many items.
+    // TODO@TylerLeonhardt: This could use some refactoring to make it clear which layout strategy is being used
+    setDynamicChatTreeItemLayout(numOfChatTreeItems, maxHeight) {
+        this._dynamicMessageLayoutData = { numOfMessages: numOfChatTreeItems, maxHeight, enabled: true };
+        this._register(this.listWidget.onDidChangeItemHeight(() => this.layoutDynamicChatTreeItemMode()));
+        const mutableDisposable = this._register(new MutableDisposable());
+        this._register(this.listWidget.onDidScroll((e) => {
+            // TODO@TylerLeonhardt this should probably just be disposed when this is disabled
+            // and then set up again when it is enabled again
+            if (!this._dynamicMessageLayoutData?.enabled) {
+                return;
+            }
+            mutableDisposable.value = dom.scheduleAtNextAnimationFrame(dom.getWindow(this.listContainer), () => {
+                if (!e.scrollTopChanged || e.heightChanged || e.scrollHeightChanged) {
+                    return;
+                }
+                const renderHeight = e.height;
+                const diff = e.scrollHeight - renderHeight - e.scrollTop;
+                if (diff === 0) {
+                    return;
+                }
+                const possibleMaxHeight = (this._dynamicMessageLayoutData?.maxHeight ?? maxHeight);
+                const width = this.bodyDimension?.width ?? this.container.offsetWidth;
+                this.input.layout(width);
+                const inputPartHeight = this.input.height.get();
+                const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
+                const newHeight = Math.min(renderHeight + diff, possibleMaxHeight - inputPartHeight - chatSuggestNextWidgetHeight);
+                this.layout(newHeight + inputPartHeight + chatSuggestNextWidgetHeight, width);
+            });
+        }));
+    }
+    updateDynamicChatTreeItemLayout(numOfChatTreeItems, maxHeight) {
+        this._dynamicMessageLayoutData = { numOfMessages: numOfChatTreeItems, maxHeight, enabled: true };
+        let hasChanged = false;
+        let height = this.bodyDimension.height;
+        let width = this.bodyDimension.width;
+        if (maxHeight < this.bodyDimension.height) {
+            height = maxHeight;
+            hasChanged = true;
+        }
+        const containerWidth = this.container.offsetWidth;
+        if (this.bodyDimension?.width !== containerWidth) {
+            width = containerWidth;
+            hasChanged = true;
+        }
+        if (hasChanged) {
+            this.layout(height, width);
+        }
+    }
+    get isDynamicChatTreeItemLayoutEnabled() {
+        return this._dynamicMessageLayoutData?.enabled ?? false;
+    }
+    set isDynamicChatTreeItemLayoutEnabled(value) {
+        if (!this._dynamicMessageLayoutData) {
+            return;
+        }
+        this._dynamicMessageLayoutData.enabled = value;
+    }
+    layoutDynamicChatTreeItemMode() {
+        if (!this.viewModel || !this._dynamicMessageLayoutData?.enabled) {
+            return;
+        }
+        const width = this.bodyDimension?.width ?? this.container.offsetWidth;
+        this.input.layout(width);
+        const inputHeight = this.input.height.get();
+        const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
+        const totalMessages = this.viewModel.getItems();
+        // grab the last N messages
+        const messages = totalMessages.slice(-this._dynamicMessageLayoutData.numOfMessages);
+        const needsRerender = messages.some(m => m.currentRenderedHeight === undefined);
+        const listHeight = needsRerender
+            ? this._dynamicMessageLayoutData.maxHeight
+            : messages.reduce((acc, message) => acc + message.currentRenderedHeight, 0);
+        this.layout(Math.min(
+        // we add an additional 18px in order to show that there is scrollable content
+        inputHeight + chatSuggestNextWidgetHeight + listHeight + (totalMessages.length > 2 ? 18 : 0), this._dynamicMessageLayoutData.maxHeight), width);
+        if (needsRerender || !listHeight) {
+            this.listWidget.scrollToEnd();
+        }
+    }
+    saveState() {
+        // no-op
+    }
+    getViewState() {
+        return this.input.getCurrentInputState();
+    }
+    updateChatInputContext() {
+        const currentAgent = this.parsedInput.parts.find(part => part instanceof ChatRequestAgentPart);
+        this.agentInInput.set(!!currentAgent);
+    }
+    async _switchToAgentByName(agentName) {
+        const currentAgent = this.input.currentModeObs.get();
+        // switch to appropriate agent if needed
+        if (agentName !== currentAgent.name.get()) {
+            // Find the mode object to get its kind
+            const agent = this.chatModeService.findModeByName(agentName);
+            if (agent) {
+                if (currentAgent.kind !== agent.kind) {
+                    const chatModeCheck = await this.instantiationService.invokeFunction(handleModeSwitch, currentAgent.kind, agent.kind, this.viewModel?.model.getRequests().length ?? 0, this.viewModel?.model);
+                    if (!chatModeCheck) {
+                        return;
+                    }
+                    if (chatModeCheck.needToClearSession) {
+                        await this.clear();
+                    }
+                }
+                this.input.setChatMode(agent.id);
+            }
+        }
+    }
+    async _applyPromptMetadata({ agent, tools, model }, requestInput) {
+        if (tools !== undefined && !agent && this.input.currentModeKind !== ChatModeKind.Agent) {
+            agent = ChatMode.Agent.name.get();
+        }
+        // switch to appropriate agent if needed
+        if (agent) {
+            this._switchToAgentByName(agent);
+        }
+        // if not tools to enable are present, we are done
+        if (tools !== undefined && this.input.currentModeKind === ChatModeKind.Agent) {
+            const enablementMap = this.toolsService.toToolAndToolSetEnablementMap(tools, this.input.selectedLanguageModel.get()?.metadata);
+            this.input.selectedToolsModel.set(enablementMap, true);
+        }
+        if (model !== undefined) {
+            this.input.switchModelByQualifiedName(model);
+        }
+    }
+    /**
+     * Adds additional instructions to the context
+     * - instructions that have a 'applyTo' pattern that matches the current input
+     * - instructions referenced in the copilot settings 'copilot-instructions'
+     * - instructions referenced in an already included instruction file
+     */
+    async _autoAttachInstructions({ attachedContext }) {
+        const contribution = this._lockedAgent ? this.chatSessionsService.getChatSessionContribution(this._lockedAgent.id) : undefined;
+        if (!contribution?.autoAttachReferences) {
+            this.logService.debug(`ChatWidget#_autoAttachInstructions: skipped, autoAttachReferences is disabled`);
+            return;
+        }
+        this.logService.debug(`ChatWidget#_autoAttachInstructions: prompt files are always enabled`);
+        const enabledTools = this.input.currentModeKind === ChatModeKind.Agent ? this.input.selectedToolsModel.userSelectedTools.get() : undefined;
+        const enabledSubAgents = this.input.currentModeKind === ChatModeKind.Agent ? this.input.currentModeObs.get().agents?.get() : undefined;
+        const sessionResource = this._viewModel?.model.sessionResource;
+        const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, this.input.currentModeKind, enabledTools, enabledSubAgents, sessionResource);
+        await computer.collect(attachedContext, CancellationToken.None);
+    }
+    delegateScrollFromMouseWheelEvent(browserEvent) {
+        this.listWidget.delegateScrollFromMouseWheelEvent(browserEvent);
+    }
+};
+ChatWidget = ChatWidget_1 = __decorate([
+    __param(4, ICodeEditorService),
+    __param(5, IConfigurationService),
+    __param(6, IDialogService),
+    __param(7, IContextKeyService),
+    __param(8, IInstantiationService),
+    __param(9, IChatService),
+    __param(10, IChatAgentService),
+    __param(11, IChatWidgetService),
+    __param(12, IChatAccessibilityService),
+    __param(13, ILogService),
+    __param(14, IThemeService),
+    __param(15, IChatSlashCommandService),
+    __param(16, IChatEditingService),
+    __param(17, ITelemetryService),
+    __param(18, IPromptsService),
+    __param(19, ILanguageModelToolsService),
+    __param(20, IChatModeService),
+    __param(21, IChatLayoutService),
+    __param(22, IChatEntitlementService),
+    __param(23, IChatSessionsService),
+    __param(24, IAgentSessionsService),
+    __param(25, IChatTodoListService),
+    __param(26, IChatArtifactsService),
+    __param(27, ILifecycleService),
+    __param(28, IChatAttachmentResolveService),
+    __param(29, IChatTipService),
+    __param(30, IChatDebugService)
+], ChatWidget);
+export { ChatWidget };
+//# sourceMappingURL=chatWidget.js.map

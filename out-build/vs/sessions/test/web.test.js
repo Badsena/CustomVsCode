@@ -1,0 +1,485 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+import { Workbench as SessionsWorkbench } from '../browser/workbench.js';
+import { SessionsBrowserMain } from '../browser/web.main.js';
+import { Emitter, Event } from '../../base/common/event.js';
+import { observableValue } from '../../base/common/observable.js';
+import { ChatEntitlement, IChatEntitlementService } from '../../workbench/services/chat/common/chatEntitlementService.js';
+import { IDefaultAccountService } from '../../platform/defaultAccount/common/defaultAccount.js';
+import { IChatAgentService } from '../../workbench/contrib/chat/common/participants/chatAgents.js';
+import { ChatAgentLocation, ChatModeKind } from '../../workbench/contrib/chat/common/constants.js';
+import { ExtensionIdentifier } from '../../platform/extensions/common/extensions.js';
+import { IStorageService } from '../../platform/storage/common/storage.js';
+import { URI } from '../../base/common/uri.js';
+import { Disposable } from '../../base/common/lifecycle.js';
+import { registerWorkbenchContribution2 } from '../../workbench/common/contributions.js';
+import { IChatSessionsService } from '../../workbench/contrib/chat/common/chatSessionsService.js';
+import { IGitService } from '../../workbench/contrib/git/common/gitService.js';
+import { IFileService } from '../../platform/files/common/files.js';
+import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
+import { TerminalExtensions } from '../../platform/terminal/common/terminal.js';
+import { Registry } from '../../platform/registry/common/platform.js';
+import { InMemoryFileSystemProvider } from '../../platform/files/common/inMemoryFilesystemProvider.js';
+import { VSBuffer } from '../../base/common/buffer.js';
+/**
+ * Mock files pre-seeded in the in-memory file system. These match the
+ * paths in EXISTING_MOCK_FILES and are used by the ChatEditingService
+ * to compute before/after diffs.
+ */
+const MOCK_FS_FILES = {
+    '/mock-repo/src/index.ts': 'export function main() {\n\tconsole.log("Hello from mock repo");\n}\n',
+    '/mock-repo/src/utils.ts': 'export function add(a: number, b: number): number {\n\treturn a + b;\n}\n',
+    '/mock-repo/package.json': '{\n\t"name": "mock-repo",\n\t"version": "1.0.0"\n}\n',
+    '/mock-repo/README.md': '# Mock Repository\n\nThis is a mock repository for E2E testing.\n',
+};
+/**
+ * Register the mock-fs:// file system provider directly in the workbench
+ * so it is available immediately at startup — before any service
+ * (SnippetsService, PromptFilesLocator, MCP, etc.) tries to resolve
+ * files inside the workspace folder.
+ */
+function registerMockFileSystemProvider(serviceCollection) {
+    const fileService = serviceCollection.get(IFileService);
+    const provider = new InMemoryFileSystemProvider();
+    fileService.registerProvider('mock-fs', provider);
+    // Pre-populate the files so ChatEditingService can read originals for diffs
+    for (const [filePath, content] of Object.entries(MOCK_FS_FILES)) {
+        const uri = URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: filePath });
+        fileService.writeFile(uri, VSBuffer.fromString(content));
+    }
+    console.log('[Sessions Web Test] Registered mock-fs:// provider with pre-seeded files');
+}
+const MOCK_ACCOUNT = {
+    authenticationProvider: { id: 'github', name: 'GitHub (Mock)', enterprise: false },
+    accountName: 'e2e-test-user',
+    sessionId: 'mock-session-1',
+    enterprise: false,
+};
+/**
+ * Mock implementation of IChatEntitlementService that makes the Sessions
+ * window think the user is signed in with a Free Copilot plan.
+ */
+class MockChatEntitlementService {
+    constructor() {
+        this.onDidChangeEntitlement = Event.None;
+        this.onDidChangeQuotaExceeded = Event.None;
+        this.onDidChangeQuotaRemaining = Event.None;
+        this.onDidChangeSentiment = Event.None;
+        this.onDidChangeAnonymous = Event.None;
+        this.entitlement = ChatEntitlement.Free;
+        this.entitlementObs = observableValue('entitlement', ChatEntitlement.Free);
+        this.previewFeaturesDisabled = false;
+        this.organisations = undefined;
+        this.isInternal = false;
+        this.sku = 'free';
+        this.copilotTrackingId = 'mock-tracking-id';
+        this.quotas = {};
+        this.sentiment = { installed: true, registered: true };
+        this.sentimentObs = observableValue('sentiment', { installed: true, registered: true });
+        this.anonymous = false;
+        this.anonymousObs = observableValue('anonymous', false);
+    }
+    markAnonymousRateLimited() { }
+    async update(_token) { }
+}
+/**
+ * Mock implementation of IDefaultAccountService that returns a fake
+ * signed-in account so the "Sign In" button in the sidebar is hidden.
+ */
+class MockDefaultAccountService {
+    constructor() {
+        this.onDidChangeDefaultAccount = Event.None;
+        this.onDidChangePolicyData = Event.None;
+        this.policyData = null;
+        this.copilotTokenInfo = null;
+        this.onDidChangeCopilotTokenInfo = Event.None;
+    }
+    async getDefaultAccount() { return MOCK_ACCOUNT; }
+    getDefaultAccountAuthenticationProvider() { return MOCK_ACCOUNT.authenticationProvider; }
+    setDefaultAccountProvider() { }
+    async refresh() { return MOCK_ACCOUNT; }
+    async signIn() { return MOCK_ACCOUNT; }
+    async signOut() { }
+}
+// ---------------------------------------------------------------------------
+// Mock chat responses and file changes
+// ---------------------------------------------------------------------------
+/**
+ * Paths that exist in the mock-fs file store pre-seeded by the mock extension.
+ * Used to determine whether a textEdit should replace file content (existing)
+ * or insert into an empty buffer (new file), so the real ChatEditingService
+ * computes meaningful before/after diffs.
+ */
+const EXISTING_MOCK_FILES = new Set(['/mock-repo/src/index.ts', '/mock-repo/src/utils.ts', '/mock-repo/package.json', '/mock-repo/README.md']);
+/**
+ * Emit textEdit progress items for each file edit using the real ChatModel
+ * pipeline. Existing files use a full-file replacement range so the real
+ * ChatEditingService computes an accurate diff. New files use an
+ * insert-at-beginning range.
+ */
+function emitFileEdits(fileEdits, progress) {
+    for (const edit of fileEdits) {
+        const isExistingFile = EXISTING_MOCK_FILES.has(edit.uri.path);
+        const range = isExistingFile
+            ? { startLineNumber: 1, startColumn: 1, endLineNumber: 99999, endColumn: 1 }
+            : { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 1 };
+        console.log(`[Sessions Web Test] Emitting textEdit for ${edit.uri.toString()} (existing: ${isExistingFile}, range: ${range.startLineNumber}-${range.endLineNumber})`);
+        progress([{
+                kind: 'textEdit',
+                uri: edit.uri,
+                edits: [{ range, text: edit.content }],
+                done: true,
+            }]);
+    }
+}
+/**
+ * Return canned response text and file edits keyed by user message keywords.
+ *
+ * File edits target URIs in the mock-fs:// filesystem. Edits for existing
+ * files produce real diffs (original content from mock-fs → new content here).
+ * Edits for new files produce "file created" entries.
+ */
+function getMockResponseWithEdits(message) {
+    if (/build|compile|create/i.test(message)) {
+        return {
+            text: 'I\'ll help you build the project. Here are the changes:',
+            fileEdits: [
+                {
+                    // Modify existing file — adds build import + call
+                    uri: URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo/src/index.ts' }),
+                    content: 'import { build } from "./build";\n\nexport function main() {\n\tconsole.log("Hello from mock repo");\n\tbuild();\n}\n',
+                },
+                {
+                    // New file — creates build script
+                    uri: URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo/src/build.ts' }),
+                    content: 'export async function build() {\n\tconsole.log("Building...");\n\tconsole.log("Build complete!");\n}\n',
+                },
+                {
+                    // Modify existing file — adds build script
+                    uri: URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo/package.json' }),
+                    content: '{\n\t"name": "mock-repo",\n\t"version": "1.0.0",\n\t"scripts": {\n\t\t"build": "node src/build.ts"\n\t}\n}\n',
+                },
+            ],
+        };
+    }
+    if (/fix|bug/i.test(message)) {
+        return {
+            text: 'I found the issue and applied the fix. The input validation has been added.',
+            fileEdits: [
+                {
+                    // Modify existing file — adds input validation
+                    uri: URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo/src/utils.ts' }),
+                    content: 'export function add(a: number, b: number): number {\n\tif (typeof a !== "number" || typeof b !== "number") {\n\t\tthrow new TypeError("Both arguments must be numbers");\n\t}\n\treturn a + b;\n}\n',
+                },
+            ],
+        };
+    }
+    if (/explain|describe/i.test(message)) {
+        return {
+            text: 'This project has a simple structure with a main entry point and utility functions.',
+        };
+    }
+    return {
+        text: 'I understand your request. Let me work on that.\n\n1. Review the codebase\n2. Make changes\n3. Run tests',
+    };
+}
+// ---------------------------------------------------------------------------
+// Workbench contribution — registers mock chat agent and pre-seeds folder
+// ---------------------------------------------------------------------------
+let MockChatAgentContribution = class MockChatAgentContribution extends Disposable {
+    static { this.ID = 'sessions.test.mockChatAgent'; }
+    constructor(chatAgentService, storageService, chatSessionsService, terminalService) {
+        super();
+        this.chatAgentService = chatAgentService;
+        this.storageService = storageService;
+        this.chatSessionsService = chatSessionsService;
+        this.terminalService = terminalService;
+        this._sessionItems = [];
+        this._itemsChangedEmitter = new Emitter();
+        this._sessionHistory = new Map();
+        this._worktreeCounter = 0;
+        this._register(this._itemsChangedEmitter);
+        this.registerMockAgents();
+        this.registerMockSessionProvider();
+        this.registerMockTerminalBackend();
+        this.preseedFolder();
+    }
+    /**
+     * Track a session for sidebar display and history re-opening.
+     *
+     * Populates `IChatSessionItem.changes` with file change metadata so the
+     * ChangesViewPane can render them for background (copilotcli) sessions.
+     * Background sessions read changes from `IAgentSessionsService.model`
+     * which flows through from `IChatSessionItemController.items`.
+     */
+    addSessionItem(resource, message, responseText, fileEdits) {
+        const key = resource.toString();
+        const now = Date.now();
+        // Store conversation history for this session (needed for re-opening)
+        if (!this._sessionHistory.has(key)) {
+            this._sessionHistory.set(key, []);
+        }
+        this._sessionHistory.get(key).push({ type: 'request', prompt: message, participant: 'copilot' }, { type: 'response', parts: [{ kind: 'markdownContent', content: { value: responseText, isTrusted: false, supportThemeIcons: false, supportHtml: false } }], participant: 'copilot' });
+        // Build file changes for the session list (used by ChangesViewPane for background sessions)
+        const changes = fileEdits?.map(edit => ({
+            modifiedUri: edit.uri,
+            insertions: edit.content.split('\n').length,
+            deletions: EXISTING_MOCK_FILES.has(edit.uri.path) ? 1 : 0,
+        }));
+        // Add or update session in list
+        const existing = this._sessionItems.find(s => s.resource.toString() === key);
+        let addedOrUpdated = existing;
+        if (existing) {
+            existing.timing.lastRequestStarted = now;
+            existing.timing.lastRequestEnded = now;
+            if (changes) {
+                existing.changes = changes;
+            }
+        }
+        else {
+            addedOrUpdated = {
+                resource,
+                label: message.slice(0, 50) || 'Mock Session',
+                status: 1 /* ChatSessionStatus.Completed */,
+                timing: { created: now, lastRequestStarted: now, lastRequestEnded: now },
+                metadata: { worktreePath: `/mock-worktrees/session-${++this._worktreeCounter}` },
+                ...(changes ? { changes } : {}),
+            };
+            this._sessionItems.push(addedOrUpdated);
+        }
+        if (addedOrUpdated) {
+            this._itemsChangedEmitter.fire({ addedOrUpdated: [addedOrUpdated] });
+        }
+    }
+    registerMockAgents() {
+        const agentIds = ['copilotcli', 'copilot-cloud-agent'];
+        const extensionId = new ExtensionIdentifier('vscode.sessions-e2e-mock');
+        const self = this;
+        for (const agentId of agentIds) {
+            const agentData = {
+                id: agentId,
+                name: agentId,
+                fullName: `Mock Agent (${agentId})`,
+                description: 'Mock chat agent for E2E testing',
+                extensionId,
+                extensionVersion: '0.0.1',
+                extensionPublisherId: 'vscode',
+                extensionDisplayName: 'Sessions E2E Mock',
+                isDefault: agentId === 'copilotcli',
+                metadata: {},
+                slashCommands: [],
+                locations: [ChatAgentLocation.Chat],
+                modes: [ChatModeKind.Agent],
+                disambiguation: [],
+            };
+            const agentImpl = {
+                async invoke(request, progress, _history, _token) {
+                    console.log(`[Sessions Web Test] Mock agent "${agentId}" invoked: "${request.message}"`);
+                    const response = getMockResponseWithEdits(request.message);
+                    // Stream the text response
+                    progress([{
+                            kind: 'markdownContent',
+                            content: { value: response.text, isTrusted: false, supportThemeIcons: false, supportHtml: false },
+                        }]);
+                    // Emit file edits through the real ChatModel pipeline so
+                    // ChatEditingService computes actual diffs
+                    if (response.fileEdits) {
+                        emitFileEdits(response.fileEdits, progress);
+                        console.log(`[Sessions Web Test] Emitted ${response.fileEdits.length} file edits`);
+                    }
+                    self.addSessionItem(request.sessionResource, request.message, response.text, response.fileEdits);
+                    return { metadata: { mock: true } };
+                },
+            };
+            try {
+                this._register(this.chatAgentService.registerDynamicAgent(agentData, agentImpl));
+                console.log(`[Sessions Web Test] Registered mock agent: ${agentId}`);
+            }
+            catch (err) {
+                console.warn(`[Sessions Web Test] Failed to register agent ${agentId}:`, err);
+            }
+        }
+    }
+    registerMockSessionProvider() {
+        const schemes = ['copilotcli', 'copilot-cloud-agent'];
+        const self = this;
+        for (const scheme of schemes) {
+            try {
+                this._register(this.chatSessionsService.registerChatSessionContentProvider(scheme, {
+                    async provideChatSessionContent(sessionResource, _token) {
+                        const key = sessionResource.toString();
+                        const history = self._sessionHistory.get(key) ?? [];
+                        console.log(`[Sessions Web Test] Opening session ${key} (${history.length} history items)`);
+                        const disposeEmitter = new Emitter();
+                        const isComplete = observableValue('isComplete', history.length > 0);
+                        return {
+                            sessionResource,
+                            history,
+                            isCompleteObs: isComplete,
+                            onWillDispose: disposeEmitter.event,
+                            async requestHandler(request, progress, _history, _token) {
+                                console.log(`[Sessions Web Test] Session request: "${request.message}"`);
+                                const response = getMockResponseWithEdits(request.message);
+                                progress([{
+                                        kind: 'markdownContent',
+                                        content: { value: response.text, isTrusted: false, supportThemeIcons: false, supportHtml: false },
+                                    }]);
+                                if (response.fileEdits) {
+                                    emitFileEdits(response.fileEdits, progress);
+                                }
+                                isComplete.set(true, undefined);
+                            },
+                            dispose() { disposeEmitter.fire(); disposeEmitter.dispose(); },
+                        };
+                    },
+                }));
+                // Register an item controller so sessions appear in the sidebar list.
+                // Only copilotcli (Background) sessions need real items — the
+                // copilot-cloud-agent controller must return an empty array to
+                // prevent it from overwriting sessions with the wrong providerType
+                // during a full model resolve.
+                const controllerItems = scheme === 'copilotcli' ? this._sessionItems : [];
+                this._register(this.chatSessionsService.registerChatSessionItemController(scheme, {
+                    onDidChangeChatSessionItems: this._itemsChangedEmitter.event,
+                    get items() { return controllerItems; },
+                    async refresh() { },
+                }));
+                console.log(`[Sessions Web Test] Registered session provider for scheme: ${scheme}`);
+            }
+            catch (err) {
+                console.warn(`[Sessions Web Test] Failed to register session provider for ${scheme}:`, err);
+            }
+        }
+    }
+    registerMockTerminalBackend() {
+        const terminalService = this.terminalService;
+        const backend = this.createMockTerminalBackend();
+        Registry.as(TerminalExtensions.Backend).registerTerminalBackend(backend);
+        terminalService.registerProcessSupport(true);
+        console.log('[Sessions Web Test] Registered mock terminal backend');
+    }
+    createMockTerminalBackend() {
+        return {
+            remoteAuthority: undefined,
+            isVirtualProcess: false,
+            onDidRequestDetach: Event.None,
+            attachToProcess: async () => { throw new Error('Not supported'); },
+            attachToRevivedProcess: async () => { throw new Error('Not supported'); },
+            listProcesses: async () => [],
+            getProfiles: async () => [],
+            getDefaultProfile: async () => undefined,
+            getDefaultSystemShell: async () => '/bin/mock-shell',
+            getShellEnvironment: async () => ({}),
+            setTerminalLayoutInfo: async () => { },
+            getTerminalLayoutInfo: async () => undefined,
+            reduceConnectionGraceTime: () => { },
+            requestDetachInstance: () => { },
+            acceptDetachInstanceReply: () => { },
+            persistTerminalState: () => { },
+            createProcess: async (_shellLaunchConfig, _cwd, _cols, _rows, _unicodeVersion, _env, _options, _shouldPersist) => {
+                const onProcessData = new Emitter();
+                const onProcessReady = new Emitter();
+                const onProcessExit = new Emitter();
+                const onDidChangeHasChildProcesses = new Emitter();
+                const onDidChangeProperty = new Emitter();
+                // Resolve cwd from createProcess arg or shellLaunchConfig
+                const rawCwd = _cwd || _shellLaunchConfig.cwd;
+                const cwd = !rawCwd ? '/' : typeof rawCwd === 'string' ? rawCwd : rawCwd.path;
+                console.log(`[Sessions Web Test] Mock terminal createProcess cwd: '${cwd}' (raw _cwd: '${_cwd}', slc.cwd: '${_shellLaunchConfig.cwd}')`);
+                // Fire ready after a microtask so the terminal service can wire up listeners
+                setTimeout(() => {
+                    onProcessReady.fire({ pid: 1, cwd, windowsPty: undefined });
+                }, 0);
+                return {
+                    id: 0,
+                    shouldPersist: false,
+                    onProcessData: onProcessData.event,
+                    onProcessReady: onProcessReady.event,
+                    onDidChangeHasChildProcesses: onDidChangeHasChildProcesses.event,
+                    onDidChangeProperty: onDidChangeProperty.event,
+                    onProcessExit: onProcessExit.event,
+                    start: async () => undefined,
+                    shutdown: async () => { },
+                    input: async () => { },
+                    resize: () => { },
+                    clearBuffer: () => { },
+                    acknowledgeDataEvent: () => { },
+                    setUnicodeVersion: async () => { },
+                    getInitialCwd: async () => cwd,
+                    getCwd: async () => cwd,
+                    getLatency: async () => [],
+                    processBinary: async () => { },
+                    refreshProperty: async (property) => { throw new Error(`Not supported: ${property}`); },
+                    updateProperty: async () => { },
+                    clearUnrespondedRequest: () => { },
+                };
+            },
+            getWslPath: async (original, _direction) => original,
+            getEnvironment: async () => ({}),
+            getPerformanceMarks: () => [],
+            onPtyHostUnresponsive: Event.None,
+            onPtyHostResponsive: Event.None,
+            onPtyHostRestart: Event.None,
+            onPtyHostConnected: Event.None,
+        };
+    }
+    preseedFolder() {
+        const mockFolderUri = URI.from({ scheme: 'mock-fs', authority: 'mock-repo', path: '/mock-repo' }).toString();
+        this.storageService.store('agentSessions.lastPickedFolder', mockFolderUri, 0 /* StorageScope.PROFILE */, 1 /* StorageTarget.MACHINE */);
+        console.log(`[Sessions Web Test] Pre-seeded folder: ${mockFolderUri}`);
+    }
+};
+MockChatAgentContribution = __decorate([
+    __param(0, IChatAgentService),
+    __param(1, IStorageService),
+    __param(2, IChatSessionsService),
+    __param(3, ITerminalService)
+], MockChatAgentContribution);
+// Register the contribution so it runs during workbench startup
+registerWorkbenchContribution2(MockChatAgentContribution.ID, MockChatAgentContribution, 1 /* WorkbenchPhase.BlockStartup */);
+// ---------------------------------------------------------------------------
+// MockGitService — resolves immediately instead of waiting 10s for delegate
+// ---------------------------------------------------------------------------
+class MockGitService {
+    constructor() {
+        this.repositories = [];
+    }
+    setDelegate(_delegate) { return Disposable.None; }
+    async openRepository(_uri) { return undefined; }
+}
+// ---------------------------------------------------------------------------
+// TestSessionsBrowserMain
+// ---------------------------------------------------------------------------
+/**
+ * Test variant of SessionsBrowserMain that injects mock services
+ * for E2E testing. Service overrides for entitlements and auth are set
+ * in createWorkbench(). The mock chat agent is registered via a
+ * workbench contribution (MockChatAgentContribution above).
+ */
+export class TestSessionsBrowserMain extends SessionsBrowserMain {
+    createWorkbench(domElement, serviceCollection, logService) {
+        console.log('[Sessions Web Test] Injecting mock services');
+        // Register mock-fs:// provider FIRST so all services can resolve workspace files
+        registerMockFileSystemProvider(serviceCollection);
+        // Override entitlement service so Sessions thinks user is signed in
+        serviceCollection.set(IChatEntitlementService, new MockChatEntitlementService());
+        // Override default account service to hide the "Sign In" button
+        serviceCollection.set(IDefaultAccountService, new MockDefaultAccountService());
+        // Override git service so openRepository resolves instantly (no 10s barrier wait)
+        serviceCollection.set(IGitService, new MockGitService());
+        console.log('[Sessions Web Test] Creating Sessions workbench with mocks');
+        return new SessionsWorkbench(domElement, undefined, serviceCollection, logService);
+    }
+}
+//# sourceMappingURL=web.test.js.map

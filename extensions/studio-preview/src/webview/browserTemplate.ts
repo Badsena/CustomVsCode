@@ -1,11 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { ProjectInfo } from '../core/ProjectDetector';
 
 export function getBrowserTemplate(
-    webview: vscode.Webview,
-    _extensionUri: vscode.Uri,
-    initialUrl: string,
-    projects: ProjectInfo[] = []
+	webview: vscode.Webview,
+	_extensionUri: vscode.Uri,
+	initialUrl: string,
+	projects: ProjectInfo[] = []
 ): string {
     const nonce = getNonce();
     const projectsJson = JSON.stringify(projects);
@@ -22,7 +26,7 @@ export function getBrowserTemplate(
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:;" />
+    content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amypo Browser</title>
   <style>
@@ -101,7 +105,7 @@ export function getBrowserTemplate(
     #loading-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--vscode-editor-background); opacity: 1; transition: opacity 0.3s; pointer-events: none; }
     #loading-overlay.hidden { opacity: 0; }
 
-    /* ✅ New Dev Tools Button Styling */
+    /* ✅ Dev Tools Toggle Button */
     #btn-devtools {
       display: flex; align-items: center; gap: 6px;
       margin-left: 8px; padding: 2px 8px;
@@ -117,7 +121,16 @@ export function getBrowserTemplate(
       color: var(--vscode-foreground);
       border-color: var(--vscode-focusBorder);
     }
-    #btn-devtools svg { color: var(--vscode-icon-foreground); }
+    #btn-devtools.active {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-color: var(--vscode-button-background);
+    }
+    #btn-devtools.active:hover {
+      background: var(--vscode-button-hoverBackground);
+      border-color: var(--vscode-button-hoverBackground);
+    }
+    #btn-devtools svg { color: inherit; }
   </style>
 </head>
 <body>
@@ -148,7 +161,7 @@ export function getBrowserTemplate(
 
     <div id="status-indicator">⚪ Initializing</div>
 
-    <button id="btn-devtools" class="hidden" title="Open Webview DevTools">
+    <button id="btn-devtools" title="Toggle Student DevTools (eruda)">
       Dev Tools
       <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
         <path d="M10.707 11.293l3.293-3.293-3.293-3.293-.707.707 2.586 2.586-2.586 2.586.707.707zM5.293 4.707L2 8l3.293 3.293.707-.707L3.414 8l2.586-2.586-.707-.707z"/>
@@ -170,7 +183,16 @@ export function getBrowserTemplate(
   <div id="progress-bar"></div>
 
   <div id="browser-wrapper">
-    <iframe id="browser-frame" src="${initialUrl}"
+    <div id="empty-state" style="display: ${initialUrl === 'about:blank' ? 'flex' : 'none'}; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--vscode-descriptionForeground); font-size: 14px; text-align: center; background: var(--vscode-editor-background);">
+      <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="margin-bottom: 16px; opacity: 0.5;">
+        <path d="M14.5 2h-13c-.8 0-1.5.7-1.5 1.5v9c0 .8.7 1.5 1.5 1.5h13c.8 0 1.5-.7 1.5-1.5v-9c0-.8-.7-1.5-1.5-1.5zm0 10.5h-13v-9h13v9z"/>
+        <path d="M4.5 6l2.5 2.5-2.5 2.5.7.7 3.2-3.2-3.2-3.2z"/>
+      </svg>
+      <h2>Waiting for Dev Server...</h2>
+      <p style="margin-top: 8px; opacity: 0.8;">Run your frontend or backend server to preview it here.</p>
+      <button id="btn-open-folder" style="margin-top: 24px; padding: 8px 16px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Open Folder</button>
+    </div>
+    <iframe id="browser-frame" src="${initialUrl}" style="display: ${initialUrl === 'about:blank' ? 'none' : 'block'};"
       sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads"
       allow="clipboard-read; clipboard-write; autoplay;"
     ></iframe>
@@ -190,11 +212,21 @@ export function getBrowserTemplate(
     let currentMode   = '${initialMode}';
 
     function navigateTo(url) {
-      if (!url.startsWith('http')) { url = 'http://' + url; }
-      progress.className = 'loading';
-      overlay.classList.remove('hidden');
+      if (!url.startsWith('http') && url !== 'about:blank') { url = 'http://' + url; }
+
+      const emptyState = document.getElementById('empty-state');
+      if (url === 'about:blank' || !url) {
+        emptyState.style.display = 'flex';
+        frame.style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+        frame.style.display = 'block';
+        progress.className = 'loading';
+        overlay.classList.remove('hidden');
+      }
+
       frame.src = url;
-      urlBar.value = url;
+      urlBar.value = url === 'about:blank' ? '' : url;
       updateChips(url);
     }
 
@@ -212,7 +244,12 @@ export function getBrowserTemplate(
       });
     }
 
-    // ✅ Show/hide tabs and DevTools dynamically when projects update
+    // ── DevTools toggle state ──
+    let devToolsActive = false;
+    let originalUrl    = '';   // URL before proxy was enabled
+    const devToolsBtn  = document.getElementById('btn-devtools');
+
+    // ✅ Show/hide tabs dynamically when projects update
     function updateTabVisibility() {
       const hasFrontend = localProjects.some(p => p.category === 'frontend');
       const hasBackend  = localProjects.some(p => p.category === 'backend');
@@ -221,20 +258,6 @@ export function getBrowserTemplate(
         .classList.toggle('hidden', !hasFrontend);
       document.querySelector('[data-mode="backend"]')
         .classList.toggle('hidden', !hasBackend);
-
-      updateDevToolsVisibility();
-    }
-
-    function updateDevToolsVisibility() {
-      const devToolsBtn = document.getElementById('btn-devtools');
-      const hasFrontend = localProjects.some(p => p.category === 'frontend');
-      
-      // ✅ Only show in Frontend mode when a frontend server is detected
-      if (currentMode === 'frontend' && hasFrontend) {
-        devToolsBtn.classList.remove('hidden');
-      } else {
-        devToolsBtn.classList.add('hidden');
-      }
     }
 
     frame.addEventListener('load', () => {
@@ -246,8 +269,12 @@ export function getBrowserTemplate(
     document.getElementById('btn-refresh').addEventListener('click', () => { navigateTo(frame.src); });
     document.getElementById('btn-external').addEventListener('click', () => { vscode.postMessage({ type: 'openExternal', url: frame.src }); });
     document.getElementById('btn-pin').addEventListener('click', () => { vscode.postMessage({ type: 'pin' }); });
-    document.getElementById('btn-devtools').addEventListener('click', () => { vscode.postMessage({ type: 'openDevTools' }); });
+    devToolsBtn.addEventListener('click', () => {
+      const currentUrl = frame.src || '';
+      vscode.postMessage({ type: 'toggleDevTools', currentUrl });
+    });
     document.getElementById('btn-back').addEventListener('click', () => { try { frame.contentWindow.history.back(); } catch {} });
+    document.getElementById('btn-open-folder').addEventListener('click', () => { vscode.postMessage({ type: 'openFolder' }); });
     urlBar.addEventListener('keydown', (e) => { if (e.key === 'Enter') { navigateTo(urlBar.value.trim()); } });
 
     document.querySelectorAll('.mode-tab').forEach(tab => {
@@ -286,17 +313,37 @@ export function getBrowserTemplate(
 
     window.addEventListener('message', (event) => {
       const msg = event.data;
+
       if (msg.type === 'updateProjects') {
         localProjects = msg.projects;
         updateChips(frame.src);
-        updateTabVisibility(); // ✅ Re-evaluate tabs on project update
+        updateTabVisibility();
       }
+
       if (msg.type === 'navigate') {
         if (msg.url === 'refresh') {
-          navigateTo(frame.src); // reload current page
+          navigateTo(frame.src);
         } else {
           navigateTo(msg.url || frame.src);
         }
+      }
+
+      // ── DevTools: proxy started — switch iframe to proxy URL ──
+      if (msg.type === 'enableDevTools') {
+        devToolsActive = true;
+        originalUrl    = frame.src;   // remember where we were
+        devToolsBtn.classList.add('active');
+        devToolsBtn.title = 'DevTools ON — click to turn off';
+        navigateTo(msg.url);
+      }
+
+      // ── DevTools: proxy stopped — revert iframe to direct URL ──
+      if (msg.type === 'disableDevTools') {
+        devToolsActive = false;
+        devToolsBtn.classList.remove('active');
+        devToolsBtn.title = 'Toggle Student DevTools (eruda)';
+        navigateTo(originalUrl || frame.src);
+        originalUrl = '';
       }
     });
 

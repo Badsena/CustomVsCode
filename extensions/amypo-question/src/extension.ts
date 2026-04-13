@@ -22,7 +22,7 @@ const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'http
 const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
 const STATIC_ALLOCATION_ID = 4060;
 const STATIC_TEST_TYPE = 0;
-const STATIC_TOKEN = '285565|iNLNMWfcrueaZmOPwB28J5nI78NVPOeZmtQRkxIC498867c3';
+const STATIC_TOKEN = '285570|kuRyR8ZRuPphmuO6mKFTkbGLNOXBHmIsq3D85qbf528ae5b7';
 const STATIC_MODULE_ID = 992;
 
 let GITHUB_TOKEN = '';
@@ -187,9 +187,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	//  Auto-Update Check (async, non-blocking)
-	// checkForExtensionUpdate(secretKey).catch(err => {
-	// 	console.warn('[Amypo Update] Background update check error:', err);
-	// });
+	checkForExtensionUpdate(secretKey).catch(err => {
+		console.warn('[Amypo Update] Background update check error:', err);
+	});
 
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
@@ -1179,9 +1179,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				const cachedMsg = context.globalState.get<any>('amypo.cachedQuestion');
 				if (cachedMsg) {
 					console.log('[Amypo] Using cached question data (transition recovery)', cachedMsg);
-					eduViewProvider.postMessage(cachedMsg);
-					// Clear the cache after one use — subsequent reloads will fetch fresh data
-					// await context.globalState.update('amypo.cachedQuestion', undefined);
 
 					// Also restore the course info UI
 					const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
@@ -1189,10 +1186,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 					if (savedCourseInfo) {
 						eduViewProvider.updateView(savedCourseInfo, () => { });
+						eduViewProvider.setOnReady(() => {
+							eduViewProvider.postMessage(cachedMsg);
+						});
+					} else {
+						eduViewProvider.postMessage(cachedMsg);
 					}
 
 					const savedTestData = context.globalState.get<any>('amypo.testData');
-					const elapsedSeconds = parseInt(savedTestData.time);
+					const elapsedSeconds = parseInt(savedTestData?.time ?? "0");
 					testStartTime = Date.now() - (elapsedSeconds * 1000);
 					return;
 				}
@@ -1260,11 +1262,14 @@ export async function activate(context: vscode.ExtensionContext) {
 					? { state: 'loaded', payload: qData, stats: statsObj }
 					: { state: 'error', message: 'Failed to retrieve question details.' };
 
-				eduViewProvider.postMessage(questionMessage);
-
 				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
 				if (savedCourseInfo) {
 					eduViewProvider.updateView(savedCourseInfo, () => { });
+					eduViewProvider.setOnReady(() => {
+						eduViewProvider.postMessage(questionMessage);
+					});
+				} else {
+					eduViewProvider.postMessage(questionMessage);
 				}
 
 			} catch (err) {

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { app, Details, GPUFeatureStatus, powerMonitor, protocol, session, Session, systemPreferences, WebFrameMain } from 'electron';
+import { app, BrowserWindow, Details, GPUFeatureStatus, powerMonitor, protocol, session, Session, systemPreferences, WebFrameMain } from 'electron';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from '../../base/node/unc.js';
 import { validatedIpcMain } from '../../base/parts/ipc/electron-main/ipcMain.js';
 import { hostname, release } from 'os';
@@ -547,7 +547,136 @@ export class CodeApplication extends Disposable {
 		//#endregion
 	}
 
+	private async checkAmypoAuthorization(): Promise<boolean> {
+
+		// ✅ Added logs to verify guard is running
+		console.log('[AmypoGuard] ===== CHECKING AUTHORIZATION =====');
+		console.log('[AmypoGuard] process.argv:', process.argv);
+
+		const isDev =
+			process.argv.includes('--inspect') ||
+			process.argv.includes('--inspect-brk') ||
+			process.argv.includes('--extensionDevelopmentPath') ||
+			process.env['VSCODE_DEV'] === '1';
+
+		if (isDev) {
+			console.log('[AmypoGuard] Dev mode — allowed');
+			return true;
+		}
+
+		const hasPortalUrl = process.argv.some(arg =>
+			arg.startsWith('amypocoder://')
+		);
+		if (hasPortalUrl) {
+			console.log('[AmypoGuard] Portal URL — allowed');
+			return true;
+		}
+
+		const hasOpenUrl = process.argv.includes('--open-url');
+		if (hasOpenUrl) {
+			console.log('[AmypoGuard] --open-url — allowed');
+			return true;
+		}
+
+		// ── BLOCKED ──
+		console.log('[AmypoGuard] BLOCKED. Proceeding to show popup...');
+
+		await app.whenReady();
+		await this.showAmypoBlockPopup();
+
+		app.exit(0);
+		return false;
+	}
+
+	private showAmypoBlockPopup(): Promise<void> {
+		return new Promise((resolve) => {
+
+			const win = new BrowserWindow({
+				width: 400,
+				height: 420,
+				frame: false,
+				resizable: false,
+				center: true,
+				alwaysOnTop: true,
+				backgroundColor: '#ffffff',
+				webPreferences: {
+					nodeIntegration: false,
+					contextIsolation: true
+				}
+			});
+
+			win.once('ready-to-show', () => {
+				win.show();
+				win.focus();
+			});
+
+			const html = [
+				'<!DOCTYPE html>',
+				'<html><head><meta charset="UTF-8">',
+				'<style>',
+				'* { margin: 0; padding: 0; box-sizing: border-box; }',
+				'html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background: #ffffff; -webkit-app-region: drag; }',
+				'.wrapper { width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; }',
+				'.x-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%; background: #f1f3f5; border: none; cursor: pointer; font-size: 16px; color: #868e96; display: flex; align-items: center; justify-content: center; -webkit-app-region: no-drag; }',
+				'.x-close:hover { background: #dee2e6; color: #495057; }',
+				'.card { padding: 32px 32px 28px; text-align: center; width: 100%; -webkit-app-region: no-drag; }',
+				'.icon-circle { width: 64px; height: 64px; background: linear-gradient(135deg, #ff6b6b, #ee5a24); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; box-shadow: 0 6px 20px rgba(238,90,36,0.35); }',
+				'.icon-circle svg { width: 30px; height: 30px; fill: white; }',
+				'.badge { display: inline-block; background: #fff3f3; color: #ee5a24; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; margin-bottom: 14px; border: 1px solid #ffddd6; }',
+				'h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }',
+				'p { font-size: 13px; color: #6c757d; line-height: 1.6; margin-bottom: 6px; }',
+				'.divider { height: 1px; background: #f1f3f5; margin: 18px 0; }',
+				'.portal-hint { font-size: 12px; color: #adb5bd; margin-bottom: 20px; }',
+				'.portal-hint span { color: #00b894; font-weight: 600; }',
+				'.close-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #ee5a24, #d63031); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(214,48,49,0.35); -webkit-app-region: no-drag; }',
+				'.close-btn:hover { opacity: 0.92; }',
+				'</style></head><body>',
+				'<div class="wrapper">',
+				'<button class="x-close" id="xBtn">&#x2715;</button>',
+				'<div class="card">',
+				'<div class="icon-circle"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg></div>',
+				'<div class="badge">&#x1F512; Access Restricted</div>',
+				'<h1>Unauthorized Direct Launch</h1>',
+				'<p>AmypoCoder can only be launched<br>through the official <strong>Amypo Portal</strong>.</p>',
+				'<div class="divider"></div>',
+				'<p class="portal-hint">Need access? Contact your administrator<br>for your <span>portal link</span>.</p>',
+				'<button class="close-btn" id="closeBtn">Close Application</button>',
+				'</div></div>',
+				'</body></html>'
+			].join('\n');
+
+			win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+
+			// Inject click handlers after page loads — avoids require() issue in data: URLs
+			win.webContents.on('did-finish-load', () => {
+				win.webContents.executeJavaScript(`
+					document.getElementById('closeBtn').addEventListener('click', function() {
+						window.close();
+					});
+					document.getElementById('xBtn').addEventListener('click', function() {
+						window.close();
+					});
+					document.addEventListener('keydown', function(e) {
+						if (e.key === 'Escape') window.close();
+					});
+				`);
+			});
+
+			win.on('closed', () => resolve());
+		});
+	}
+
 	async startup(): Promise<void> {
+
+		// ══════════════════════════════════════
+		// AMYPO GATE — MUST BE FIRST
+		// ══════════════════════════════════════
+		const authorized = await this.checkAmypoAuthorization();
+		if (!authorized) {
+			return;
+		}
+		// ══════════════════════════════════════
+
 		this.logService.debug('Starting VS Code');
 		this.logService.debug(`from: ${this.environmentMainService.appRoot}`);
 		this.logService.debug('args:', this.environmentMainService.args);
