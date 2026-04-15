@@ -5,120 +5,120 @@
 
 import * as vscode from 'vscode';
 export class EduViewProvider implements vscode.WebviewViewProvider {
-	public static readonly viewType = 'amypoEduView';
-	private _view?: vscode.WebviewView;
-	private _courseInfo?: any;
-	private _lastMessage?: any;
-	private _webviewReady = false;
-	private _onConfirm?: () => void;
+    public static readonly viewType = 'amypoEduView';
+    private _view?: vscode.WebviewView;
+    private _courseInfo?: any;
+    private _lastMessage?: any;
+    private _webviewReady = false;
+    private _onConfirm?: () => void;
 
-	constructor(private readonly _extensionUri: vscode.Uri) { }
+    constructor(private readonly _extensionUri: vscode.Uri) { }
 
-	public resolveWebviewView(
-		webviewView: vscode.WebviewView,
-		context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken,
-	) {
-		this._view = webviewView;
-		webviewView.webview.options = {
-			enableScripts: true,
-			localResourceRoots: [this._extensionUri]
-		};
-		webviewView.description = 'Amypo Question Panel';
-		webviewView.webview.onDidReceiveMessage((message) => {
-			switch (message.command) {
-				case 'ready':
-					this._webviewReady = true;
-					// Re-send last state if we have it
-					if (this._lastMessage) {
-						setTimeout(() => {
-							this.postMessage(this._lastMessage);
-						}, 100);
-					}
-					// Notify extension that webview is ready (for session restore)
-					if (this._onReady) {
-						this._onReady();
-						this._onReady = undefined;
-					}
-					break;
-				case 'reload':
-					if (this._onReload) {
-						this._onReload();
-					}
-					break;
-				case 'save':
-					if (this._onSave) {
-						this._onSave();
-					}
-					break;
-				case 'verify':
-					if (this._onVerify) {
-						this._onVerify();
-					}
-					break;
-				case 'pull':
-					if (this._onPull) {
-						this._onPull();
-					}
-					break;
-				case 'startTest':
-					if (this._onConfirm) {
-						this._onConfirm();
-					}
-					break;
-			}
-		});
+    public resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken,
+    ) {
+        this._view = webviewView;
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this._extensionUri]
+        };
+        webviewView.description = 'Amypo Question Panel';
+        webviewView.webview.onDidReceiveMessage((message) => {
+            switch (message.command) {
+                case 'ready':
+                    this._webviewReady = true;
+                    // Re-send last state if we have it
+                    if (this._lastMessage) {
+                        setTimeout(() => {
+                            this.postMessage(this._lastMessage);
+                        }, 100);
+                    }
+                    // Notify extension that webview is ready (for session restore)
+                    if (this._onReady) {
+                        this._onReady();
+                        this._onReady = undefined;
+                    }
+                    break;
+                case 'reload':
+                    if (this._onReload) {
+                        this._onReload();
+                    }
+                    break;
+                case 'save':
+                    if (this._onSave) {
+                        this._onSave();
+                    }
+                    break;
+                case 'verify':
+                    if (this._onVerify) {
+                        this._onVerify();
+                    }
+                    break;
+                case 'pull':
+                    if (this._onPull) {
+                        this._onPull();
+                    }
+                    break;
+                case 'startTest':
+                    if (this._onConfirm) {
+                        this._onConfirm();
+                    }
+                    break;
+            }
+        });
 
-		// ✅ Always set HTML immediately
-		if (this._courseInfo) {
-			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
-		} else if (!this._view.webview.html) {
-			// Show loading state until courseInfo arrives
-			this._view.webview.html = this._getLoadingHtml();
-		}
-	}
+        // ✅ Always set HTML immediately
+        if (this._courseInfo) {
+            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, this._courseInfo);
+        } else if (!this._view.webview.html) {
+            // Show loading state until courseInfo arrives
+            this._view.webview.html = this._getLoadingHtml();
+        }
+    }
 
-	private _onReload?: () => void;
-	private _onSave?: () => void;
-	private _onVerify?: () => void;
-	private _onPull?: () => void;
-	private _onReady?: () => void;
+    private _onReload?: () => void;
+    private _onSave?: () => void;
+    private _onVerify?: () => void;
+    private _onPull?: () => void;
+    private _onReady?: () => void;
 
-	public setOnReload(callback: () => void) { this._onReload = callback; }
-	public setOnSave(callback: () => void) { this._onSave = callback; }
-	public setOnVerify(callback: () => void) { this._onVerify = callback; }
-	public setOnPull(callback: () => void) { this._onPull = callback; }
-	public setOnReady(callback: () => void) {
-		if (this._webviewReady) {
-			// Webview already fired ready — call immediately
-			console.log('[Amypo] Webview already ready — firing callback immediately');
-			setTimeout(callback, 100);
-		} else {
-			this._onReady = callback;
-		}
-	}
+    public setOnReload(callback: () => void) { this._onReload = callback; }
+    public setOnSave(callback: () => void) { this._onSave = callback; }
+    public setOnVerify(callback: () => void) { this._onVerify = callback; }
+    public setOnPull(callback: () => void) { this._onPull = callback; }
+    public setOnReady(callback: () => void) {
+        if (this._webviewReady) {
+            // Webview already fired ready — call immediately
+            console.log('[Amypo] Webview already ready — firing callback immediately');
+            setTimeout(callback, 100);
+        } else {
+            this._onReady = callback;
+        }
+    }
 
-	// public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
-	public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string }, onConfirm: () => void) {
-		this._courseInfo = courseInfo;
-		this._onConfirm = onConfirm;
-		this._webviewReady = false; // Reset — new HTML will fire 'ready' again
+    // public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
+    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string }, onConfirm: () => void) {
+        this._courseInfo = courseInfo;
+        this._onConfirm = onConfirm;
+        this._webviewReady = false; // Reset — new HTML will fire 'ready' again
 
-		if (this._view) {
-			this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
-			this._view.show?.(true);
-		}
-	}
+        if (this._view) {
+            this._view.webview.html = this._getHtml(this._view.webview, this._extensionUri, courseInfo);
+            this._view.show?.(true);
+        }
+    }
 
-	public postMessage(message: any) {
-		this._lastMessage = message;
-		if (this._view) {
-			this._view.webview.postMessage(message);
-		}
-	}
+    public postMessage(message: any) {
+        this._lastMessage = message;
+        if (this._view) {
+            this._view.webview.postMessage(message);
+        }
+    }
 
-	private _getLoadingHtml(): string {
-		return `<!DOCTYPE html>
+    private _getLoadingHtml(): string {
+        return `<!DOCTYPE html>
         <html><body style="display:flex;align-items:center;justify-content:center;height:100%;
         background:var(--vscode-editor-background);color:var(--vscode-foreground);font-family:var(--vscode-font-family);">
             <div style="text-align:center;">
@@ -131,19 +131,19 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 vscode.postMessage({ command: 'ready' });
             </script>
         </body></html>`;
-	}
+    }
 
-	private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
-		const nonce = getNonce();
-		const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
+    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
+        const nonce = getNonce();
+        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
 
-		const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
-			? `<div class="languages">
+        const languagesHtml = courseInfo.languages && courseInfo.languages.length > 0
+            ? `<div class="languages">
 				${courseInfo.languages.map((l: any) => `<span class="lang-tag">${l}</span>`).join('')}
 			   </div>`
-			: '';
+            : '';
 
-		return `<!DOCTYPE html>
+        return `<!DOCTYPE html>
         <html lang="en" style="height: 100%; margin: 0; padding: 0; overflow: hidden;">
         <head>
             <meta charset="UTF-8">
@@ -425,8 +425,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .verify-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(139, 178, 255, 0.3); border-radius: 50%; border-top-color: #8bb2ff; animation: spin 0.8s linear infinite; margin-left: 8px; vertical-align: middle; }
 
                 /* Results Modal */
-                .result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: none; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
-                .result-modal { background: #fff; width: 100%; max-width: 900px; border-radius: 8px; position: relative; display: flex; flex-direction: column; animation: fadeIn 0.3s ease-out; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+                .result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: none; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 40px 20px; }
+                .result-modal { margin: auto; background: #fff; width: 100%; max-width: 900px; border-radius: 8px; position: relative; display: flex; flex-direction: column; animation: fadeIn 0.3s ease-out; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
                 .result-close { position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 24px; color: #666; font-weight: 300; line-height: 1; }
                 .result-close:hover { color: #333; }
                 .result-header { background: #eef2f7; border-radius: 8px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #2d3436; font-weight: 600; margin-bottom: 25px; font-size: 14px; }
@@ -469,7 +469,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         <div class="subtext">${courseInfo.course_name}</div>
                         ${languagesHtml}
                         ${courseInfo.errorMessage ? `<div style="color: #e17055; margin-top: 16px; font-weight: 600; text-align: center; border: 1px solid #fab1a0; padding: 12px; border-radius: 8px; background: #fff5f5;">${courseInfo.errorMessage}</div>` :
-				`<div class="buttons">
+                `<div class="buttons">
                             <button class="btn-start" id="start">Start Test</button>
                         </div>`}
                     </div>
@@ -628,10 +628,59 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             </div>
                         </div>
 
-                        <div class="result-header">
-                            <i>[]</i> Terminal Output
+                        <div id="res-test-cases-section" style="display: none; margin-bottom: 25px; width: 100%;">
+                            <div style="display: flex; gap: 20px; width: 100%; box-sizing: border-box;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 14px; margin-bottom: 10px;">Passed Tests</div>
+                                    <div class="terminal-box" id="res-passed-tests" style="min-height: 50px; max-height: 150px; overflow-y: auto; overflow-wrap: break-word; background: #f8f9fa;">None</div>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 14px; margin-bottom: 10px;">Failed Tests</div>
+                                    <div class="terminal-box" id="res-failed-tests" style="min-height: 50px; max-height: 150px; overflow-y: auto; overflow-wrap: break-word; background: #fff5f5;">None</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="terminal-box" id="res-terminal">No output from Terminal</div>
+
+                        <!-- FULLSTACK BREAKDOWN -->
+                        <div id="res-fs-cases-section" style="display: none; margin-bottom: 25px; width: 100%;">
+                            <h4 style="margin-top: 10px; color: #333; font-size: 14px; font-weight: 600;">Spring Boot Test Results</h4>
+                            <div style="display: flex; gap: 20px; width: 100%; box-sizing: border-box; margin-bottom: 15px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 12px; margin-bottom: 5px;">Passed Tests</div>
+                                    <div class="terminal-box" id="res-fs-spring-passed" style="min-height: 40px; max-height: 100px; overflow-y: auto; overflow-wrap: break-word; background: #f8f9fa;">None</div>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 12px; margin-bottom: 5px;">Failed Tests</div>
+                                    <div class="terminal-box" id="res-fs-spring-failed" style="min-height: 40px; max-height: 100px; overflow-y: auto; overflow-wrap: break-word; background: #fff5f5;">None</div>
+                                </div>
+                            </div>
+
+                            <h4 style="margin-top: 10px; color: #333; font-size: 14px; font-weight: 600;">React Test Results</h4>
+                            <div style="display: flex; gap: 20px; width: 100%; box-sizing: border-box; margin-bottom: 15px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 12px; margin-bottom: 5px;">Passed Tests</div>
+                                    <div class="terminal-box" id="res-fs-react-passed" style="min-height: 40px; max-height: 100px; overflow-y: auto; overflow-wrap: break-word; background: #f8f9fa;">None</div>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="result-section-label" style="font-size: 12px; margin-bottom: 5px;">Failed Tests</div>
+                                    <div class="terminal-box" id="res-fs-react-failed" style="min-height: 40px; max-height: 100px; overflow-y: auto; overflow-wrap: break-word; background: #fff5f5;">None</div>
+                                </div>
+                            </div>
+
+                            <div class="result-header"><i>[]</i> Spring Boot Terminal Output</div>
+                            <div class="terminal-box" id="res-fs-spring-terminal" style="max-height: 200px; overflow-y: auto;"></div>
+
+                            <div class="result-header" style="margin-top: 15px;"><i>[]</i> React Terminal Output</div>
+                            <div class="terminal-box" id="res-fs-react-terminal" style="max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+
+                        <!-- STANDARD FALLBACK -->
+                        <div id="standard-terminal-section" style="display: block;">
+                            <div class="result-header">
+                                <i>[]</i> Terminal Output
+                            </div>
+                            <div class="terminal-box" id="res-terminal">No output from Terminal</div>
+                        </div>
                     </div>
                 </div>
 
@@ -824,16 +873,18 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                     if (ps) ps.style.display = 'none';
                                 }
 
-                                // Clean up verify overlay and logic
-                                const vBtn = document.getElementById('verify-btn');
-                                if (vBtn) {
-                                    vBtn.disabled = false;
+                                // Clean up verify overlay and logic only for verification messages
+                                if (message.payload || (message.text && (message.text.includes('test') || message.text.includes('Verification')))) {
+                                    const vBtn = document.getElementById('verify-btn');
+                                    if (vBtn) {
+                                        vBtn.disabled = false;
+                                    }
+                                    const vOverlay = document.getElementById('verify-overlay');
+                                    if (vOverlay) {
+                                        vOverlay.style.display = 'none';
+                                    }
+                                    if (vInterval) clearInterval(vInterval);
                                 }
-                                const vOverlay = document.getElementById('verify-overlay');
-                                if (vOverlay) {
-                                    vOverlay.style.display = 'none';
-                                }
-                                if (vInterval) clearInterval(vInterval);
 
                                 // Show results modal if payload exists
                                 if (message.payload) {
@@ -852,14 +903,123 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                     const score = totalDisplay > 0 ? ((passed / totalDisplay) * multiplier).toFixed(2) : "0.00";
                                     document.getElementById('res-score').innerText = score;
 
-                                    const terminalBox = document.getElementById('res-terminal');
-                                    if (payload.full_terminal_output) {
-                                        terminalBox.innerText = payload.full_terminal_output;
-                                        terminalBox.style.color = '#636e72';
-                                        terminalBox.className = 'terminal-box';
+                                    const passedList = results.passedTests || [];
+                                    const failedList = results.failedTests || [];
+
+                                    if (payload.spring_results && payload.react_results) {
+                                        // Fullstack View
+                                        const tSec = document.getElementById('res-test-cases-section');
+                                        if(tSec) tSec.style.display = 'none';
+
+                                        const stdTerm = document.getElementById('standard-terminal-section');
+                                        if(stdTerm) stdTerm.style.display = 'none';
+
+                                        const fsSec = document.getElementById('res-fs-cases-section');
+                                        if(fsSec) fsSec.style.display = 'block';
+
+                                        // Spring Data
+                                        const pBoxSpring = document.getElementById('res-fs-spring-passed');
+                                        if (pBoxSpring) {
+                                            const spPassed = payload.spring_results.passedTests || [];
+                                            if(spPassed.length > 0) {
+                                                pBoxSpring.innerText = spPassed.join('\\n');
+                                                pBoxSpring.style.color = '#00ce7a';
+                                            } else {
+                                                pBoxSpring.innerText = 'None';
+                                                pBoxSpring.style.color = '#adb5bd';
+                                            }
+                                        }
+
+                                        const fBoxSpring = document.getElementById('res-fs-spring-failed');
+                                        if (fBoxSpring) {
+                                            const spFailed = payload.spring_results.failedTests || [];
+                                            if(spFailed.length > 0) {
+                                                fBoxSpring.innerText = spFailed.join('\\n');
+                                                fBoxSpring.style.color = '#ff5e5e';
+                                            } else {
+                                                fBoxSpring.innerText = 'None';
+                                                fBoxSpring.style.color = '#adb5bd';
+                                            }
+                                        }
+
+                                        // React Data
+                                        const pBoxReact = document.getElementById('res-fs-react-passed');
+                                        if (pBoxReact) {
+                                            const rePassed = payload.react_results.passedTests || [];
+                                            if(rePassed.length > 0) {
+                                                pBoxReact.innerText = rePassed.join('\\n');
+                                                pBoxReact.style.color = '#00ce7a';
+                                            } else {
+                                                pBoxReact.innerText = 'None';
+                                                pBoxReact.style.color = '#adb5bd';
+                                            }
+                                        }
+
+                                        const fBoxReact = document.getElementById('res-fs-react-failed');
+                                        if (fBoxReact) {
+                                            const reFailed = payload.react_results.failedTests || [];
+                                            if(reFailed.length > 0) {
+                                                fBoxReact.innerText = reFailed.join('\\n');
+                                                fBoxReact.style.color = '#ff5e5e';
+                                            } else {
+                                                fBoxReact.innerText = 'None';
+                                                fBoxReact.style.color = '#adb5bd';
+                                            }
+                                        }
+
+                                        const tBoxSpring = document.getElementById('res-fs-spring-terminal');
+                                        if (tBoxSpring) tBoxSpring.innerText = payload.spring_terminal_output || 'No output.';
+
+                                        const tBoxReact = document.getElementById('res-fs-react-terminal');
+                                        if (tBoxReact) tBoxReact.innerText = payload.react_terminal_output || 'No output.';
+
                                     } else {
-                                        terminalBox.innerText = 'No output from Terminal';
-                                        terminalBox.className = 'terminal-box terminal-empty';
+                                        // Standard View
+                                        const fsSec = document.getElementById('res-fs-cases-section');
+                                        if(fsSec) fsSec.style.display = 'none';
+
+                                        const stdTerm = document.getElementById('standard-terminal-section');
+                                        if(stdTerm) stdTerm.style.display = 'block';
+
+                                        if (passedList.length > 0 || failedList.length > 0) {
+                                            const tSec = document.getElementById('res-test-cases-section');
+                                            if(tSec) tSec.style.display = 'block';
+
+                                            const pBox = document.getElementById('res-passed-tests');
+                                            if (pBox) {
+                                                if(passedList.length > 0) {
+                                                    pBox.innerText = passedList.join('\\n');
+                                                    pBox.style.color = '#00ce7a';
+                                                } else {
+                                                    pBox.innerText = 'None';
+                                                    pBox.style.color = '#adb5bd';
+                                                }
+                                            }
+
+                                            const fBox = document.getElementById('res-failed-tests');
+                                            if (fBox) {
+                                                if(failedList.length > 0) {
+                                                    fBox.innerText = failedList.join('\\n');
+                                                    fBox.style.color = '#ff5e5e';
+                                                } else {
+                                                    fBox.innerText = 'None';
+                                                    fBox.style.color = '#adb5bd';
+                                                }
+                                            }
+                                        } else {
+                                            const tSec = document.getElementById('res-test-cases-section');
+                                            if(tSec) tSec.style.display = 'none';
+                                        }
+
+                                        const terminalBox = document.getElementById('res-terminal');
+                                        if (payload.full_terminal_output) {
+                                            terminalBox.innerText = payload.full_terminal_output;
+                                            terminalBox.style.color = '#636e72';
+                                            terminalBox.className = 'terminal-box';
+                                        } else {
+                                            terminalBox.innerText = 'No output from Terminal';
+                                            terminalBox.className = 'terminal-box terminal-empty';
+                                        }
                                     }
 
                                     if (resOverlay) resOverlay.style.display = 'flex';
@@ -883,14 +1043,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </script>
         </body>
         </html>`;
-	}
+    }
 }
 
 function getNonce() {
-	let text = '';
-	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	for (let i = 0; i < 32; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
-	}
-	return text;
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
 }

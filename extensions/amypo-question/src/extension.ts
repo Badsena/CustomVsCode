@@ -13,7 +13,7 @@ import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
 import { submitData, jsonsubmitData, fetchData } from './services/axios/submissions';
-import { verifySpringBoot, verifyReact } from './services/verificationService';
+import { verifySpringBoot, verifyReact, verifyFullStack } from './services/verificationService';
 
 const execAsync = promisify(exec);
 
@@ -234,16 +234,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4090;
+	const STATIC_ALLOCATION_ID = 4091;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285608|d2XTLguCSG83jzN5hNckcb8IrDpuVcPvMw0427TT5a7fa9c4';
-	const STATIC_MODULE_ID = 992;
+	const STATIC_TOKEN = '285639|jtbj46ZIqPTrE9TaniWu3lxHlxIB7QVRvwkAC74Z71e4d7a6';
+	const STATIC_MODULE_ID = 995;
 
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
 	let currentRepoUrl: string | null = null;
-	let currentProjectType: 'react' | 'fullstack' | 'spring' = 'spring';
+	let currentProjectType: 'react' | 'fullstack' | 'spring' | 'selenium' = 'spring';
 
 	// Test state for API synchronization
 	let activeTestType: number = 0;
@@ -1131,6 +1131,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.log('springboot result', result);
 			} else if (currentProjectType === 'react') {
 				result = await verifyReact(request);
+			} else if (currentProjectType === 'fullstack') {
+				result = await verifyFullStack(request);
+				console.log('fullstack result', result);
 			} else {
 				eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Verification not implemented for ${currentProjectType}` });
 				return;
@@ -1150,6 +1153,97 @@ export async function activate(context: vscode.ExtensionContext) {
 					text: 'Some tests failed. Check console for details.',
 					payload: result
 				});
+			}
+
+			// Store verification mark to the backend
+			try {
+				const now = Date.now();
+				const testTimer = Math.floor((now - testStartTime) / 1000);
+
+				let total_testcases = 0;
+				let passed_testcases = 0;
+
+				const fullQuestion = cachedQuestion?.payload;
+				const total_mark_raw = fullQuestion?.total_mark ?? question?.total_mark ?? 0;
+				const total_mark = typeof total_mark_raw === 'string' ? parseFloat(total_mark_raw) : total_mark_raw;
+				let user_mark = question?.mark ?? 0;
+
+				if (fullQuestion?.testcaseCount) {
+					try {
+						const test_count = typeof fullQuestion.testcaseCount === 'string'
+							? JSON.parse(fullQuestion.testcaseCount)
+							: fullQuestion.testcaseCount;
+
+						if (currentProjectType === 'react') {
+							total_testcases = parseInt(test_count?.react, 10) || 0;
+						} else if (currentProjectType === 'spring') {
+							total_testcases = parseInt(test_count?.spring, 10) || 0;
+						} else if ((currentProjectType as string) === 'selenium') {
+							total_testcases = parseInt(test_count?.selenium, 10) || 0;
+						} else if (currentProjectType === 'fullstack') {
+							total_testcases = (parseInt(test_count?.spring, 10) || 0) + (parseInt(test_count?.react, 10) || 0);
+						}
+					} catch (e) { }
+				}
+
+				if (result?.test_results) {
+					passed_testcases = result.test_results?.passed ?? 0;
+					result.test_results.total = total_testcases > 0 ? total_testcases : (parseInt(result.test_results.total, 10) || 0);
+					result.test_results.passed = passed_testcases;
+					result.test_results.failed = Math.max(0, result.test_results.total - passed_testcases);
+				}
+
+				if (total_mark > 0) {
+					const countToUse = total_testcases > 0 ? total_testcases : (result?.test_results?.total > 0 ? result.test_results.total : 1);
+					const each_testcase_mark = total_mark / countToUse;
+					user_mark = each_testcase_mark * passed_testcases;
+				}
+
+				const payload: any = {
+					allocate_id: currentAllocationData?.id ? parseInt(currentAllocationData.id) : 0,
+					test_type: activeTestType,
+					module_id: activeModuleId,
+					questionId: question?.id,
+					type: question?.type,
+					course_allocation_id: currentAllocationData?.allocation_id,
+					topic_id: currentAllocationData?.topic_id,
+					db: currentAllocationData?.db,
+					topic_test_id: currentAllocationData?.topic_id || currentAllocationData?.test_id,
+					solution: '',
+					question_timer: testTimer,
+					run_count: question?.run_count ?? 0,
+					verify_count: (question?.verify_count ?? 0) + 1,
+					deb_count: question?.deb_count ?? 0,
+					opt_count: question?.opt_count ?? 0,
+					compile_id: question?.compile_id ?? 0,
+					error: question?.error_array ?? [],
+					mark: user_mark,
+					test_cases: result?.test_results ? result.test_results : [],
+					timer: testTimer,
+					tab_switched: 0,
+					question_category: fullQuestion?.question_category ?? question?.question_category ?? 0,
+					total_mark: total_mark,
+					qb_name: fullQuestion?.qb_name ?? question?.qb_name ?? 0,
+					q_id: fullQuestion?.question_id ?? question?.question_id ?? 0,
+				};
+
+				console.log('[Amypo] Payload for submit mark:', payload);
+
+				const endpoint = activeTestType === 2
+					? `${API_URL}/sandbox/link_submit`
+					: `${API_URL}/sandbox/submit`;
+
+				const resp = await jsonsubmitData(payload, endpoint, 0, activeToken);
+				console.log('[Amypo] Submit mark resp:', resp);
+
+				if (resp?.status === 200) {
+					if (user_mark > 0 && question) {
+						question.solve_status = 2; // update local status to submitted
+					}
+					console.log('[Amypo] Mark stored successfully.');
+				}
+			} catch (markError) {
+				console.error('[Amypo] Error storing verification mark:', markError);
 			}
 
 		} catch (error: any) {
@@ -1199,7 +1293,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
 		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
-		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring'>('amypo.projectType') ?? 'spring';
+		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring' | 'selenium'>('amypo.projectType') ?? 'spring';
 		activeToken = context.globalState.get<string>('amypo.token') ?? '';
 		const lastTest = context.globalState.get<any>('amypo.lastTest');
 

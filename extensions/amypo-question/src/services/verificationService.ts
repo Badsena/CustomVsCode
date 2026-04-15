@@ -302,18 +302,23 @@ export async function verifySpringBoot(request: VerificationRequest) {
 }
 
 export async function verifyReact(request: VerificationRequest) {
-	const { project_path, question_id, qb_name, token, backend_url } = request;
-	const localDestPath = path.join(project_path, 'reactapp', 'src', 'testcase');
+	let token = 'AmypoToken'
+	const { project_path, question_id, qb_name, backend_url } = request;
+	const localDestPath = path.join(project_path, 'src', 'testcase');
 	const localDeletePath = localDestPath;
 
 	try {
-		await hideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
+		await hideTestFolder(project_path, '**/src/testcase', 'src/testcase');
 		console.log('Fetching testcases from:', backend_url);
+		const payload = {
+			question_id: question_id,
+			qb_name: qb_name,
+		};
 
 		// Step 1: Fetch test cases from API
 		const response = await axios.post(
 			`${backend_url}/project-testcase`,
-			{ question_id, qb_name },
+			payload,
 			{
 				headers: {
 					'Content-Type': 'application/json',
@@ -348,7 +353,7 @@ export async function verifyReact(request: VerificationRequest) {
 		}
 
 		// Step 3: Run React tests locally
-		const projectRoot = path.join(project_path, 'reactapp');
+		const projectRoot = project_path;
 		console.log('🧪 Running React tests in:', projectRoot);
 
 		const testStartTime = Date.now();
@@ -383,6 +388,137 @@ export async function verifyReact(request: VerificationRequest) {
 		}
 		throw error;
 	} finally {
+		await unhideTestFolder(project_path, '**/src/testcase', 'src/testcase');
+	}
+}
+
+export async function verifyFullStack(request: VerificationRequest) {
+	let token = 'AmypoToken'
+	const { project_path, question_id, qb_name, backend_url } = request;
+	const localDestPath = project_path;
+	const springDeletePath = path.join(project_path, 'src', 'test');
+	const reactDeletePath = path.join(project_path, 'reactapp', 'src', 'testcase');
+
+	try {
+		await hideTestFolder(project_path, '**/src/test', 'src/test');
+		await hideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
+
+		console.log('Fetching fullstack testcases from:', backend_url);
+		const payload = {
+			question_id: question_id,
+			qb_name: qb_name,
+		};
+
+		// Step 1: Fetch test cases from API
+		const response = await axios.post(
+			`${backend_url}/project-testcase`,
+			payload,
+			{
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${token}`
+				},
+				responseType: 'arraybuffer'
+			}
+		);
+
+		console.log('response', response);
+
+
+		if (response.status !== 200) {
+			throw new Error(`Failed to fetch testcase from backend. Status: ${response.status}`);
+		}
+
+		console.log('✓ Fullstack Testcase fetched successfully');
+
+		if (!fs.existsSync(localDestPath)) fs.mkdirSync(localDestPath, { recursive: true });
+
+		const zipFilePath = path.join(project_path, 'testcases_fullstack.zip');
+		fs.writeFileSync(zipFilePath, Buffer.from(response.data));
+
+		try {
+			await extract(zipFilePath, { dir: path.resolve(localDestPath) });
+			console.log('✓ Files extracted to fullstack directory');
+		} catch (extractErr) {
+			console.error('Failed to extract fullstack zip:', extractErr);
+			throw new Error('Testcase extraction failed. Please ensure you have sufficient permissions.');
+		} finally {
+			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
+		}
+
+		console.log('🧪 Running Fullstack tests');
+		const testStartTime = Date.now();
+
+		// 1. SPRING BOOT
+		const springRoot = path.join(project_path, 'demo');
+		const springTestCmd = `cd "${springRoot}" && mvn clean test`;
+		const springExec = await execAllowFail(springTestCmd, { maxBuffer: 50 * 1024 * 1024, timeout: 480000 });
+		const springResults = parseTestResults(springExec.stdout);
+
+		// 2. REACT
+		const reactRoot = path.join(project_path, 'reactapp');
+		let reactExec = { stdout: '', stderr: '', exitCode: 0 };
+		let reactResults = parseReactTestResults('');
+
+		if (fs.existsSync(reactRoot)) {
+			const reactTestCmd = `cd "${reactRoot}" && npm test -- src/testcase --watchAll=false`;
+			reactExec = await execAllowFail(reactTestCmd, { maxBuffer: 50 * 1024 * 1024, timeout: 300000 });
+			reactResults = parseReactTestResults(`${reactExec.stdout || ''}${reactExec.stderr ? '\n' + reactExec.stderr : ''}`);
+		} else {
+			reactExec.stdout = "No 'reactapp' directory found to run React tests.\n";
+		}
+
+		const testDuration = ((Date.now() - testStartTime) / 1000).toFixed(2);
+		console.log(`✓ Fullstack Tests completed in ${testDuration} seconds`);
+
+		const total = springResults.total + reactResults.total;
+		const passed = springResults.passed + reactResults.passed;
+		const failed = springResults.failed + reactResults.failed;
+		const skipped = springResults.skipped + reactResults.skipped;
+		const errors = springResults.errors + reactResults.errors;
+
+		const passedTests = [...springResults.passedTests, ...reactResults.passedTests];
+		const failedTests = [...springResults.failedTests, ...reactResults.failedTests];
+		const skippedTests = [...springResults.skippedTests, ...reactResults.skippedTests];
+		const errorTests = [...springResults.errorTests, ...reactResults.errorTests];
+
+		const aggregatedResults = {
+			total, passed, failed, skipped, errors, passedTests, failedTests, skippedTests, errorTests
+		};
+
+		const success = springExec.exitCode === 0 && reactExec.exitCode === 0 && (springResults.total > 0 || reactResults.total > 0);
+		const fullOutput = `======= SPRING BOOT =======\n${springExec.stdout}\n${springExec.stderr}\n\n======= REACT =======\n${reactExec.stdout}\n${reactExec.stderr}`;
+
+		if (fs.existsSync(springDeletePath)) fs.rmSync(springDeletePath, { recursive: true, force: true });
+		if (fs.existsSync(reactDeletePath)) fs.rmSync(reactDeletePath, { recursive: true, force: true });
+
+		return {
+			success: success,
+			message: success ? 'Test cases executed successfully' : 'Tests execution failed',
+			test_results: aggregatedResults,
+			spring_results: springResults,
+			react_results: reactResults,
+			spring_terminal_output: springExec.stdout + '\\n' + springExec.stderr,
+			react_terminal_output: reactExec.stdout + '\\n' + reactExec.stderr,
+			full_terminal_output: fullOutput
+		};
+
+	} catch (error: any) {
+		console.error('Error in verifyFullStack:', error);
+		let details = '';
+		if (error.response && error.response.data) {
+			details = Buffer.isBuffer(error.response.data) ? error.response.data.toString() : error.response.data;
+			console.error('Backend 422 details:', details);
+		}
+
+		const springTests = path.join(project_path, 'src', 'test');
+		const reactTests = path.join(project_path, 'reactapp', 'src', 'testcase');
+		if (fs.existsSync(springTests)) fs.rmSync(springTests, { recursive: true, force: true });
+		if (fs.existsSync(reactTests)) fs.rmSync(reactTests, { recursive: true, force: true });
+
+		throw new Error(details ? `${error.message}: ${details} ` : error.message);
+	} finally {
+		await unhideTestFolder(project_path, '**/src/test', 'src/test');
 		await unhideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
 	}
 }
