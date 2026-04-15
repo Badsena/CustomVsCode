@@ -11,6 +11,9 @@ export const IProductService = createDecorator<IProductService>('productService'
 export interface IProductService extends Readonly<IProductConfiguration> {
 
 	readonly _serviceBrand: undefined;
+	// ✅ Amypo custom update fields
+	readonly amypoAppVersion?: string;
+	readonly amypoUpdateUrl?: string;
 
 }
 

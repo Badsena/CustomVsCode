@@ -1,0 +1,16 @@
+src/**
+media/**
+node_modules/**
+.vscode/**
+.vscode-test/**
+tsconfig.json
+esbuild.js
+index.html
+image.png
+**/*.map
+**/*.ts
+!out/extension.js
+!out/assets/**
+out/core/**
+out/providers/**
+out/webview/**

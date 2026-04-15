@@ -130,10 +130,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 * https://github.com/microsoft/vscode/issues/89784
 	 */
 	protected async initialize(): Promise<void> {
-		if (!this.environmentMainService.isBuilt) {
-			this.setState(State.Disabled(DisablementReason.NotBuilt));
-			return; // updates are never enabled when running out of sources
-		}
+		// if (!this.environmentMainService.isBuilt) {
+		// 	this.setState(State.Disabled(DisablementReason.NotBuilt));
+		// 	return; // updates are never enabled when running out of sources
+		// }
 
 		if (this.environmentMainService.disableUpdates) {
 			this.setState(State.Disabled(DisablementReason.DisabledByEnvironment));

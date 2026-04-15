@@ -94,6 +94,8 @@ export interface IProductConfiguration {
 	readonly webEndpointUrlTemplate?: string;
 	readonly webviewContentExternalBaseUrlTemplate?: string;
 	readonly target?: string;
+	readonly amypoAppVersion?: string;
+	readonly amypoUpdateUrl?: string;
 	readonly nlsCoreBaseUrl?: string;
 
 	readonly settingsSearchBuildId?: number;
