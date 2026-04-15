@@ -3,18 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AmypoExtensionService } from './amypoExtensionService.js';
+
 /**
  * Curated list of recommended extension IDs for Amypo Coder.
+ * Fetched dynamically from the Amypo server API.
  */
-export const AMYPO_RECOMMENDED_EXTENSIONS: string[] = [
-    'rangav.vscode-thunder-client',
-    'esbenp.prettier-vscode',
-    'dbaeumer.vscode-eslint',
-    'dsznajder.es7-react-js-snippets',
-    'formulahendry.auto-rename-tag',
-    'pkief.material-icon-theme',
-    'vscjava.vscode-java-pack',
-    'redhat.java',
-    'vscjava.vscode-java-debug',
-    'vscjava.vscode-maven',
-];
+export async function getAmypoRecommendedExtensions(): Promise<string[]> {
+    return await AmypoExtensionService.getRecommendedExtensions();
+}
+
+/**
+ * Clears the extension cache, forcing a refresh on the next fetch.
+ */
+export function clearAmypoExtensionCache(): void {
+    AmypoExtensionService.clearCache();
+}

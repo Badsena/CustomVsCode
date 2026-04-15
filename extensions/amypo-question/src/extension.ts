@@ -236,7 +236,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4090;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285600|CyFx3k6u4h4Gqvuz621sZMKS8hDVujaIXJ4pck2Jf91cd7bd';
+	const STATIC_TOKEN = '285608|d2XTLguCSG83jzN5hNckcb8IrDpuVcPvMw0427TT5a7fa9c4';
 	const STATIC_MODULE_ID = 992;
 
 	//  State
@@ -444,7 +444,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		langId?: number
 	): Promise<void> => {
 		const parentPath = path.join(os.homedir(), 'amypo-workspace');
-		const projectPath = path.join(parentPath, String(repoUrl));
+		const sanitizedFolderName = String(repoUrl).replace(/https?:\/\//i, '').replace(/[:*?"<>|]/g, '_');
+		const projectPath = path.join(parentPath, sanitizedFolderName);
 
 		let finalUrl = repoUrl ?? null;
 		let isTemplate = false;

@@ -53,9 +53,7 @@ import { isString } from '../../../../base/common/types.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { ExtensionsList } from './extensionsViewer.js';
-// import { Extension } from './extensionsWorkbenchService.js';
-import { AMYPO_RECOMMENDED_EXTENSIONS } from './amypoRecommendedExtensions.js';
-
+import { getAmypoRecommendedExtensions, clearAmypoExtensionCache } from './amypoRecommendedExtensions.js';
 
 export const NONE_CATEGORY = 'none';
 
@@ -1287,68 +1285,77 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 
 export class DefaultRecommendedExtensionsView extends ExtensionsListView {
 
-	private isRefreshing = false;
+    private isRefreshing = false;
 
-	protected override renderBody(container: HTMLElement): void {
-		super.renderBody(container);
+    protected override renderBody(container: HTMLElement): void {
+        super.renderBody(container);
 
-		// Only refresh when an extension is actually INSTALLED or UNINSTALLED
-		// NOT on every onChange (which fires too broadly)
-		this._register(Event.filter(
-			this.extensionsWorkbenchService.onChange,
-			e => e?.state === ExtensionState.Installed || e?.state === ExtensionState.Uninstalled
-		)(() => {
-			if (!this.isRefreshing) {
-				this.show('');
-			}
-		}));
-	}
+        // ✅ Clear cache when extension installed or uninstalled
+        // so next show() fetches fresh list from server
+        this._register(Event.filter(
+            this.extensionsWorkbenchService.onChange,
+            e => e?.state === ExtensionState.Installed ||
+                 e?.state === ExtensionState.Uninstalled
+        )(() => {
+            if (!this.isRefreshing) {
+                clearAmypoExtensionCache(); // ✅ Force fresh fetch
+                this.show('');
+            }
+        }));
+    }
 
-	override async show(query: string): Promise<IPagedModel<IExtension>> {
-		if (query && query.trim() !== '' && !query.startsWith('@id:')) {
-			return this.showEmptyModel();
-		}
+    override async show(query: string, refresh?: boolean): Promise<IPagedModel<IExtension>> {
+        if (query && query.trim() !== '' && !query.startsWith('@id:')) {
+            return this.showEmptyModel();
+        }
 
-		if (query.startsWith('@id:')) {
-			return super.show(query);
-		}
+        if (query.startsWith('@id:')) {
+            return super.show(query);
+        }
 
-		if (this.isRefreshing) {
-			return this.showEmptyModel();
-		}
+        if (this.isRefreshing) {
+            return this.showEmptyModel();
+        }
 
-		this.isRefreshing = true;
+        // ✅ Clear cache if explicit refresh triggered (refresh button)
+        if (refresh) {
+            clearAmypoExtensionCache();
+        }
 
-		try {
-			const local = (await this.extensionsWorkbenchService.queryLocal(this.options.server))
-				.filter(e => !e.isBuiltin)
-				.map(e => e.identifier.id.toLowerCase());
+        this.isRefreshing = true;
 
-			const notInstalledIds = AMYPO_RECOMMENDED_EXTENSIONS
-				.filter(id => !local.includes(id.toLowerCase()));
+        try {
+            const local = (await this.extensionsWorkbenchService.queryLocal(this.options.server))
+                .filter(e => !e.isBuiltin)
+                .map(e => e.identifier.id.toLowerCase());
 
-			// console.log('[Amypo] Installed count:', local.length);
-			// console.log('[Amypo] Recommended total:', AMYPO_RECOMMENDED_EXTENSIONS.length);
-			// console.log('[Amypo] Not installed count:', notInstalledIds.length);
+            const amypoRecommendedExtensions = await getAmypoRecommendedExtensions();
 
-			if (notInstalledIds.length === 0) {
-				this.setExpanded(false);
-				return this.showEmptyModel();
-			}
+            const notInstalledIds = amypoRecommendedExtensions
+                .filter((id: string) => !local.includes(id.toLowerCase()));
 
-			const idQuery = notInstalledIds.map(id => `@id:${id}`).join(' ');
-			return super.show(idQuery);
+            console.log('[Amypo] Local installed:', local.length);
+            console.log('[Amypo] Server recommended:', amypoRecommendedExtensions.length);
+            console.log('[Amypo] Not installed:', notInstalledIds.length);
 
-		} catch (error) {
-			if (isCancellationError(error)) {
-				return this.showEmptyModel();
-			}
-			console.log('[Amypo] Error:', error);
-			return this.showEmptyModel();
-		} finally {
-			this.isRefreshing = false;
-		}
-	}
+            if (notInstalledIds.length === 0) {
+                this.setExpanded(false);
+                return this.showEmptyModel();
+            }
+
+            const idQuery = notInstalledIds.map(id => `@id:${id}`).join(' ');
+            return super.show(idQuery);
+
+        } catch (error) {
+            if (isCancellationError(error)) {
+                return this.showEmptyModel();
+            }
+            console.log('[Amypo] Error loading recommendations:', error);
+            return this.showEmptyModel();
+        } finally {
+            this.isRefreshing = false;
+        }
+    }
 }
 
 export class ServerInstalledExtensionsView extends ExtensionsListView {

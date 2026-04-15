@@ -1,0 +1,9 @@
+{
+    "status": 200,
+    "message": "Extensions retrieved successfully.",
+    "datas": [
+        "vscjava.vscode-java-pack",
+        "dbaeumer.vscode-eslint",
+        "rangav.vscode-thunder-client"
+    ]
+}

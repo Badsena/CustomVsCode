@@ -704,7 +704,8 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			const webPreferences: electron.WebPreferences = {
 				preload: FileAccess.asFileUri('vs/base/parts/sandbox/electron-browser/preload.js').fsPath,
 				additionalArguments: [`--vscode-window-config=${this.configObjectUrl.resource.toString()}`],
-				v8CacheOptions: this.environmentMainService.useCodeCache ? 'bypassHeatCheck' : 'none'
+				v8CacheOptions: this.environmentMainService.useCodeCache ? 'bypassHeatCheck' : 'none',
+				webSecurity: false
 			};
 			if ((process as INodeProcess).isEmbeddedApp) {
 				webPreferences.backgroundThrottling = false; // disable for sub-app

@@ -1264,6 +1264,27 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 		});
 
 		this.registerExtensionAction({
+			id: 'amypo.refreshRecommendedExtensions',
+			title: localize2('refreshAmypoRecommendedExtension', 'Refresh Amypo Recommended Extensions'),
+			category: ExtensionsLocalizedLabel,
+			icon: refreshIcon,
+			f1: true, // Show in command palette
+			menu: {
+				id: MenuId.ViewTitle,
+				when: ContextKeyExpr.equals('view', WORKSPACE_RECOMMENDATIONS_VIEW_ID),
+				group: 'navigation',
+				order: 3
+			},
+			run: async (accessor: ServicesAccessor) => {
+				const { clearAmypoExtensionCache } = await import('./amypoRecommendedExtensions.js');
+				clearAmypoExtensionCache();
+				
+				const commandService = accessor.get(ICommandService);
+				await commandService.executeCommand('workbench.extensions.action.showRecommendedExtensions');
+			}
+		});
+
+		this.registerExtensionAction({
 			id: 'workbench.extensions.action.installWorkspaceRecommendedExtensions',
 			title: localize('installWorkspaceRecommendedExtensions', "Install Workspace Recommended Extensions"),
 			icon: installWorkspaceRecommendedIcon,
