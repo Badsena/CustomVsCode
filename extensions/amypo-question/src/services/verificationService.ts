@@ -670,7 +670,7 @@ export async function verifySelenium(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			results.total = request.testcase_count;
-			results.failed = Math.max(0, results.total - results.passed);
+			results.passed = Math.max(0, results.total - results.failed);
 		}
 
 		return {
