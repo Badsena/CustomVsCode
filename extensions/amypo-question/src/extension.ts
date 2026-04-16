@@ -13,7 +13,7 @@ import axios from 'axios';
 
 import { EduViewProvider } from './webview/EduModal';
 import { submitData, jsonsubmitData, fetchData } from './services/axios/submissions';
-import { verifySpringBoot, verifyReact, verifyFullStack } from './services/verificationService';
+import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
 
@@ -485,6 +485,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			currentProjectType = 'react';
 		} else if (langId === 1004) {
 			currentProjectType = 'fullstack';
+		} else if (langId === 1005) {
+			currentProjectType = 'selenium';
 		} else {
 			currentProjectType = 'spring';
 		}
@@ -961,7 +963,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 	// comment this while building for production
-	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+	// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 
 
 	// Webview Provider Setup
@@ -1124,12 +1126,34 @@ export async function activate(context: vscode.ExtensionContext) {
 			console.log('cachedQuestion', cachedQuestion);
 
 
+			// Extract total testcases from metadata
+			let total_testcases = 0;
+			const fullQuestion = cachedQuestion?.payload;
+			if (fullQuestion?.testcaseCount) {
+				try {
+					const test_count = typeof fullQuestion.testcaseCount === 'string'
+						? JSON.parse(fullQuestion.testcaseCount)
+						: fullQuestion.testcaseCount;
+
+					if (currentProjectType === 'react') {
+						total_testcases = parseInt(test_count?.react, 10) || 0;
+					} else if (currentProjectType === 'spring') {
+						total_testcases = parseInt(test_count?.spring, 10) || 0;
+					} else if (currentProjectType === 'selenium') {
+						total_testcases = parseInt(test_count?.selenium, 10) || 0;
+					} else if (currentProjectType === 'fullstack') {
+						total_testcases = (parseInt(test_count?.spring, 10) || 0) + (parseInt(test_count?.react, 10) || 0);
+					}
+				} catch (e) { }
+			}
+
 			const request = {
 				project_path: currentProjectPath,
 				question_id: cachedQuestion?.payload?.question_id,
 				qb_name: cachedQuestion?.payload?.qb_name || 'practice',
 				token: activeToken,
-				backend_url: API_URL
+				backend_url: API_URL,
+				testcase_count: total_testcases
 			};
 
 			console.log('[Amypo] Verification request:', request);
@@ -1143,6 +1167,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			} else if (currentProjectType === 'fullstack') {
 				result = await verifyFullStack(request);
 				console.log('fullstack result', result);
+			} else if (currentProjectType === 'selenium') {
+				result = await verifySelenium(request);
+				console.log('selenium result', result);
 			} else {
 				eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Verification not implemented for ${currentProjectType}` });
 				return;
@@ -1169,31 +1196,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				const now = Date.now();
 				const testTimer = Math.floor((now - testStartTime) / 1000);
 
-				let total_testcases = 0;
 				let passed_testcases = 0;
 
-				const fullQuestion = cachedQuestion?.payload;
 				const total_mark_raw = fullQuestion?.total_mark ?? question?.total_mark ?? 0;
 				const total_mark = typeof total_mark_raw === 'string' ? parseFloat(total_mark_raw) : total_mark_raw;
 				let user_mark = question?.mark ?? 0;
 
-				if (fullQuestion?.testcaseCount) {
-					try {
-						const test_count = typeof fullQuestion.testcaseCount === 'string'
-							? JSON.parse(fullQuestion.testcaseCount)
-							: fullQuestion.testcaseCount;
+				console.log('total_testcases', total_testcases);
 
-						if (currentProjectType === 'react') {
-							total_testcases = parseInt(test_count?.react, 10) || 0;
-						} else if (currentProjectType === 'spring') {
-							total_testcases = parseInt(test_count?.spring, 10) || 0;
-						} else if ((currentProjectType as string) === 'selenium') {
-							total_testcases = parseInt(test_count?.selenium, 10) || 0;
-						} else if (currentProjectType === 'fullstack') {
-							total_testcases = (parseInt(test_count?.spring, 10) || 0) + (parseInt(test_count?.react, 10) || 0);
-						}
-					} catch (e) { }
-				}
 
 				if (result?.test_results) {
 					passed_testcases = result.test_results?.passed ?? 0;

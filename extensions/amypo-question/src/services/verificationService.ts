@@ -68,6 +68,7 @@ export interface VerificationRequest {
 	qb_name: string;
 	token: string;
 	backend_url: string;
+	testcase_count?: number;
 }
 
 /**
@@ -283,6 +284,11 @@ export async function verifySpringBoot(request: VerificationRequest) {
 			console.log('✓ Local test files cleaned up');
 		}
 
+		if (request.testcase_count && request.testcase_count > 0) {
+			testResults.total = request.testcase_count;
+			testResults.failed = Math.max(0, testResults.total - testResults.passed - testResults.skipped - testResults.errors);
+		}
+
 		return {
 			success: exitCode === 0 && testResults.total > 0,
 			message: exitCode === 0 ? 'Test cases executed successfully' : 'Tests execution failed',
@@ -372,6 +378,11 @@ export async function verifyReact(request: VerificationRequest) {
 		if (fs.existsSync(localDeletePath)) {
 			fs.rmSync(localDeletePath, { recursive: true, force: true });
 			console.log('✓ Local test files cleaned up');
+		}
+
+		if (request.testcase_count && request.testcase_count > 0) {
+			parsedResults.total = request.testcase_count;
+			parsedResults.failed = Math.max(0, parsedResults.total - parsedResults.passed);
 		}
 
 		return {
@@ -487,6 +498,12 @@ export async function verifyFullStack(request: VerificationRequest) {
 		};
 
 		const success = springExec.exitCode === 0 && reactExec.exitCode === 0 && (springResults.total > 0 || reactResults.total > 0);
+
+		if (request.testcase_count && request.testcase_count > 0) {
+			aggregatedResults.total = request.testcase_count;
+			aggregatedResults.failed = Math.max(0, aggregatedResults.total - aggregatedResults.passed);
+		}
+
 		const fullOutput = `======= SPRING BOOT =======\n${springExec.stdout}\n${springExec.stderr}\n\n======= REACT =======\n${reactExec.stdout}\n${reactExec.stderr}`;
 
 		if (fs.existsSync(springDeletePath)) fs.rmSync(springDeletePath, { recursive: true, force: true });
@@ -520,5 +537,154 @@ export async function verifyFullStack(request: VerificationRequest) {
 	} finally {
 		await unhideTestFolder(project_path, '**/src/test', 'src/test');
 		await unhideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
+	}
+}
+
+export async function verifySelenium(request: VerificationRequest) {
+	let token = 'AmypoToken'
+	const { project_path, question_id, backend_url, qb_name } = request;
+	console.log(`[Amypo] Starting Local Selenium Verification for Question: ${question_id}`);
+	console.log(`[Amypo] project path: ${project_path}`);
+
+	const localTestcaseDir = path.join(project_path, 'amypo_selenium_testcases');
+
+	try {
+		// Step 1: Download JSON testing configuration
+		const requestUrl = `${backend_url}/project-testcase`;
+		const response = await axios.post(requestUrl, {
+			question_id: question_id,
+			qb_name: qb_name
+		}, {
+			headers: { 'Authorization': `Bearer ${token}` },
+			responseType: 'arraybuffer',
+			timeout: 30000
+		});
+
+		if (response.status !== 200) {
+			throw new Error(`Failed to fetch testcase from backend.`);
+		}
+
+		if (!fs.existsSync(localTestcaseDir)) {
+			fs.mkdirSync(localTestcaseDir, { recursive: true });
+		}
+
+		const zipFilePath = path.join(project_path, 'selenium_testcases.zip');
+		fs.writeFileSync(zipFilePath, Buffer.from(response.data));
+
+		try {
+			await extract(zipFilePath, { dir: path.resolve(localTestcaseDir) });
+			console.log('✓ Files extracted to project test directory');
+		} catch (extractErr) {
+			throw new Error('Testcase extraction failed.');
+		} finally {
+			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
+		}
+
+		// Step 2: Ensure testcase json is found
+		const files = fs.readdirSync(localTestcaseDir);
+		const jsonFile = files.find(f => f.endsWith('.json'));
+		if (!jsonFile) {
+			throw new Error("No JSON test case file found in the zip.");
+		}
+
+		const testCaseConfigContent = fs.readFileSync(path.join(localTestcaseDir, jsonFile), 'utf8');
+		const testCaseConfig = JSON.parse(testCaseConfigContent);
+
+		// Step 3: Run Maven tests locally
+		const projectRoot = path.join(project_path, 'demo');
+		console.log('🧪 Running Selenium tests in:', projectRoot);
+
+		const { stdout, stderr, exitCode } = await execAllowFail(`cd "${projectRoot}" && mvn clean test`, {
+			maxBuffer: 50 * 1024 * 1024,
+			timeout: 480000
+		});
+
+		let fullLogData = stdout + '\n' + stderr;
+		// Optionally append specific log files if available (e.g. logs/test-execution.log)
+		const logFilePath = path.join(projectRoot, 'logs', 'test-execution.log');
+		if (fs.existsSync(logFilePath)) {
+			const extraLog = fs.readFileSync(logFilePath, 'utf8');
+			fullLogData += '\n--- EXTERNAL LOG FILE ---\n' + extraLog;
+		}
+
+		// Step 4: Verification logic against JSON mapped patterns
+		const results = {
+			total: testCaseConfig.testcase.length,
+			passed: 0,
+			failed: 0,
+			skipped: 0,
+			errors: 0,
+			passedTests: [] as string[],
+			failedTests: [] as string[],
+			skippedTests: [] as string[],
+			errorTests: [] as string[]
+		};
+
+		for (const tc of testCaseConfig.testcase) {
+			let passed = true;
+			for (const pattern of tc.patterns) {
+				// FIX: Use single backslash escapes so the regex receives the correct sequences.
+				// '\\[' in JS source → string value '\[' → regex: literal bracket [
+				// Previously '\\\\[' → string value '\\[' → regex: escaped backslash + literal [ (wrong)
+				let cleanPattern = pattern
+					.split('[').join('\\[')
+					.split(']').join('\\]')
+					.split('(').join('\\(')
+					.split(')').join('\\)');
+
+				// FIX: Use single backslash for \s so regex receives \s* (whitespace wildcard).
+				// Previously '\\\\s*' → string '\s*' → regex: literal \s* (not whitespace)
+				cleanPattern = cleanPattern
+					.split(' :').join('\\s*:\\s*')
+					.split(': ').join('\\s*:\\s*');
+
+				try {
+					const regex = new RegExp(cleanPattern);
+					if (!regex.test(fullLogData)) {
+						passed = false;
+						break;
+					}
+				} catch (e) {
+					// Fallback to exact literal match if regex creation fails
+					if (!fullLogData.includes(pattern)) {
+						passed = false;
+						break;
+					}
+				}
+			}
+
+			if (passed) {
+				results.passed++;
+				results.passedTests.push(`${tc.description} - PASS`);
+			} else {
+				results.failed++;
+				results.failedTests.push(`${tc.description} - FAIL`);
+			}
+		}
+
+		// Step 5: Cleanup testcase directory
+		if (fs.existsSync(localTestcaseDir)) {
+			fs.rmSync(localTestcaseDir, { recursive: true, force: true });
+			console.log('✓ Local testcase rules cleaned up');
+		}
+
+		if (request.testcase_count && request.testcase_count > 0) {
+			results.total = request.testcase_count;
+			results.failed = Math.max(0, results.total - results.passed);
+		}
+
+		return {
+			success: results.failed === 0 && results.total > 0,
+			message: results.failed === 0 ? 'Selenium Test cases executed successfully' : 'Selenium Tests execution failed',
+			test_results: results,
+			full_terminal_output: `- - - SELENIUM WEBDRIVER EXECUTION OUTPUT - - -\n${stdout}\n${stderr}`
+		};
+
+	} catch (error: any) {
+		console.error('[Amypo] Local verification failed:', error);
+		if (fs.existsSync(localTestcaseDir)) {
+			fs.rmSync(localTestcaseDir, { recursive: true, force: true });
+		}
+		throw error;
 	}
 }
