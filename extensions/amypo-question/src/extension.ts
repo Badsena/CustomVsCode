@@ -65,7 +65,7 @@ function readSecretKey(): string | null {
 }
 
 // Auto-Update
-async function checkForExtensionUpdate(secretKey: string): Promise<void> {
+async function checkForExtensionUpdate(secretKey: string): Promise<boolean> {
 	try {
 		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
 		const currentVersion = ext?.packageJSON?.version ?? '0.0.0';
@@ -86,19 +86,19 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 		if (!latestVersion || !downloadUrl) {
 			console.log('[Amypo Update] No extensions in version.json — skipping.');
 			// console.log('[Amypo Update] Invalid version.json — skipping.');
-			return;
+			return false;
 		}
 
 		console.log(`[Amypo Update] Server: ${latestVersion} | Current: ${currentVersion}`);
 
 		if (currentVersion === latestVersion) {
 			console.log('[Amypo Update] Already up to date.');
-			return;
+			return false;
 		}
 
 		if (!compareVersions(latestVersion, currentVersion)) {
 			console.log('[Amypo Update] No newer version.');
-			return;
+			return false;
 		}
 
 		console.log(`[Amypo Update] New version found: ${latestVersion}`);
@@ -124,7 +124,7 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 
 			const vsixPath = path.join(
 				tempDir,
-				`amypo - question - ${latestVersion}.vsix`
+				`amypo-question-${latestVersion}.vsix`
 			);
 
 			await fs.promises.writeFile(vsixPath, Buffer.from(vsixResp.data));
@@ -142,18 +142,15 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 			progress.report({ message: 'Done!' });
 		});
 
-		// ── Show Restart button
-		const action = await vscode.window.showInformationMessage(
-			`✅ Amypo updated to v${latestVersion}. Restart required.`,
-			'Restart Now'
-		);
+		// ── Auto Reload
+		vscode.window.showInformationMessage(`✅ Amypo updated to v${latestVersion}. Reloading...`);
+		vscode.commands.executeCommand('workbench.action.reloadWindow');
 
-		if (action === 'Restart Now') {
-			vscode.commands.executeCommand('workbench.action.reloadWindow');
-		}
+		return true;
 
 	} catch (error: any) {
 		console.warn('[Amypo Update] Update check skipped:', error.message);
+		return false;
 	}
 }
 
@@ -185,10 +182,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		return;
 	}
 
-	//  Auto-Update Check (async, non-blocking)
-	checkForExtensionUpdate(secretKey).catch(err => {
-		console.warn('[Amypo Update] Background update check error:', err);
-	});
+	//  Auto-Update Check (blocking)
+	try {
+		const isUpdated = await checkForExtensionUpdate(secretKey);
+		if (isUpdated) {
+			console.log('[Amypo] Extension successfully updated, halting initialization.');
+			return;
+		}
+	} catch (err) {
+		console.warn('[Amypo Update] Blocking update check error:', err);
+	}
 
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
@@ -216,6 +219,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.log('  token         :', token);
 				console.log('  server_type   :', server_type);
 				console.log('========================================');
+				eduViewProvider.updateView({
+					course_name: 'Amypo coder',
+					module_name: 'Datas Not Received',
+					errorMessage: `Test details allocation_id : ${allocation_id} token: ${token} test_type: ${test_type} module_id: ${module_id} server_type: ${server_type}`
+				}, () => { });
 
 				if (!allocation_id || !token) {
 					console.error('[Amypo] ERROR: Missing required params!');
@@ -235,10 +243,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4091;
+	const STATIC_ALLOCATION_ID = 4092;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285629|CSi3hvRHcNbCvye2MUpajyrk1qgpSbMjbObjD7eud4e5c50b';
-	const STATIC_MODULE_ID = 995;
+	const STATIC_TOKEN = '285679|2AHkBvR7Oz1c7SRzjRIOPwMV5ENXXQZVoCUrnlGv23e22249';
+	const STATIC_MODULE_ID = 996;
 
 	//  State
 	let currentAllocationData: any = null;
