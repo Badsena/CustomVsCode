@@ -218,6 +218,58 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	}
 
 	private _isVisible: boolean;
+	private _amypoInputBuffer: string = '';
+	private readonly _amypoBlockedPatterns: { pattern: RegExp; label: string }[] = [
+		// ✅ Navigation Blocking (Allow cd forward, block cd back/out)
+		{ pattern: /^\s*cd\s+\.\./i,              label: 'cd ..' },
+		{ pattern: /^\s*cd\s+\.\.\\/i,            label: 'cd ..\\ ' },
+		{ pattern: /^\s*cd\s+[a-zA-Z]:\\/i,       label: 'cd to drive' },
+		{ pattern: /^\s*cd\s+~\s*$/i,             label: 'cd ~' },
+		{ pattern: /^\s*cd\s+\/\s*$/i,            label: 'cd /' },
+		{ pattern: /^\s*cd\s*$(?!\s*\S)/i,        label: 'cd (empty)' },
+		{ pattern: /^\s*Set-Location\s+\.\./i,    label: 'Set-Location ..' },
+		{ pattern: /^\s*Set-Location\s+[a-zA-Z]:\\/i, label: 'Set-Location drive' },
+		{ pattern: /^\s*sl\s+\.\./i,              label: 'sl ..' },
+
+		// File listing
+		{ pattern: /^\s*dir\b/i,             label: 'dir' },
+		{ pattern: /^\s*ls\b/i,              label: 'ls' },
+		{ pattern: /^\s*tree\b/i,            label: 'tree' },
+
+		// Delete
+		{ pattern: /^\s*del\b/i,             label: 'del' },
+		{ pattern: /^\s*rm\b/i,              label: 'rm' },
+		{ pattern: /^\s*rmdir\b/i,           label: 'rmdir' },
+		{ pattern: /^\s*rd\b/i,              label: 'rd' },
+
+		// Copy / Move
+		{ pattern: /^\s*copy\b/i,            label: 'copy' },
+		{ pattern: /^\s*cp\b/i,              label: 'cp' },
+		{ pattern: /^\s*move\b/i,            label: 'move' },
+		{ pattern: /^\s*mv\b/i,              label: 'mv' },
+		{ pattern: /^\s*xcopy\b/i,           label: 'xcopy' },
+
+		// Open other apps
+		{ pattern: /^\s*start\b/i,           label: 'start' },
+		{ pattern: /^\s*explorer\b/i,        label: 'explorer' },
+		{ pattern: /^\s*notepad\b/i,         label: 'notepad' },
+		{ pattern: /^\s*code\b/i,            label: 'vscode' },
+		{ pattern: /^\s*cursor\b/i,          label: 'cursor' },
+		{ pattern: /^\s*windsurf\b/i,        label: 'windsurf' },
+
+		// Network
+		{ pattern: /^\s*curl\b/i,            label: 'curl' },
+		{ pattern: /^\s*wget\b/i,            label: 'wget' },
+
+		// PowerShell dangerous
+		{ pattern: /^\s*Remove-Item\b/i,     label: 'Remove-Item' },
+		{ pattern: /^\s*Get-ChildItem\b/i,   label: 'Get-ChildItem' },
+		{ pattern: /^\s*Copy-Item\b/i,       label: 'Copy-Item' },
+		{ pattern: /^\s*Move-Item\b/i,       label: 'Move-Item' },
+		{ pattern: /^\s*Invoke-Expression\b/i, label: 'Invoke-Expression' },
+		{ pattern: /^\s*Invoke-WebRequest\b/i, label: 'Invoke-WebRequest' },
+	];
+
 	get isVisible(): boolean { return this._isVisible; }
 
 	private _targetRef: ImmortalReference<TerminalLocation | undefined> = new ImmortalReference(undefined);
@@ -526,6 +578,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this._initDimensions();
 		this._processManager = this._createProcessManager();
 
+		// ✅ Initialize Amypo tracking
+		const initialCwd = this._shellLaunchConfig.cwd;
+		this._initialCwd = initialCwd instanceof URI ? initialCwd.fsPath : (typeof initialCwd === 'string' ? initialCwd : undefined);
+
 		this._containerReadyBarrier = new AutoOpenBarrier(Constants.WaitForContainerThreshold);
 		this._attachBarrier = new AutoOpenBarrier(1000);
 		this._xtermReadyPromise = this._createXterm();
@@ -656,10 +712,195 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		return this._contributions.get(id) as T | null;
 	}
 
-	private async _handleOnData(data: string): Promise<void> {
-		await this._processManager.write(data);
-		this._onDidInputData.fire(data);
+	private _getTerminalLine(): string {
+		try {
+			if (!this.xterm?.raw?.buffer?.active) return '';
+			const activeBuffer = this.xterm.raw.buffer.active;
+			const lineIndex = activeBuffer.baseY + activeBuffer.cursorY;
+			const line = activeBuffer.getLine(lineIndex);
+			return line?.translateToString(true) || '';
+		} catch {
+			return '';
+		}
 	}
+
+	private async _handleOnData(data: string): Promise<void> {
+		// ✅ Amypo Security — Buffer input and block dangerous commands
+		let blocked = false;
+
+		try {
+			for (let i = 0; i < data.length; i++) {
+				const char = data[i];
+
+				if (char === '\r' || char === '\n') {
+					// Method 1: The keystroke buffer (catches exactly what was typed)
+					const commandTyped = this._amypoInputBuffer.trim();
+
+					// Method 2: The xterm visible line (catches autocomplete and arrow-key history!)
+					// Strip the shell prompt (e.g., 'PS C:\> ', 'admin@host:~$ ', 'C:\folder> ')
+					const visibleLine = this._getTerminalLine();
+					const commandVisible = visibleLine.replace(/^.*[>#$]\s*/, '').trim();
+
+					// Check both! If either violates the rules, we block.
+					const blockedLabel = this._amypoIsBlocked(commandTyped) || this._amypoIsBlocked(commandVisible);
+
+					if (blockedLabel) {
+						console.error(`[Amypo Guard] BLOCKED: Typed="${commandTyped}", Visible="${commandVisible}" → ${blockedLabel}`);
+						blocked = true;
+
+						// 1. Send Ctrl+C to cancel pending input in shell
+						await this._processManager.write('\x03');
+
+						// 2. Show clean warning via shell
+						setTimeout(async () => {
+							try {
+								const isPowerShell = this.shellType?.toLowerCase().includes('powershell');
+								const warningCommand = isPowerShell
+									? `Write-Host "[Amypo] Not allowed: ${blockedLabel}" -ForegroundColor Red\r`
+									: `echo "[Amypo] Not allowed: ${blockedLabel}"\r`;
+								await this._processManager.write(warningCommand);
+							} catch { /* ignore */ }
+						}, 150);
+
+						// 3. Show notification
+						this._notificationService.warn(`Amypo Security: "${blockedLabel}" is not allowed.`);
+
+						this._amypoInputBuffer = '';
+						break; // Stop processing further characters
+					}
+
+					this._amypoInputBuffer = '';
+				} else if (char === '\b' || char === '\x7f') {
+					this._amypoInputBuffer = this._amypoInputBuffer.slice(0, -1);
+				} else if (data.charCodeAt(i) >= 32) {
+					this._amypoInputBuffer += char;
+				}
+			}
+		} catch (err) {
+			console.error('[Amypo Guard] Error in _handleOnData:', err);
+			// On error, block data to be safe
+			blocked = true;
+		}
+
+		// Only forward data if NOT blocked
+		if (!blocked) {
+			await this._processManager.write(data);
+			this._onDidInputData.fire(data);
+		}
+	}
+
+
+	// ✅ Smart Blocking Detection
+	private _amypoIsBlocked(command: string): string | null {
+		// ✅ 1. Block ANY cd .. variation
+		if (/^\s*(cd|sl|Set-Location)\b.*?\.\./i.test(command)) {
+			const projectRoot = this._amypoGetProjectRoot();
+
+			console.log('[Amypo Guard] projectRoot:', projectRoot || '(not found)');
+
+			if (!projectRoot) {
+				// Can't determine project root — check if path LOOKS like amypo
+				// If _initialCwd or shellLaunchConfig.cwd contain 'amypo-workspace', BLOCK to be safe
+				const anyCwd = (this._cwd || this._initialCwd || '').toLowerCase();
+				const launchCwd = (this.shellLaunchConfig.cwd?.toString() || '').toLowerCase();
+				if (anyCwd.includes('amypo-workspace') || launchCwd.includes('amypo-workspace')) {
+					return 'cd .. (at project root)';
+				}
+				// Truly not in amypo project — allow freely
+				return null;
+			}
+
+			// Get current path — try _cwd first, fallback to _initialCwd
+			const currentPath = (this._cwd || this._initialCwd || '').replace(/\\/g, '/').toLowerCase();
+
+			console.log('[Amypo Guard] cwd:', currentPath || '(unknown)');
+
+			// If we don't know the current path, assume we are AT root → BLOCK (safe default)
+			if (!currentPath) {
+				return 'cd .. (at project root)';
+			}
+
+			// AT root — block any '..'
+			if (currentPath === projectRoot || currentPath === projectRoot + '/') {
+				return 'cd .. (at project root)';
+			}
+
+			// INSIDE project subfolder — allow single '..', block deep '..'
+			if (currentPath.startsWith(projectRoot + '/')) {
+				if (/\.\.[/\\]\.\./i.test(command)) {
+					return 'cd ../.. (cannot leave project)';
+				}
+				return null; // ✅ Normal cd .. inside project is fine
+			}
+
+			// Outside project or unknown — BLOCK to be safe
+			return 'cd .. (at project root)';
+		}
+
+		// ✅ 2. Block other dangerous commands
+		for (const { pattern, label } of this._amypoBlockedPatterns) {
+			if (pattern.test(command)) {
+				return label;
+			}
+		}
+
+		return null;
+	}
+
+	// ✅ Get project root — tries 3 sources for maximum reliability
+	private _amypoGetProjectRoot(): string | null {
+		try {
+			// Source 1: Workspace context service (most reliable once loaded)
+			const folders = this._workspaceContextService.getWorkspace().folders;
+			if (folders.length > 0) {
+				const wsPath = folders[0].uri.fsPath.replace(/\\/g, '/').toLowerCase();
+				if (wsPath.includes('amypo-workspace')) {
+					return wsPath;
+				}
+			}
+
+			// Source 2: shellLaunchConfig.cwd
+			const launchCwd = this.shellLaunchConfig.cwd;
+			if (launchCwd) {
+				const parsed = this._amypoParseRoot(
+					typeof launchCwd === 'string' ? launchCwd : (launchCwd.fsPath || launchCwd.toString())
+				);
+				if (parsed) return parsed;
+			}
+
+			// Source 3: _initialCwd (set in constructor from shellLaunchConfig)
+			if (this._initialCwd) {
+				const parsed = this._amypoParseRoot(this._initialCwd);
+				if (parsed) return parsed;
+			}
+
+			return null;
+		} catch {
+			return null;
+		}
+	}
+
+	// ✅ Parse amypo-workspace path to extract project root
+	private _amypoParseRoot(pathStr: string): string | null {
+		const normalized = pathStr.replace(/\\/g, '/').toLowerCase();
+		const marker = 'amypo-workspace/';
+		const idx = normalized.indexOf(marker);
+		if (idx === -1) return null;
+
+		const afterWs = normalized.substring(idx + marker.length);
+		const parts = afterWs.split('/').filter(p => p.length > 0);
+
+		// Structure: github.com/User/Repo
+		if (parts.length >= 3) {
+			return normalized.substring(0, idx + marker.length) + parts.slice(0, 3).join('/');
+		}
+		// Flat: just folder name
+		if (parts.length >= 1) {
+			return normalized.substring(0, idx + marker.length) + parts[0];
+		}
+		return null;
+	}
+
 
 	private _getIcon(): TerminalIcon | undefined {
 		if (!this._icon) {
