@@ -8,21 +8,22 @@ import { app } from 'electron';
 import { existsSync, unlinkSync } from 'fs';
 import { mkdir, readFile, unlink } from 'fs/promises';
 import { release, tmpdir } from 'os';
-import {  ProcessTimeRunOnceScheduler, timeout } from '../../../base/common/async.js';
-// import { VSBuffer } from '../../../base/common/buffer.js';
+import { Delayer, ProcessTimeRunOnceScheduler, timeout } from '../../../base/common/async.js';
+import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 import { memoize } from '../../../base/common/decorators.js';
 // import { hash } from '../../../base/common/hash.js';
 import * as path from '../../../base/common/path.js';
 import { basename } from '../../../base/common/path.js';
-// import { transform } from '../../../base/common/stream.js';
-// import { URI } from '../../../base/common/uri.js';
+import { transform } from '../../../base/common/stream.js';
+import { URI } from '../../../base/common/uri.js';
 // import { checksum } from '../../../base/node/crypto.js';
 import * as pfs from '../../../base/node/pfs.js';
 import { killTree } from '../../../base/node/processes.js';
 import { getWindowsRelease } from '../../../base/node/windowsVersion.js';
 import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
+import { IFileService } from '../../files/common/files.js';
 import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
 import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
@@ -69,6 +70,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
+		@IFileService private readonly fileService: IFileService,
 		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
 		@IProductService productService: IProductService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
@@ -217,6 +219,13 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 			this.setState(State.AvailableForDownload(update));
 
+			// ✅ Auto start download immediately
+			setTimeout(() => {
+				if (this.state.type === StateType.AvailableForDownload) {
+					this.downloadUpdate(true);
+				}
+			}, 1000);
+
 		} catch (err: any) {
 			this.logService.error('[AmypoUpdate] Check failed:', err.message);
 			this.setState(State.Idle(getUpdateType()));
@@ -240,10 +249,78 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		if (state.update.url) {
-			this.nativeHostMainService.openExternal(undefined, state.update.url);
+		if (!state.update.url) {
+			return;
 		}
-		this.setState(State.Idle(getUpdateType()));
+
+		try {
+			const version = state.update.version;
+			const downloadUrl = state.update.url;
+
+			// ✅ Show downloading state
+			this.setState(State.Downloading(state.update, true, false, 0, undefined, Date.now()));
+
+			// ✅ Download to temp folder
+			const cachePath = await this.cachePath;
+			const downloadPath = path.join(cachePath, `AmypoCoderSetup-${version}.exe.tmp`);
+			const finalPath = path.join(cachePath, `AmypoCoderSetup-${version}.exe`);
+
+			this.logService.info(`[AmypoUpdate] Downloading from: ${downloadUrl}`);
+
+			// ✅ Download using requestService
+			const context = await this.requestService.request({ url: downloadUrl, callSite: 'amypoUpdate.download' }, CancellationToken.None);
+
+			const contentLengthHeader = context.res.headers['content-length'];
+			const totalBytes = contentLengthHeader ? parseInt(String(contentLengthHeader), 10) : undefined;
+
+			let downloadedBytes = 0;
+			const startTime = Date.now();
+			const progressDelayer = new Delayer<void>(500);
+
+			const progressStream = transform<VSBuffer, VSBuffer>(
+				context.stream,
+				{
+					data: chunk => {
+						downloadedBytes += chunk.byteLength;
+						progressDelayer.trigger(() => {
+							this.setState(State.Downloading(state.update, true, false, downloadedBytes, totalBytes, startTime));
+						});
+						return chunk;
+					}
+				},
+				chunks => VSBuffer.concat(chunks)
+			);
+
+			// ✅ Save to disk
+			await this.fileService.writeFile(URI.file(downloadPath), progressStream).finally(() => progressDelayer.dispose());
+
+			// ✅ Rename tmp → final
+			await pfs.Promises.rename(downloadPath, finalPath, false);
+
+			this.logService.info(`[AmypoUpdate] Downloaded to: ${finalPath}`);
+
+			// ✅ Set availableUpdate for install
+			this.availableUpdate = { packagePath: finalPath };
+			this.saveUpdateMetadata(state.update);
+			this.setState(State.Downloaded(state.update, true, false));
+
+			// ✅ Apply update (runs installer silently)
+			await this.doApplyUpdate();
+
+		} catch (err: any) {
+			this.logService.error('[AmypoUpdate] Download failed:', err.message);
+			this.setState(State.Idle(getUpdateType(), err.message));
+		}
+	}
+
+	private async saveUpdateMetadata(update: IUpdate): Promise<void> {
+		try {
+			const cachePath = await this.cachePath;
+			const metadataPath = path.join(cachePath, 'update-metadata.json');
+			await pfs.Promises.writeFile(metadataPath, JSON.stringify(update));
+		} catch (e) {
+			this.logService.error('update#saveUpdateMetadata: failed to save', e);
+		}
 	}
 
 	private async getUpdatePackagePath(version: string): Promise<string> {

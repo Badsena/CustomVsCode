@@ -366,6 +366,14 @@ class OnAutoForwardedAction extends Disposable {
 	public async doAction(tunnels: RemoteTunnel[]): Promise<void> {
 		console.log('[Amypo] doAction triggered');
 		console.log('[Amypo] Tunnels received:', tunnels.map(t => t.tunnelRemotePort));
+
+		// ✅ Amypo - Filter out ports < 1000
+		tunnels = tunnels.filter(t => t.tunnelRemotePort >= 1000);
+		if (tunnels.length === 0) {
+			console.log('[Amypo] No tunnels left after 4-digit filtering.');
+			return;
+		}
+
 		this.logService.trace(`ForwardedPorts: (OnAutoForwardedAction) Starting action for ${tunnels[0]?.tunnelRemotePort}`);
 		this.doActionTunnels = tunnels;
 		const tunnel = await this.portNumberHeuristicDelay();
@@ -620,6 +628,13 @@ class OutputAutomaticPortForwarding extends Disposable {
 				console.log('[Amypo] Already notified for port:', localUrl.port);
 				return;
 			}
+
+			// ✅ Amypo - Ignore ports < 1000
+			if (localUrl.port < 1000) {
+				console.log('[Amypo] Ignoring port < 1000:', localUrl.port);
+				return;
+			}
+
 			console.log('[Amypo] URL detected in terminal:', localUrl.host, localUrl.port);
 
 			console.log('[Amypo] Checking detected tunnels...');

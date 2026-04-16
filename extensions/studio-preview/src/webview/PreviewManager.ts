@@ -241,7 +241,7 @@ export class PreviewManager {
             await this._devToolsProxy.stop();
 
             // Extract original port from the current proxied URL
-            const portMatch = currentUrl.match(/:(\d+)/);
+            const portMatch = currentUrl.match(/:(\d{4,5})/);
             const originalUrl = portMatch
                 ? `http://localhost:${this._getOriginalPort(parseInt(portMatch[1], 10)) || portMatch[1]}`
                 : currentUrl;
@@ -252,7 +252,7 @@ export class PreviewManager {
             });
         } else {
             // ── Turn ON: start proxy, switch iframe ──
-            const portMatch = currentUrl.match(/localhost:(\d+)/);
+            const portMatch = currentUrl.match(/localhost:(\d{4,5})/);
             if (!portMatch) {
                 vscode.window.showWarningMessage('Amypo DevTools: No localhost server detected in the current URL.');
                 return;

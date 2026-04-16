@@ -134,11 +134,17 @@ export class ProjectDetector {
 			try {
 				const content = fs.readFileSync(filePath, 'utf8');
 				// .properties format
-				const propMatch = content.match(/^server\.port\s*=\s*(\d+)/m);
-				if (propMatch) return parseInt(propMatch[1], 10);
+				const propMatch = content.match(/^server\.port\s*=\s*(\d{4,5})/m);
+				if (propMatch) {
+					const p = parseInt(propMatch[1], 10);
+					if (p >= 1000) return p;
+				}
 				// .yml format
-				const ymlMatch = content.match(/^\s*port\s*:\s*(\d+)/m);
-				if (ymlMatch) return parseInt(ymlMatch[1], 10);
+				const ymlMatch = content.match(/^\s*port\s*:\s*(\d{4,5})/m);
+				if (ymlMatch) {
+					const p = parseInt(ymlMatch[1], 10);
+					if (p >= 1000) return p;
+				}
 			} catch { continue; }
 		}
 		return undefined;
@@ -191,8 +197,12 @@ export class ProjectDetector {
 		if (!fs.existsSync(envPath)) return undefined;
 		try {
 			const c = fs.readFileSync(envPath, 'utf8');
-			const m = c.match(/^PORT\s*=\s*(\d+)/m);
-			return m ? parseInt(m[1], 10) : undefined;
+			const m = c.match(/^PORT\s*=\s*(\d{4,5})/m);
+			if (m) {
+				const p = parseInt(m[1], 10);
+				return p >= 1000 ? p : undefined;
+			}
+			return undefined;
 		} catch { return undefined; }
 	}
 

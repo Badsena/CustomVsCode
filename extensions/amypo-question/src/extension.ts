@@ -84,7 +84,8 @@ async function checkForExtensionUpdate(secretKey: string): Promise<void> {
 		const { version: latestVersion, downloadUrl } = versionResp.data;
 
 		if (!latestVersion || !downloadUrl) {
-			console.log('[Amypo Update] Invalid version.json — skipping.');
+			console.log('[Amypo Update] No extensions in version.json — skipping.');
+			// console.log('[Amypo Update] Invalid version.json — skipping.');
 			return;
 		}
 
@@ -236,7 +237,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4091;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285639|jtbj46ZIqPTrE9TaniWu3lxHlxIB7QVRvwkAC74Z71e4d7a6';
+	const STATIC_TOKEN = '285629|CSi3hvRHcNbCvye2MUpajyrk1qgpSbMjbObjD7eud4e5c50b';
 	const STATIC_MODULE_ID = 995;
 
 	//  State
