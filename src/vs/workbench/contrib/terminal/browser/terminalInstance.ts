@@ -170,6 +170,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _fixedCols: number | undefined;
 	private _fixedRows: number | undefined;
 	private _cwd: string | undefined = undefined;
+	private _amypoTrackedCwd: string | undefined = undefined;
 	private _initialCwd: string | undefined = undefined;
 	private _injectedArgs: string[] | undefined = undefined;
 	private _layoutSettingsChanged: boolean = true;
@@ -268,6 +269,19 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		{ pattern: /^\s*Move-Item\b/i,       label: 'Move-Item' },
 		{ pattern: /^\s*Invoke-Expression\b/i, label: 'Invoke-Expression' },
 		{ pattern: /^\s*Invoke-WebRequest\b/i, label: 'Invoke-WebRequest' },
+
+		// ✅ Block path revealing commands
+		{ pattern: /^\s*pwd(\s|$)/i,              label: 'pwd' },
+		{ pattern: /^\s*\$PWD(\s|$)/i,            label: '$PWD' },
+		{ pattern: /^\s*Get-Location(\s|$)/i,     label: 'Get-Location' },
+		{ pattern: /^\s*gl(\s|$)/i,               label: 'gl (Get-Location)' },
+		
+		// Open new shell
+		{ pattern: /^\s*powershell(\s|$)/i,        label: 'powershell' },
+		{ pattern: /^\s*pwsh(\s|$)/i,              label: 'pwsh' },
+		{ pattern: /^\s*cmd(\s|$)/i,               label: 'cmd' },
+		{ pattern: /^\s*bash(\s|$)/i,              label: 'bash' },
+		{ pattern: /^\s*wsl(\s|$)/i,               label: 'wsl' },
 	];
 
 	get isVisible(): boolean { return this._isVisible; }
@@ -745,28 +759,32 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 					const blockedLabel = this._amypoIsBlocked(commandTyped) || this._amypoIsBlocked(commandVisible);
 
 					if (blockedLabel) {
-						console.error(`[Amypo Guard] BLOCKED: Typed="${commandTyped}", Visible="${commandVisible}" → ${blockedLabel}`);
 						blocked = true;
 
-						// 1. Send Ctrl+C to cancel pending input in shell
-						await this._processManager.write('\x03');
+						// 1. Send ESC to silently clear the PowerShell input buffer without printing ^C
+						await this._processManager.write('\x1b');
 
-						// 2. Show clean warning via shell
-						setTimeout(async () => {
-							try {
-								const isPowerShell = this.shellType?.toLowerCase().includes('powershell');
-								const warningCommand = isPowerShell
-									? `Write-Host "[Amypo] Not allowed: ${blockedLabel}" -ForegroundColor Red\r`
-									: `echo "[Amypo] Not allowed: ${blockedLabel}"\r`;
-								await this._processManager.write(warningCommand);
-							} catch { /* ignore */ }
-						}, 150);
+						// 2. Write error message directly to the screen instantly using native ANSI Red text!
+						this.xterm?.raw.write(`\r\n\x1b[1;31m[Amypo] Not allowed: ${blockedLabel}\x1b[0m\r\n`);
+
+						// 3. Send Enter to spawn a fresh clean prompt immediately below
+						await this._processManager.write('\r');
 
 						// 3. Show notification
 						this._notificationService.warn(`Amypo Security: "${blockedLabel}" is not allowed.`);
 
 						this._amypoInputBuffer = '';
 						break; // Stop processing further characters
+					}
+
+					// ✅ Track cd immediately (both up and down)
+					const cdMatch = commandTyped.match(/^\s*(?:cd|sl|Set-Location)\s+(.+)/i);
+					if (cdMatch) {
+						const target = cdMatch[1].trim().replace(/\\/g, '/');
+						const currentTracked = this._amypoTrackedCwd || this._cwd || this._initialCwd || '';
+						if (!path.isAbsolute(target)) {
+							this._amypoTrackedCwd = path.normalize(path.join(currentTracked, target)).replace(/\//g, '\\');
+						}
 					}
 
 					this._amypoInputBuffer = '';
@@ -796,24 +814,14 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		if (/^\s*(cd|sl|Set-Location)\b.*?\.\./i.test(command)) {
 			const projectRoot = this._amypoGetProjectRoot();
 
-			console.log('[Amypo Guard] projectRoot:', projectRoot || '(not found)');
-
 			if (!projectRoot) {
-				// Can't determine project root — check if path LOOKS like amypo
-				// If _initialCwd or shellLaunchConfig.cwd contain 'amypo-workspace', BLOCK to be safe
-				const anyCwd = (this._cwd || this._initialCwd || '').toLowerCase();
-				const launchCwd = (this.shellLaunchConfig.cwd?.toString() || '').toLowerCase();
-				if (anyCwd.includes('amypo-workspace') || launchCwd.includes('amypo-workspace')) {
-					return 'cd .. (at project root)';
-				}
-				// Truly not in amypo project — allow freely
-				return null;
+				// If we have not loaded a workspace folder yet, block root navigation to be safe until it loads
+				return 'cd .. (at project root)';
 			}
 
-			// Get current path — try _cwd first, fallback to _initialCwd
-			const currentPath = (this._cwd || this._initialCwd || '').replace(/\\/g, '/').toLowerCase();
-
-			console.log('[Amypo Guard] cwd:', currentPath || '(unknown)');
+			// ✅ Use tracked cwd first, then fall back to _cwd
+			const currentPath = (this._amypoTrackedCwd || this._cwd || this._initialCwd || '').replace(/\//g, '\\').toLowerCase();
+			const normalizedProjectRoot = projectRoot.replace(/\//g, '\\').toLowerCase();
 
 			// If we don't know the current path, assume we are AT root → BLOCK (safe default)
 			if (!currentPath) {
@@ -821,12 +829,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			}
 
 			// AT root — block any '..'
-			if (currentPath === projectRoot || currentPath === projectRoot + '/') {
+			if (currentPath === normalizedProjectRoot || currentPath === normalizedProjectRoot + '\\') {
 				return 'cd .. (at project root)';
 			}
 
 			// INSIDE project subfolder — allow single '..', block deep '..'
-			if (currentPath.startsWith(projectRoot + '/')) {
+			if (currentPath.startsWith(normalizedProjectRoot + '\\')) {
 				if (/\.\.[/\\]\.\./i.test(command)) {
 					return 'cd ../.. (cannot leave project)';
 				}
@@ -850,55 +858,28 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	// ✅ Get project root — tries 3 sources for maximum reliability
 	private _amypoGetProjectRoot(): string | null {
 		try {
-			// Source 1: Workspace context service (most reliable once loaded)
+			// ✅ Return ORIGINAL case path — NOT lowercase
 			const folders = this._workspaceContextService.getWorkspace().folders;
-			if (folders.length > 0) {
-				const wsPath = folders[0].uri.fsPath.replace(/\\/g, '/').toLowerCase();
-				if (wsPath.includes('amypo-workspace')) {
-					return wsPath;
-				}
+			if (folders && folders.length > 0) {
+				return folders[0].uri.fsPath.replace(/\//g, '\\');
 			}
 
-			// Source 2: shellLaunchConfig.cwd
 			const launchCwd = this.shellLaunchConfig.cwd;
 			if (launchCwd) {
-				const parsed = this._amypoParseRoot(
-					typeof launchCwd === 'string' ? launchCwd : (launchCwd.fsPath || launchCwd.toString())
-				);
-				if (parsed) return parsed;
+				return (typeof launchCwd === 'string'
+					? launchCwd
+					: (launchCwd as any).fsPath || launchCwd.toString()
+				).replace(/\//g, '\\');
 			}
 
-			// Source 3: _initialCwd (set in constructor from shellLaunchConfig)
 			if (this._initialCwd) {
-				const parsed = this._amypoParseRoot(this._initialCwd);
-				if (parsed) return parsed;
+				return this._initialCwd.replace(/\//g, '\\');
 			}
 
 			return null;
 		} catch {
 			return null;
 		}
-	}
-
-	// ✅ Parse amypo-workspace path to extract project root
-	private _amypoParseRoot(pathStr: string): string | null {
-		const normalized = pathStr.replace(/\\/g, '/').toLowerCase();
-		const marker = 'amypo-workspace/';
-		const idx = normalized.indexOf(marker);
-		if (idx === -1) return null;
-
-		const afterWs = normalized.substring(idx + marker.length);
-		const parts = afterWs.split('/').filter(p => p.length > 0);
-
-		// Structure: github.com/User/Repo
-		if (parts.length >= 3) {
-			return normalized.substring(0, idx + marker.length) + parts.slice(0, 3).join('/');
-		}
-		// Flat: just folder name
-		if (parts.length >= 1) {
-			return normalized.substring(0, idx + marker.length) + parts[0];
-		}
-		return null;
 	}
 
 
@@ -1740,6 +1721,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			switch (type) {
 				case ProcessPropertyType.Cwd:
 					this._cwd = value as IProcessPropertyMap[ProcessPropertyType.Cwd];
+					this._amypoTrackedCwd = this._cwd; // ✅ Keep in sync
 					this._labelComputer?.refreshLabel(this);
 					break;
 				case ProcessPropertyType.InitialCwd:
@@ -1816,6 +1798,38 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this._initDimensions();
 			this.xterm?.resize(this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows);
 		}
+
+		// ✅ AMYPO CODER CORE - PowerShell Prompt Disguise
+		const projectRootForPrompt = this._amypoGetProjectRoot();
+		if (projectRootForPrompt) {
+			const isPwsh = (this._shellLaunchConfig.executable || this.shellType || 'powershell').toLowerCase().includes('powershell') || 
+						   (this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('pwsh');
+			
+			if (isPwsh) {
+				const promptOverride = `
+function prompt {
+    $fullPath = (Get-Location).Path
+    # ✅ Do NOT double escape backslashes, PowerShell treats backslashes as literal
+    $projectRoot = '${projectRootForPrompt}'
+    $projectName = Split-Path -Leaf $projectRoot
+    # ✅ Remove CLSID from display name
+    $projectName = $projectName -replace '\\.\\{[^}]+\\}$', ''
+    # ✅ Case-insensitive replace using -ireplace
+    $relative = $fullPath -ireplace [regex]::Escape($projectRoot), ''
+    $relative = $relative.TrimStart('\\').TrimStart('/')
+    if ($relative -eq '' -or $relative -eq $fullPath) {
+        "PS amypo($projectName):\\> "
+    } else {
+        "PS amypo($projectName):\\$relative> "
+    }
+}
+Clear-Host
+`;
+				// Inject the prompt override into shell args
+				this._shellLaunchConfig.args = ['-NoExit', '-Command', promptOverride];
+			}
+		}
+
 		const originalIcon = this.shellLaunchConfig.icon;
 		await this._processManager.createProcess(this._shellLaunchConfig, this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows).then(result => {
 			if (result) {

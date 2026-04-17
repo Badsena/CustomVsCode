@@ -452,9 +452,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		testId: any,
 		langId?: number
 	): Promise<void> => {
-		const parentPath = path.join(os.homedir(), 'amypo-workspace');
+		// ✅ Combined Security Solution
+		// 1. Hidden directory in AppData so students can't easily find it
+		const parentPath = path.join(process.env.LOCALAPPDATA || os.homedir(), '.amypo', 'workspace');
+
 		const sanitizedFolderName = String(repoUrl).replace(/https?:\/\//i, '').replace(/[:*?"<>|]/g, '_');
-		const projectPath = path.join(parentPath, sanitizedFolderName);
+
+		// 2. CLSID Trick ensures even if found, Windows Explorer redirects to "This PC"
+		const CLSID = process.platform === 'win32'
+			? '.{20D04FE0-3AEA-1069-A2D8-08002B30309D}'
+			: '';
+
+		const projectPath = path.join(parentPath, sanitizedFolderName + CLSID);
 
 		let finalUrl = repoUrl ?? null;
 		let isTemplate = false;
@@ -963,7 +972,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 	// comment this while building for production
-	// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 
 
 	// Webview Provider Setup
