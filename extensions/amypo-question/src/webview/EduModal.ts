@@ -99,7 +99,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     }
 
     // public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
-    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string }, onConfirm: () => void) {
+    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string; shouldRestore?: boolean }, onConfirm: () => void) {
         this._courseInfo = courseInfo;
         this._onConfirm = onConfirm;
         this._webviewReady = false; // Reset — new HTML will fire 'ready' again
@@ -404,7 +404,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     background: var(--vscode-editorWidget-background, white);
                     color: var(--vscode-editor-foreground, black); border: 1px solid var(--vscode-widget-border, #ccc);
                     padding: 12px 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    z-index: 100; font-size: 13px; font-weight: normal; white-space: normal; line-height: 1.6; max-width: 250px;
+                    z-index: 100; font-size: 13px; font-weight: normal; white-space: normal; line-height: 1.6; width: 250px;
                 }
                 .tooltip-content p { margin: 4px 0; }
                 .tooltip-container:hover .tooltip-content,
@@ -461,7 +461,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         </head>
         <body>
             <!-- MODAL VIEWS -->
-            <div id="modal-wrapper">
+            <div id="modal-wrapper" style="${courseInfo.shouldRestore ? 'display: none;' : ''}">
                 <div id="modal-content">
                     <div id="step1">
                         <img src="${logoUri}" alt="Amypo" class="illustration">
@@ -491,7 +491,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
             </div>
 
             <!-- QUESTION FULL UI -->
-            <div id="question-ui">
+            <div id="question-ui" style="${courseInfo.shouldRestore ? 'display: flex;' : ''}">
                 <div class="topbar">
                     <div class="topbar-left">
                         <img src="${logoUri}" alt="Amypo" class="logo">
@@ -514,7 +514,6 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                 <div class="icon-btn" tabindex="0">👁</div>
                                 <div class="tooltip-content">
                                     <p><b>Course Name :</b> ${courseInfo.course_name}</p>
-                                    <p><b>Course Type :</b> ${courseInfo.course_type}</p>
                                     <p><b>Test Type :</b> ${courseInfo.test_type}</p>
                                     <p><b>Topic Name :</b> ${courseInfo.topic_name}</p>
                                     <p><b>Module Name :</b> ${courseInfo.module_name}</p>

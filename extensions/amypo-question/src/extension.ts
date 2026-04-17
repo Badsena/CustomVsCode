@@ -456,7 +456,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 1. Hidden directory in AppData so students can't easily find it
 		const parentPath = path.join(process.env.LOCALAPPDATA || os.homedir(), '.amypo', 'workspace');
 
-		const sanitizedFolderName = String(repoUrl).replace(/https?:\/\//i, '').replace(/[:*?"<>|]/g, '_');
+		// Extract repository name from URL (preventing nested github.com/owner directories)
+		let sanitizedFolderName = 'project';
+		if (repoUrl) {
+			const cleanUrl = String(repoUrl).replace(/\/+$/, '').replace(/\.git$/i, '');
+			sanitizedFolderName = cleanUrl.split('/').pop() || 'project';
+		}
+		sanitizedFolderName = sanitizedFolderName.replace(/[:*?"<>|]/g, '_');
 
 		// 2. CLSID Trick ensures even if found, Windows Explorer redirects to "This PC"
 		const CLSID = process.platform === 'win32'
@@ -971,8 +977,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			}, () => { });
 		}
 	};
-	// comment this while building for production
-	getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+
 
 
 	// Webview Provider Setup
@@ -1304,7 +1309,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Also check workspace folder as a fallback
 	// Normalize path separators and case to prevent mismatch on Windows
 	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	const amypoWorkspace = path.join(os.homedir(), 'amypo-workspace');
+	const amypoWorkspace = path.join(process.env.LOCALAPPDATA || os.homedir(), '.amypo', 'workspace');
+
 	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
 	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
 	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
@@ -1313,6 +1319,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Use testStarted (flag) AND isInsideAmypoProject (location) to decide whether to restore session automatically.
 	const shouldRestore = testAlreadyStarted && isInsideAmypoProject;
+	console.log('restore datas:', testAlreadyStarted, isInsideAmypoProject);
+
 
 	if (shouldRestore) {
 		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
@@ -1358,7 +1366,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					console.log('[Amypo] Using cached course info (transition recovery)', savedCourseInfo);
 
 					if (savedCourseInfo) {
-						eduViewProvider.updateView(savedCourseInfo, () => { });
+						eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true }, () => { });
 						eduViewProvider.setOnReady(() => {
 							eduViewProvider.postMessage(cachedMsg);
 						});
@@ -1443,7 +1451,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
 				if (savedCourseInfo) {
-					eduViewProvider.updateView(savedCourseInfo, () => { });
+					eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true }, () => { });
 					eduViewProvider.setOnReady(() => {
 						eduViewProvider.postMessage(questionMessage);
 					});
@@ -1471,6 +1479,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.cachedQuestion', undefined);
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
+		// comment this while building for production
+		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {
@@ -1483,6 +1493,17 @@ export async function activate(context: vscode.ExtensionContext) {
 				progress.report({ message: "Syncing Git and Server state..." });
 				// syncGit('save') handles both Git push and Amypo state sync
 				await syncGit('save');
+
+				// Delete the local project folder after saving
+				if (currentProjectPath && fs.existsSync(currentProjectPath)) {
+					progress.report({ message: "Deleting local project folder..." });
+					try {
+						await fs.promises.rm(currentProjectPath, { recursive: true, force: true });
+						console.log(`[Amypo] Deleted project folder: ${currentProjectPath}`);
+					} catch (err) {
+						console.error(`[Amypo] Error deleting folder on exit:`, err);
+					}
+				}
 
 				progress.report({ message: "Cleaning session state..." });
 				callMurugaExit();
