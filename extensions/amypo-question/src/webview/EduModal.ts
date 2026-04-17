@@ -522,10 +522,15 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         </div>
                     </div>
 
-  <div class="topbar-right" style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:11px;color:var(--vscode-descriptionForeground);
-                            background:var(--vscode-badge-background);
-                            padding:2px 8px;border-radius:10px;font-weight:600;">
+                <div class="topbar-right" style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:10px;
+                            background:#1e40af;
+                            color: #cbd5e1;
+                            padding:3px 12px;
+                            border-radius:20px;
+                            font-weight:700;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                            letter-spacing: 0.5px;">
                             v${courseInfo.version ?? '1.0.6'}
                         </span>
                 </div>

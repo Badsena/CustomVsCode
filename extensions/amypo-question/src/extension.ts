@@ -816,6 +816,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			console.log('[Amypo EduTech] Course:', course_details?.course_name);
 
+			const extVersion = vscode.extensions.getExtension('AMYPO.amypo-question')?.packageJSON?.version ?? '1.0.6';
 			const courseInfo = {
 				course_name: course_details?.course_name ?? 'N/A',
 				topic_name: topic_details?.topic_name ?? 'N/A',
@@ -829,6 +830,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				user_department: user_details?.department_name ?? 'N/A',
 				user_batch: user_details?.batch_name ?? 'N/A',
 				user_section: user_details?.section_name ?? 'N/A',
+				version: extVersion,
 			};
 
 			// Date validation
@@ -1366,7 +1368,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					console.log('[Amypo] Using cached course info (transition recovery)', savedCourseInfo);
 
 					if (savedCourseInfo) {
-						eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true }, () => { });
+						const extVersion = vscode.extensions.getExtension('AMYPO.amypo-question')?.packageJSON?.version ?? '1.0.6';
+						eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true, version: extVersion }, () => { });
 						eduViewProvider.setOnReady(() => {
 							eduViewProvider.postMessage(cachedMsg);
 						});
@@ -1451,7 +1454,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
 				if (savedCourseInfo) {
-					eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true }, () => { });
+					const extVersion = vscode.extensions.getExtension('AMYPO.amypo-question')?.packageJSON?.version ?? '1.0.6';
+					eduViewProvider.updateView({ ...savedCourseInfo, shouldRestore: true, version: extVersion }, () => { });
 					eduViewProvider.setOnReady(() => {
 						eduViewProvider.postMessage(questionMessage);
 					});

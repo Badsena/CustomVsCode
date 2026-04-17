@@ -549,6 +549,8 @@ export async function verifySelenium(request: VerificationRequest) {
 	const localTestcaseDir = path.join(project_path, 'amypo_selenium_testcases');
 
 	try {
+		await hideTestFolder(project_path, '**/amypo_selenium_testcases', 'amypo_selenium_testcases');
+
 		// Step 1: Download JSON testing configuration
 		const requestUrl = `${backend_url}/project-testcase`;
 		const response = await axios.post(requestUrl, {
@@ -591,7 +593,7 @@ export async function verifySelenium(request: VerificationRequest) {
 		const testCaseConfig = JSON.parse(testCaseConfigContent);
 
 		// Step 3: Run Maven tests locally
-		const projectRoot = path.join(project_path, 'demo');
+		const projectRoot = project_path;
 		console.log('🧪 Running Selenium tests in:', projectRoot);
 
 		const { stdout, stderr, exitCode } = await execAllowFail(`cd "${projectRoot}" && mvn clean test`, {
@@ -624,16 +626,12 @@ export async function verifySelenium(request: VerificationRequest) {
 			let passed = true;
 			for (const pattern of tc.patterns) {
 				// FIX: Use single backslash escapes so the regex receives the correct sequences.
-				// '\\[' in JS source → string value '\[' → regex: literal bracket [
-				// Previously '\\\\[' → string value '\\[' → regex: escaped backslash + literal [ (wrong)
 				let cleanPattern = pattern
 					.split('[').join('\\[')
 					.split(']').join('\\]')
 					.split('(').join('\\(')
 					.split(')').join('\\)');
 
-				// FIX: Use single backslash for \s so regex receives \s* (whitespace wildcard).
-				// Previously '\\\\s*' → string '\s*' → regex: literal \s* (not whitespace)
 				cleanPattern = cleanPattern
 					.split(' :').join('\\s*:\\s*')
 					.split(': ').join('\\s*:\\s*');
@@ -685,6 +683,10 @@ export async function verifySelenium(request: VerificationRequest) {
 		if (fs.existsSync(localTestcaseDir)) {
 			fs.rmSync(localTestcaseDir, { recursive: true, force: true });
 		}
+		const seleniumTests = path.join(project_path, 'amypo_selenium_testcases');
+		if (fs.existsSync(seleniumTests)) fs.rmSync(seleniumTests, { recursive: true, force: true });
 		throw error;
+	} finally {
+		await unhideTestFolder(project_path, '**/amypo_selenium_testcases', 'amypo_selenium_testcases');
 	}
 }
