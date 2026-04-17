@@ -286,7 +286,7 @@ export async function verifySpringBoot(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			testResults.total = request.testcase_count;
-			testResults.failed = Math.max(0, testResults.total - testResults.passed - testResults.skipped - testResults.errors);
+			testResults.passed = Math.max(0, testResults.total - testResults.failed - testResults.skipped - testResults.errors);
 		}
 
 		return {
@@ -382,7 +382,7 @@ export async function verifyReact(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			parsedResults.total = request.testcase_count;
-			parsedResults.failed = Math.max(0, parsedResults.total - parsedResults.passed);
+			parsedResults.passed = Math.max(0, parsedResults.total - parsedResults.failed);
 		}
 
 		return {
@@ -501,7 +501,7 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			aggregatedResults.total = request.testcase_count;
-			aggregatedResults.failed = Math.max(0, aggregatedResults.total - aggregatedResults.passed);
+			aggregatedResults.passed = Math.max(0, aggregatedResults.total - aggregatedResults.failed);
 		}
 
 		const fullOutput = `======= SPRING BOOT =======\n${springExec.stdout}\n${springExec.stderr}\n\n======= REACT =======\n${reactExec.stdout}\n${reactExec.stderr}`;
