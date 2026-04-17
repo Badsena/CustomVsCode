@@ -155,7 +155,7 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IOpenerService openerService: IOpenerService,
-		@IStorageService private readonly storageService: IStorageService,
+		@IStorageService protected readonly storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IWorkbenchExtensionEnablementService private readonly extensionEnablementService: IWorkbenchExtensionEnablementService,
 		@IExtensionFeaturesManagementService private readonly extensionFeaturesManagementService: IExtensionFeaturesManagementService,
@@ -1325,11 +1325,45 @@ export class DefaultRecommendedExtensionsView extends ExtensionsListView {
         this.isRefreshing = true;
 
         try {
+            // Extension global state is stored under the extension ID as a JSON string
+            // We try both common casings just in case
+            const extensionId = 'AMYPO.amypo-question'; 
+            const extensionIdLower = 'amypo.amypo-question';
+            const rawExtState = this.storageService.get(extensionId, StorageScope.PROFILE) || 
+                               this.storageService.get(extensionIdLower, StorageScope.PROFILE);
+
+            let langId = 0;
+            let token = '';
+
+            if (rawExtState) {
+                try {
+                    const state = JSON.parse(rawExtState);
+                    langId = state['amypo.langId'] || 0;
+                    token = state['amypo.token'] || '';
+                    console.log('[Amypo] Parsed from ext state - langId:', langId, 'token:', token ? 'EXISTS' : 'MISSING');
+                } catch (e) {
+                    console.error('[Amypo] Error parsing extension storage:', e);
+                }
+            } else {
+                console.log('[Amypo] Extension storage not found for:', extensionId);
+                // DEBUG: Log first 10 keys to see what's actually there
+                const keys = this.storageService.keys(StorageScope.PROFILE, StorageTarget.MACHINE);
+                console.log('[Amypo Debug] Available storage keys (first 10):', keys.slice(0, 10));
+            }
+
+            if (!langId || !token) {
+                console.log('[Amypo] No langId/token available yet — skipping recommendations');
+                return this.showEmptyModel();
+            }
+
             const local = (await this.extensionsWorkbenchService.queryLocal(this.options.server))
                 .filter(e => !e.isBuiltin)
                 .map(e => e.identifier.id.toLowerCase());
 
-            const amypoRecommendedExtensions = await getAmypoRecommendedExtensions();
+            // ✅ Pass langId and token
+            const amypoRecommendedExtensions = await getAmypoRecommendedExtensions(langId, token);
+
+            console.log('[Amypo Debug] amypoRecommendedExtensions from service:', amypoRecommendedExtensions);
 
             const notInstalledIds = amypoRecommendedExtensions
                 .filter((id: string) => !local.includes(id.toLowerCase()));

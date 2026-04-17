@@ -245,7 +245,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4092;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285679|2AHkBvR7Oz1c7SRzjRIOPwMV5ENXXQZVoCUrnlGv23e22249';
+	const STATIC_TOKEN = '285717|W3BDDsg4aqMCjxw6NKkj46VoAu3UwCqpfuTI9Uhp2e40ea0c';
 	const STATIC_MODULE_ID = 996;
 
 	//  State
@@ -581,6 +581,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				test_type: activeTestType,
 				module_id: activeModuleId
 			});
+
+			// No need to read from cachedQuestion here as it's already set in getTestDetails
+			// or activation. But ensuring token is up to date.
+			await context.globalState.update('amypo.token', activeToken);
 			console.log('[Amypo] State saved to globalState before workspace change.');
 
 			openFolderWithoutReload(projectPath);
@@ -934,6 +938,13 @@ export async function activate(context: vscode.ExtensionContext) {
 				const qData = await fetchQuestionById(firstQuestionId, test_type, moduleId ?? 0, token);
 				console.log('[Amypo] qData:', qData);
 				console.log('[Amypo] questionDatas:', questionDatas);
+
+				if (qData?.l_id) {
+					console.log('[Amypo] Saving lang_id:', qData.l_id);
+					// ✅ Save lang_id to globalState
+					await context.globalState.update('amypo.langId', qData.l_id);
+					await context.globalState.update('amypo.token', activeToken);
+				}
 
 				const repo_name = `${user_details?.id}_${allocation_id}_${test_type}_${firstQuestionId}`;
 				const repo_url = `${GIT_URL}${repo_name}`;
@@ -1333,6 +1344,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
 		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring' | 'selenium'>('amypo.projectType') ?? 'spring';
 		activeToken = context.globalState.get<string>('amypo.token') ?? '';
+
+		// ✅ Restore langId and token to storage for extensions panel
+		const cachedQuestion = context.globalState.get<any>('amypo.cachedQuestion');
+		const langId = cachedQuestion?.payload?.l_id;
+		if (langId) {
+			await context.globalState.update('amypo.langId', langId);
+			console.log('[Amypo] LangId restored to storage:', langId);
+		}
+		await context.globalState.update('amypo.token', activeToken);
 		const lastTest = context.globalState.get<any>('amypo.lastTest');
 
 		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
@@ -1462,6 +1482,16 @@ export async function activate(context: vscode.ExtensionContext) {
 				} else {
 					eduViewProvider.postMessage(questionMessage);
 				}
+
+				// ✅ Refresh extensions panel after data is ready
+				setTimeout(() => {
+					vscode.commands.executeCommand(
+						'workbench.extensions.action.refreshExtension'
+					).then(undefined, () => {
+						// ignore if command not found
+					});
+					console.log('[Amypo] Extensions panel refresh triggered');
+				}, 2000);
 
 			} catch (err) {
 				console.error('[Amypo] Session restore error:', err);
