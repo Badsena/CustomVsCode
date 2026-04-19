@@ -122,7 +122,22 @@
 		"terminal.integrated.defaultProfile.windows": null,
 		"terminal.integrated.profiles.windows": {},
 		"extensions.autoUpdate": true,
-		"extensions.autoCheckUpdates": true
+		"extensions.autoCheckUpdates": true,
+
+		"javascript.suggest.enabled": true,
+		"javascript.validate.enable": true,
+		"typescript.suggest.enabled": true,
+		"editor.quickSuggestions": {
+			"other": true,
+			"comments": false,
+			"strings": true
+		},
+		"editor.suggestOnTriggerCharacters": true,
+		"editor.parameterHints.enabled": true,
+		"editor.wordBasedSuggestions": "matchingDocuments",
+
+		"editor.definitionLinkOpensInPeek": false,
+		"javascript.preferences.importModuleSpecifier": "relative"
 	},
 	"amypoSecretKey": "AMY-X9K2-2026-SECURE",
 	"amypoGithubToken": "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",

@@ -11,7 +11,7 @@ import path from 'path';
 import fs from 'fs';
 import _rimraf from 'rimraf';
 import VinylFile from 'vinyl';
-import through from 'through';
+import * as through from 'through';
 import sm from 'source-map';
 import { pathToFileURL } from 'url';
 import ternaryStream from 'ternary-stream';
@@ -65,7 +65,7 @@ export function incremental(streamProvider: IStreamProvider, initial: NodeJS.Rea
 
 		const data = paths.map(path => buffer[path]);
 		buffer = Object.create(null);
-		run(es.readArray(data), true);
+		run(es.readArray(data) as any, true);
 	}, 500);
 
 	input.on('data', (f: any) => {
@@ -128,6 +128,33 @@ export function fixWin32DirectoryPermissions(): NodeJS.ReadWriteStream {
 	});
 }
 
+
+function ensureOutputEnds(name: string, input: NodeJS.ReadableStream, output: NodeJS.ReadWriteStream, duplex: NodeJS.ReadWriteStream): void {
+	let ended = false;
+	const onEnd = () => ended = true;
+	duplex.on('end', onEnd);
+	duplex.on('finish', onEnd);
+	duplex.on('close', onEnd);
+
+	input.on('end', () => {
+		setTimeout(() => {
+			if (ended) {
+				return;
+			}
+			console.log(`[build] Safety timeout triggered for ${name} (stalled for 60s)`);
+			try {
+				(output as any).end?.();
+				(duplex as any).emit?.('end');
+				(duplex as any).emit?.('finish');
+				(duplex as any).end?.();
+				(duplex as any).destroy?.();
+			} catch (e) {
+				console.error(`[build] Error in safety timeout for ${name}: ${e}`);
+			}
+		}, 60000); // 60s grace period for large I/O
+	});
+}
+
 export function setExecutableBit(pattern?: string | string[]): NodeJS.ReadWriteStream {
 	const setBit = es.mapSync<VinylFile, VinylFile>(f => {
 		if (!f.stat) {
@@ -149,7 +176,9 @@ export function setExecutableBit(pattern?: string | string[]): NodeJS.ReadWriteS
 		.pipe(setBit)
 		.pipe(filter.restore);
 
-	return es.duplex(input, output);
+	const result = es.duplex(input, output);
+	ensureOutputEnds('setExecutableBit', input, output, result);
+	return result;
 }
 
 export function toFileUri(filePath: string): string {
@@ -185,16 +214,9 @@ export function cleanNodeModules(rulePath: string): NodeJS.ReadWriteStream {
 		input.pipe(_filter(includes))
 	);
 
-	// Safety: ensure output ends if input ends
-	input.on('end', () => {
-		setTimeout(() => {
-			if (!(output as any).ended) {
-				(output as any).end?.();
-			}
-		}, 10000); // 10s grace period
-	});
-
-	return es.duplex(input, output);
+	const result = es.duplex(input, output);
+	ensureOutputEnds('cleanNodeModules', input, output, result);
+	return result as any;
 }
 
 type FileSourceMap = VinylFile & { sourceMap: sm.RawSourceMap };
@@ -304,19 +326,20 @@ export function rewriteSourceMappingURL(sourceMappingURLBase: string): NodeJS.Re
 
 export function rimraf(dir: string): () => Promise<void> {
 	const result = () => new Promise<void>((c, e) => {
+		console.log(`[build] Deleting directory: ${dir}`);
 		let retries = 0;
-
 		const retry = () => {
-			_rimraf(dir, { maxBusyTries: 1 }, (err: any) => {
-				if (!err) {
-					return c();
+			_rimraf(dir, { maxBusyTries: 1 }, (err) => {
+				if (err) {
+					if (retries < 5) {
+						retries++;
+						console.log(`[build] Rimraf failed for ${dir}, retrying (${retries}/5)...`);
+						setTimeout(retry, 2000);
+						return;
+					}
+					return e(err);
 				}
-
-				if (err.code === 'ENOTEMPTY' && ++retries < 5) {
-					return setTimeout(() => retry(), 10);
-				}
-
-				return e(err);
+				c();
 			});
 		};
 

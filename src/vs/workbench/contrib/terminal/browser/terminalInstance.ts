@@ -221,67 +221,39 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _isVisible: boolean;
 	private _amypoInputBuffer: string = '';
 	private readonly _amypoBlockedPatterns: { pattern: RegExp; label: string }[] = [
-		// ✅ Navigation Blocking (Allow cd forward, block cd back/out)
-		{ pattern: /^\s*cd\s+\.\./i,              label: 'cd ..' },
-		{ pattern: /^\s*cd\s+\.\.\\/i,            label: 'cd ..\\ ' },
-		{ pattern: /^\s*cd\s+[a-zA-Z]:\\/i,       label: 'cd to drive' },
-		{ pattern: /^\s*cd\s+~\s*$/i,             label: 'cd ~' },
-		{ pattern: /^\s*cd\s+\/\s*$/i,            label: 'cd /' },
-		{ pattern: /^\s*cd\s*$(?!\s*\S)/i,        label: 'cd (empty)' },
-		{ pattern: /^\s*Set-Location\s+\.\./i,    label: 'Set-Location ..' },
-		{ pattern: /^\s*Set-Location\s+[a-zA-Z]:\\/i, label: 'Set-Location drive' },
-		{ pattern: /^\s*sl\s+\.\./i,              label: 'sl ..' },
+		// ✅ Navigation Blocking — cd .. is handled by the smart check in _amypoIsBlocked()
+		// Do NOT add cd .. patterns here — they would override the smart subfolder logic!
+		{ pattern: /^\s*cd\s+[a-zA-Z]:[/\\]/i,        label: 'cd to drive' },
+		{ pattern: /^\s*cd\s+~\s*$/i,                 label: 'cd ~' },
+		{ pattern: /^\s*cd\s+[/\\]\s*$/i,             label: 'cd /' },
+		{ pattern: /^\s*cd\s*$(?!\s*\S)/i,            label: 'cd (empty)' },
 
 		// File listing
-		{ pattern: /^\s*dir\b/i,             label: 'dir' },
-		{ pattern: /^\s*ls\b/i,              label: 'ls' },
-		{ pattern: /^\s*tree\b/i,            label: 'tree' },
+		{ pattern: /^\s*(?:dir|ls|tree)\b/i,          label: 'File listing restricted' },
 
-		// Delete
-		{ pattern: /^\s*del\b/i,             label: 'del' },
-		{ pattern: /^\s*rm\b/i,              label: 'rm' },
-		{ pattern: /^\s*rmdir\b/i,           label: 'rmdir' },
-		{ pattern: /^\s*rd\b/i,              label: 'rd' },
+		// Delete / destructive
+		{ pattern: /^\s*(?:del|rm|rmdir|rd)\b/i,      label: 'File deletion restricted' },
 
 		// Copy / Move
-		{ pattern: /^\s*copy\b/i,            label: 'copy' },
-		{ pattern: /^\s*cp\b/i,              label: 'cp' },
-		{ pattern: /^\s*move\b/i,            label: 'move' },
-		{ pattern: /^\s*mv\b/i,              label: 'mv' },
-		{ pattern: /^\s*xcopy\b/i,           label: 'xcopy' },
+		{ pattern: /^\s*(?:copy|cp|move|mv)\b/i,      label: 'File modification restricted' },
 
-		// Open other apps
-		{ pattern: /^\s*start\b/i,           label: 'start' },
-		{ pattern: /^\s*explorer\b/i,        label: 'explorer' },
-		{ pattern: /^\s*notepad\b/i,         label: 'notepad' },
-		{ pattern: /^\s*code\b/i,            label: 'vscode' },
-		{ pattern: /^\s*cursor\b/i,          label: 'cursor' },
-		{ pattern: /^\s*windsurf\b/i,        label: 'windsurf' },
+		// Shell / Elevation / Network
+		{ pattern: /^\s*(?:sudo|bash|sh|zsh|pwsh|powershell|cmd|curl|wget)\b/i, label: 'Protected command restricted' },
 
-		// Network
-		{ pattern: /^\s*curl\b/i,            label: 'curl' },
-		{ pattern: /^\s*wget\b/i,            label: 'wget' },
+		// Applications
+		{ pattern: /^\s*(?:start|explorer|notepad|code|cursor|windsurf)\b/i, label: 'Application launch restricted' },
 
-		// PowerShell dangerous
-		{ pattern: /^\s*Remove-Item\b/i,     label: 'Remove-Item' },
-		{ pattern: /^\s*Get-ChildItem\b/i,   label: 'Get-ChildItem' },
-		{ pattern: /^\s*Copy-Item\b/i,       label: 'Copy-Item' },
-		{ pattern: /^\s*Move-Item\b/i,       label: 'Move-Item' },
-		{ pattern: /^\s*Invoke-Expression\b/i, label: 'Invoke-Expression' },
-		{ pattern: /^\s*Invoke-WebRequest\b/i, label: 'Invoke-WebRequest' },
+		// PowerShell specific
+		{ pattern: /^\s*(?:Remove-Item|Get-ChildItem|Copy-Item|Move-Item|Invoke-Expression|Invoke-WebRequest)\b/i, label: 'Protected command restricted' },
 
-		// ✅ Block path revealing commands
-		{ pattern: /^\s*pwd(\s|$)/i,              label: 'pwd' },
-		{ pattern: /^\s*\$PWD(\s|$)/i,            label: '$PWD' },
-		{ pattern: /^\s*Get-Location(\s|$)/i,     label: 'Get-Location' },
-		{ pattern: /^\s*gl(\s|$)/i,               label: 'gl (Get-Location)' },
-		
-		// Open new shell
-		{ pattern: /^\s*powershell(\s|$)/i,        label: 'powershell' },
-		{ pattern: /^\s*pwsh(\s|$)/i,              label: 'pwsh' },
-		{ pattern: /^\s*cmd(\s|$)/i,               label: 'cmd' },
-		{ pattern: /^\s*bash(\s|$)/i,              label: 'bash' },
-		{ pattern: /^\s*wsl(\s|$)/i,               label: 'wsl' },
+		// Path revealing
+		{ pattern: /^\s*(?:pwd|\$PWD|Get-Location|gl)(\s|$)/i, label: 'Path revealing restricted' },
+
+		// Terminal sessions
+		{ pattern: /^\s*(?:powershell|pwsh|cmd|bash|zsh|wsl)(\s|$)/i, label: 'Sub-shell restricted' },
+
+		// Set-Location (PowerShell alias for cd) — only block going up/out
+		{ pattern: /^\s*(?:Set-Location|sl)\s+\.\./i, label: 'Navigation restricted' }
 	];
 
 	get isVisible(): boolean { return this._isVisible; }
@@ -761,29 +733,41 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 					if (blockedLabel) {
 						blocked = true;
 
-						// 1. Send ESC to silently clear the PowerShell input buffer without printing ^C
-						await this._processManager.write('\x1b');
+						// 1. Send Escape key to clear the shell's pending input buffer
+						const clearKey = isWindows ? '\x1b' : '\x03';
+						await this._processManager.write(clearKey);
 
-						// 2. Write error message directly to the screen instantly using native ANSI Red text!
-						this.xterm?.raw.write(`\r\n\x1b[1;31m[Amypo] Not allowed: ${blockedLabel}\x1b[0m\r\n`);
-
-						// 3. Send Enter to spawn a fresh clean prompt immediately below
+						// 2. Send Enter so PowerShell prints a fresh clean prompt immediately
 						await this._processManager.write('\r');
 
-						// 3. Show notification
-						this._notificationService.warn(`Amypo Security: "${blockedLabel}" is not allowed.`);
+						// 5. Show VS Code notification popup as well
+						this._notificationService.warn(`AmypoCoder: "${blockedLabel}" is not allowed in the assessment environment.`);
 
 						this._amypoInputBuffer = '';
-						break; // Stop processing further characters
+						break;
 					}
 
-					// ✅ Track cd immediately (both up and down)
+					// ✅ Command was ALLOWED — track CWD changes for cd commands
 					const cdMatch = commandTyped.match(/^\s*(?:cd|sl|Set-Location)\s+(.+)/i);
 					if (cdMatch) {
-						const target = cdMatch[1].trim().replace(/\\/g, '/');
+						let target = cdMatch[1].trim();
+						if ((target.startsWith('"') && target.endsWith('"')) || (target.startsWith("'") && target.endsWith("'"))) {
+							target = target.slice(1, -1);
+						}
 						const currentTracked = this._amypoTrackedCwd || this._cwd || this._initialCwd || '';
-						if (!path.isAbsolute(target)) {
-							this._amypoTrackedCwd = path.normalize(path.join(currentTracked, target)).replace(/\//g, '\\');
+						if (target === '..') {
+							// Go up one directory
+							const sep = isWindows ? '\\' : '/';
+							const parts = currentTracked.replace(/[\\/]/g, sep).split(sep).filter(Boolean);
+							if (parts.length > 1) {
+								parts.pop();
+								this._amypoTrackedCwd = (isWindows ? '' : '/') + parts.join(sep);
+							}
+						} else if (!path.isAbsolute(target)) {
+							const joined = path.join(currentTracked, target);
+							this._amypoTrackedCwd = isWindows ? joined.replace(/\//g, '\\') : joined.replace(/\\/g, '/');
+						} else {
+							this._amypoTrackedCwd = isWindows ? target.replace(/\//g, '\\') : target.replace(/\\/g, '/');
 						}
 					}
 
@@ -819,9 +803,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				return 'cd .. (at project root)';
 			}
 
-			// ✅ Use tracked cwd first, then fall back to _cwd
-			const currentPath = (this._amypoTrackedCwd || this._cwd || this._initialCwd || '').replace(/\//g, '\\').toLowerCase();
-			const normalizedProjectRoot = projectRoot.replace(/\//g, '\\').toLowerCase();
+			// ✅ Platform-aware path normalization
+			const sep = isWindows ? '\\' : '/';
+			// Use tracked CWD first (most reliable), then Shell Integration, then initial
+			const currentPath = (this._amypoTrackedCwd || this._cwd || this._initialCwd || '').replace(/[\\/]/g, sep).toLowerCase();
+			const normalizedProjectRoot = projectRoot.replace(/[\\/]/g, sep).toLowerCase();
 
 			// If we don't know the current path, assume we are AT root → BLOCK (safe default)
 			if (!currentPath) {
@@ -829,12 +815,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			}
 
 			// AT root — block any '..'
-			if (currentPath === normalizedProjectRoot || currentPath === normalizedProjectRoot + '\\') {
+			if (currentPath === normalizedProjectRoot || currentPath === normalizedProjectRoot + sep) {
 				return 'cd .. (at project root)';
 			}
 
 			// INSIDE project subfolder — allow single '..', block deep '..'
-			if (currentPath.startsWith(normalizedProjectRoot + '\\')) {
+			if (currentPath.startsWith(normalizedProjectRoot + sep)) {
 				if (/\.\.[/\\]\.\./i.test(command)) {
 					return 'cd ../.. (cannot leave project)';
 				}
@@ -858,22 +844,23 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	// ✅ Get project root — tries 3 sources for maximum reliability
 	private _amypoGetProjectRoot(): string | null {
 		try {
-			// ✅ Return ORIGINAL case path — NOT lowercase
+			const sep = isWindows ? '\\' : '/';
+			
 			const folders = this._workspaceContextService.getWorkspace().folders;
 			if (folders && folders.length > 0) {
-				return folders[0].uri.fsPath.replace(/\//g, '\\');
+				return folders[0].uri.fsPath.replace(/[\\/]/g, sep);
 			}
 
 			const launchCwd = this.shellLaunchConfig.cwd;
 			if (launchCwd) {
-				return (typeof launchCwd === 'string'
+				const pathStr = typeof launchCwd === 'string'
 					? launchCwd
-					: (launchCwd as any).fsPath || launchCwd.toString()
-				).replace(/\//g, '\\');
+					: (launchCwd as any).fsPath || launchCwd.toString();
+				return pathStr.replace(/[\\/]/g, sep);
 			}
 
 			if (this._initialCwd) {
-				return this._initialCwd.replace(/\//g, '\\');
+				return this._initialCwd.replace(/[\\/]/g, sep);
 			}
 
 			return null;
@@ -1721,7 +1708,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			switch (type) {
 				case ProcessPropertyType.Cwd:
 					this._cwd = value as IProcessPropertyMap[ProcessPropertyType.Cwd];
-					this._amypoTrackedCwd = this._cwd; // ✅ Keep in sync
+					this._amypoTrackedCwd = this._cwd; // Keep tracked CWD in sync with OS truth
 					this._labelComputer?.refreshLabel(this);
 					break;
 				case ProcessPropertyType.InitialCwd:
@@ -1867,6 +1854,36 @@ Clear-Host
 	}
 
 	private _onProcessData(ev: IProcessDataEvent): void {
+		// Amypo Security: Redact absolute workspace paths from terminal output before it hits the screen
+		if (this._workspaceContextService) {
+			const folders = this._workspaceContextService.getWorkspace().folders;
+			if (folders.length > 0) {
+				const workspacePath = folders[0].uri.fsPath;
+				
+				/* Previous simple redactor - Commented out for reference
+				const escapedPath = workspacePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				const pattern = isWindows ? escapedPath.replace(/\\\\/g, '[\\\\\\/]') : escapedPath;
+				const regex = new RegExp(pattern, 'gi');
+				if (ev.data.toLowerCase().includes(workspacePath.toLowerCase()) || (isWindows && ev.data.includes(workspacePath.replace(/\\/g, '/')))) {
+					ev.data = ev.data.replace(regex, '[Amypo Assessment Workspace]');
+				}
+				*/
+
+				// Ultimate Scrubber: Detect the .amypo/workspace session folder dynamically
+				// This handles CLSIDs like {20D04FE...} and different slash types
+				const workspaceRootMatch = workspacePath.match(/.*\.amypo[\\\/]workspace[\\\/][^\\\/]+/i);
+				const rootToRedact = workspaceRootMatch ? workspaceRootMatch[0] : workspacePath;
+
+				const escapedRoot = rootToRedact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+				const rootPattern = isWindows ? escapedRoot.replace(/\\\\/g, '[\\\\\\/]') : escapedRoot;
+				const globalRegex = new RegExp(rootPattern, 'gi');
+				
+				if (ev.data.toLowerCase().includes('amypo')) {
+					ev.data = ev.data.replace(globalRegex, '[Amypo Assessment Workspace]');
+				}
+			}
+		}
+
 		// Ensure events are split by SI command execute and command finished sequence to ensure the
 		// output of the command can be read by extensions and the output of the command is of a
 		// consistent form respectively. This must be done here as xterm.js does not currently have

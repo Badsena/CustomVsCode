@@ -33,50 +33,81 @@ function _renderTime(time: number): string {
 
 async function _execute(task: Task): Promise<void> {
 	const name = task.taskName || task.displayName || `<anonymous>`;
-	if (!task._tasks) {
-		fancyLog('Starting', ansiColors.cyan(name), '...');
-	}
+	fancyLog('Starting', ansiColors.cyan(name), '...');
 	const startTime = process.hrtime();
-	await _doExecute(task);
+	try {
+		await _doExecute(task);
+	} catch (err) {
+		fancyLog(ansiColors.red(`Error in ${name}:`), err);
+		throw err;
+	}
 	const elapsedArr = process.hrtime(startTime);
 	const elapsedNanoseconds = (elapsedArr[0] * 1e9 + elapsedArr[1]);
-	if (!task._tasks) {
-		fancyLog(`Finished`, ansiColors.cyan(name), 'after', ansiColors.magenta(_renderTime(elapsedNanoseconds / 1e6)));
-	}
+	fancyLog(`Finished`, ansiColors.cyan(name), 'after', ansiColors.magenta(_renderTime(elapsedNanoseconds / 1e6)));
 }
 
+const DEFAULT_TASK_TIMEOUT = 20 * 60 * 1000; // 20 minutes
+const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 async function _doExecute(task: Task): Promise<void> {
+	const name = task.taskName || task.displayName || `<anonymous>`;
+
 	// Always invoke as if it were a callback task
 	return new Promise((resolve, reject) => {
+		let timeout: NodeJS.Timeout | undefined;
+		let heartbeat: NodeJS.Timeout | undefined;
+
+		const done = (err?: any) => {
+			if (timeout) {
+				clearTimeout(timeout);
+				timeout = undefined;
+			}
+			if (heartbeat) {
+				clearInterval(heartbeat);
+				heartbeat = undefined;
+			}
+			if (err) {
+				reject(err);
+			} else {
+				resolve();
+			}
+		};
+
+		timeout = setTimeout(() => {
+			fancyLog(ansiColors.yellow(`[task] Task '${name}' is taking longer than 20 minutes. Forcefully resolving...`));
+			done();
+		}, DEFAULT_TASK_TIMEOUT);
+
+		heartbeat = setInterval(() => {
+			fancyLog(ansiColors.yellow(`[task] Task '${name}' is still running (5m heartbeat)...`));
+		}, HEARTBEAT_INTERVAL);
+
 		if (task.length === 1) {
 			// this is a callback task
 			task((err) => {
-				if (err) {
-					return reject(err);
-				}
-				resolve();
+				done(err);
 			});
 			return;
 		}
 
-		const taskResult = task();
+		const taskResult = task() as any;
 
 		if (typeof taskResult === 'undefined') {
 			// this is a sync task
-			resolve();
+			done();
 			return;
 		}
 
 		if (_isPromise(taskResult)) {
 			// this is a promise returning task
-			taskResult.then(resolve, reject);
+			taskResult.then(() => done(), (err: any) => done(err));
 			return;
 		}
 
 		// this is a stream returning task
-		taskResult.on('end', _ => resolve());
-		taskResult.on('finish', _ => resolve());
-		taskResult.on('error', err => reject(err));
+		taskResult.on('end', () => done());
+		taskResult.on('finish', () => done());
+		taskResult.on('error', (err: any) => done(err));
 	});
 }
 

@@ -11,7 +11,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
 
-import { EduViewProvider } from './webview/EduModal';
+import { EduViewProvider, ICourseInfo } from './webview/EduModal';
 import { submitData, jsonsubmitData, fetchData } from './services/axios/submissions';
 import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
@@ -19,7 +19,7 @@ const execAsync = promisify(exec);
 
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
-const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
+// const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
 // static details removed to use URL params only
 
 
@@ -80,12 +80,13 @@ async function checkForExtensionUpdate(secretKey: string): Promise<boolean> {
 			}
 		);
 
-		// ✅ Server returns "version" not "latestVersion"
-		const { version: latestVersion, downloadUrl } = versionResp.data;
+		// ✅ Server returns an object with "extensions" array
+		const extensionData = versionResp.data.extensions?.find((e: any) => e.id === 'AMYPO.amypo-question');
+		const latestVersion = extensionData?.version;
+		const downloadUrl = extensionData?.downloadUrl;
 
 		if (!latestVersion || !downloadUrl) {
-			console.log('[Amypo Update] No extensions in version.json — skipping.');
-			// console.log('[Amypo Update] Invalid version.json — skipping.');
+			console.log('[Amypo Update] Extension "AMYPO.amypo-question" not found in version.json — skipping.');
 			return false;
 		}
 
@@ -159,8 +160,8 @@ function compareVersions(versionA: string, versionB: string): boolean {
 	const a = versionA.split('.').map(Number);
 	const b = versionB.split('.').map(Number);
 	for (let i = 0; i < 3; i++) {
-		if ((a[i] || 0) > (b[i] || 0)) return true;
-		if ((a[i] || 0) < (b[i] || 0)) return false;
+		if ((a[i] || 0) > (b[i] || 0)) { return true; }
+		if ((a[i] || 0) < (b[i] || 0)) { return false; }
 	}
 	return false;
 }
@@ -245,7 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4092;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285717|W3BDDsg4aqMCjxw6NKkj46VoAu3UwCqpfuTI9Uhp2e40ea0c';
+	const STATIC_TOKEN = '285740|bjxcSEUsX0qiUpvRS0CwOVUOdvtgCa2U7NYyJULGabe6f3a8';
 	const STATIC_MODULE_ID = 996;
 
 	//  State
@@ -327,14 +328,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	 * Mirror of the user's save_datas logic.
 	 */
 	const saveAmypoState = async (exit_reason: string = 'auto') => {
-		console.log("activeAllocation", activeAllocation);
-		console.log("activeQuestionDatas", activeQuestionDatas);
-		console.log("activeTestType", activeTestType);
-		console.log("activeModuleId", activeModuleId);
-		console.log("activeToken", activeToken);
-		console.log("testStartTime", testStartTime);
-		console.log("exit_reason", exit_reason);
-		console.log("testStartTime", testStartTime);
+		console.log('activeAllocation', activeAllocation);
+		console.log('activeQuestionDatas', activeQuestionDatas);
+		console.log('activeTestType', activeTestType);
+		console.log('activeModuleId', activeModuleId);
+		console.log('activeToken', activeToken);
+		console.log('testStartTime', testStartTime);
+		console.log('exit_reason', exit_reason);
+		console.log('testStartTime', testStartTime);
 
 		if (!activeAllocation || activeQuestionDatas.length === 0) {
 			return;
@@ -378,7 +379,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			payload.exit_reason = exit_reason;
 		}
 
-		console.log("payload", payload);
+		console.log('payload', payload);
 
 		const endpoint = activeTestType === 2
 			? `${API_URL}/sandbox/link_save`
@@ -789,7 +790,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				optimizer_count: -1,
 			};
 
-			if (user_details?.ai_features != null) {
+			if (user_details?.ai_features !== null) {
 				try {
 					const ai_features = typeof user_details.ai_features === 'string'
 						? JSON.parse(user_details.ai_features)
@@ -878,7 +879,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				await vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 			} catch { /* command not available */ }
 
-			eduViewProvider.updateView(finalCourseInfo as any, async () => {
+			eduViewProvider.updateView(finalCourseInfo, async () => {
 				vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Starting test…', 5000);
 				eduViewProvider.postMessage({ state: 'loading' });
 
@@ -1398,7 +1399,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 
 					const savedTestData = context.globalState.get<any>('amypo.testData');
-					const elapsedSeconds = parseInt(savedTestData?.time ?? "0");
+					const elapsedSeconds = parseInt(savedTestData?.time ?? '0');
 					testStartTime = Date.now() - (elapsedSeconds * 1000);
 					return;
 				}
@@ -1500,7 +1501,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 	} else {
-		// Fresh launch — show error instead of loading indefinitely
+		// Fresh launch — we expect the UriHandler to fire shortly after activate().
+		// We comment this out so it doesn't show a false alarm before the URL is processed.
+
 		vscode.window.showErrorMessage('Amypo: Test details not received from URL.');
 		eduViewProvider.updateView({
 			course_name: 'Amypo coder',
@@ -1508,29 +1511,32 @@ export async function activate(context: vscode.ExtensionContext) {
 			errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
 		}, () => { });
 
+
 		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
 		if (normalizedCurrent === '') {
 			await context.globalState.update('amypo.cachedQuestion', undefined);
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
-		// comment this while building for production
+
+		console.log('enter test details');
+
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
-			title: "Amypo: Performing final save...",
+			title: 'Amypo: Performing final save...',
 			cancellable: false
 		}, async (progress) => {
 			try {
-				progress.report({ message: "Syncing Git and Server state..." });
+				progress.report({ message: 'Syncing Git and Server state...' });
 				// syncGit('save') handles both Git push and Amypo state sync
 				await syncGit('save');
 
 				// Delete the local project folder after saving
 				if (currentProjectPath && fs.existsSync(currentProjectPath)) {
-					progress.report({ message: "Deleting local project folder..." });
+					progress.report({ message: 'Deleting local project folder...' });
 					try {
 						await fs.promises.rm(currentProjectPath, { recursive: true, force: true });
 						console.log(`[Amypo] Deleted project folder: ${currentProjectPath}`);
@@ -1539,7 +1545,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 				}
 
-				progress.report({ message: "Cleaning session state..." });
+				progress.report({ message: 'Cleaning session state...' });
 				callMurugaExit();
 
 				// Clear persistent state
@@ -1554,7 +1560,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Final exit
 				vscode.commands.executeCommand('workbench.action.closeWindow');
 			} catch (error) {
-				vscode.window.showErrorMessage("Failed to save progress on exit. Please try manual save first.");
+				vscode.window.showErrorMessage('Failed to save progress on exit. Please try manual save first.');
 			}
 		});
 	};
@@ -1564,9 +1570,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		response => response,
 		async error => {
 			if (error.response?.status === 401) {
-				const saveExitItem: vscode.MessageItem = { title: "Save & Exit", isCloseAffordance: true };
+				const saveExitItem: vscode.MessageItem = { title: 'Save & Exit', isCloseAffordance: true };
 				const choice = await vscode.window.showWarningMessage(
-					"Session Expired (401)! Please save your progress and exit to sync to the cloud.",
+					'Session Expired (401)! Please save your progress and exit to sync to the cloud.',
 					{ modal: true },
 					saveExitItem
 				);
@@ -1581,12 +1587,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
 		const choice = await vscode.window.showWarningMessage(
-			"Are you sure you want to finish and exit? Your current progress will be synced to the cloud.",
+			'Are you sure you want to finish and exit? Your current progress will be synced to the cloud.',
 			{ modal: true },
-			"Save & Exit"
+			'Save & Exit'
 		);
 
-		if (choice !== "Save & Exit") {
+		if (choice !== 'Save & Exit') {
 			return;
 		}
 

@@ -11,7 +11,7 @@ export default function content(accessor: ServicesAccessor) {
 	const isServerless = platform.isWeb && !accessor.get(IWorkbenchEnvironmentService).remoteAuthority;
 	return `
 ## Interactive Editor Playground
-The core editor in Amypo Coder is packed with features.  This page highlights a number of them and lets you interactively try them out through the use of a number of embedded editors.  For full details on the editor features for Amypo Coder and more head over to our [documentation](https://github.com/muruganatham/Amypocoder/wiki).
+The core editor in Amypo Coder is packed with features.  This page highlights a number of them and lets you interactively try them out through the use of a number of embedded editors.  For full details on the editor features for Amypo Coder and more head over to our [documentation](https://github.com/Amypocoder/wiki).
 
 * [Multi-cursor Editing](#multi-cursor-editing) - block selection, select all occurrences, add additional cursors and more.
 * [IntelliSense](#intellisense) - get code assistance and parameter suggestions for your code and external modules.
@@ -163,7 +163,7 @@ Emmet takes the snippets idea to a whole new level: you can type CSS-like expres
 ul>li.item$*5
 |||
 
->**Tip:** The [Emmet cheat sheet](https://docs.emmet.io/cheat-sheet/) is a great source of Emmet syntax suggestions. To expand Emmet abbreviations and snippets using the |tab| key use the |emmet.triggerExpansionOnTab| [setting](command:workbench.action.openGlobalSettings). Check out the docs on [Emmet in Amypo Coder](https://github.com/muruganatham/Amypocoder/wiki) to learn more.
+>**Tip:** The [Emmet cheat sheet](https://docs.emmet.io/cheat-sheet/) is a great source of Emmet syntax suggestions. To expand Emmet abbreviations and snippets using the |tab| key use the |emmet.triggerExpansionOnTab| [setting](command:workbench.action.openGlobalSettings). Check out the docs on [Emmet in Amypo Coder](https://github.com/Amypocoder/wiki) to learn more.
 
 
 
@@ -177,14 +177,14 @@ let easy = true;
 easy = 42;
 |||
 
->**Tip:** You can also enable the checks workspace or application wide by adding |"js/ts.implicitProjectConfig.checkJs": true| to your workspace or user settings and explicitly ignoring files or lines using |// @ts-nocheck| and |// @ts-expect-error|. Check out the docs on [JavaScript in Amypo Coder](https://github.com/muruganatham/Amypocoder/wiki) to learn more.
+>**Tip:** You can also enable the checks workspace or application wide by adding |"js/ts.implicitProjectConfig.checkJs": true| to your workspace or user settings and explicitly ignoring files or lines using |// @ts-nocheck| and |// @ts-expect-error|. Check out the docs on [JavaScript in Amypo Coder](https://github.com/Amypocoder/wiki) to learn more.
 
 
 ## Thanks!
-Well if you have got this far then you will have touched on some of the editing features in Amypo Coder.  But don't stop now :)  We have lots of additional [documentation](https://github.com/muruganatham/Amypocoder/wiki) and [tips and tricks](https://github.com/muruganatham/Amypocoder/wiki) for the product that will help you learn how to use it.  And while you are here, here are a few additional things you can try:
-- Open the Integrated Terminal by pressing kb(workbench.action.terminal.toggleTerminal), then see what's possible by [reviewing the terminal documentation](https://github.com/muruganatham/Amypocoder/wiki)
-- Work with version control by pressing kb(workbench.view.scm). Understand how to stage, commit, change branches, and view diffs and more by reviewing the [version control documentation](https://github.com/muruganatham/Amypocoder/wiki)
-- Browse thousands of extensions in our integrated gallery by pressing kb(workbench.view.extensions). The [documentation](https://github.com/muruganatham/Amypocoder/wiki) will show you how to see the most popular extensions, disable installed ones and more.
+Well if you have got this far then you will have touched on some of the editing features in Amypo Coder.  But don't stop now :)  We have lots of additional [documentation](https://github.com/wiki) and [tips and tricks](https://github.com/Amypocoder/wiki) for the product that will help you learn how to use it.  And while you are here, here are a few additional things you can try:
+- Open the Integrated Terminal by pressing kb(workbench.action.terminal.toggleTerminal), then see what's possible by [reviewing the terminal documentation](https://github.com/Amypocoder/wiki)
+- Work with version control by pressing kb(workbench.view.scm). Understand how to stage, commit, change branches, and view diffs and more by reviewing the [version control documentation](https://github.com/Amypocoder/wiki)
+- Browse thousands of extensions in our integrated gallery by pressing kb(workbench.view.extensions). The [documentation](https://github.com/Amypocoder/wiki) will show you how to see the most popular extensions, disable installed ones and more.
 
 That's all for now,
 

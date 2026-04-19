@@ -4,24 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { ToggleAutoSaveAction, FocusFilesExplorer, GlobalCompareResourcesAction, ShowActiveFileInExplorer, CompareWithClipboardAction, NEW_FILE_COMMAND_ID, NEW_FILE_LABEL, NEW_FOLDER_COMMAND_ID, NEW_FOLDER_LABEL, TRIGGER_RENAME_LABEL, MOVE_FILE_TO_TRASH_LABEL, COPY_FILE_LABEL, PASTE_FILE_LABEL, FileCopiedContext, renameHandler, moveFileToTrashHandler, copyFileHandler, pasteFileHandler, deleteFileHandler, cutFileHandler, DOWNLOAD_COMMAND_ID, openFilePreserveFocusHandler, DOWNLOAD_LABEL, OpenActiveFileInEmptyWorkspace, UPLOAD_COMMAND_ID, UPLOAD_LABEL, CompareNewUntitledTextFilesAction, SetActiveEditorReadonlyInSession, SetActiveEditorWriteableInSession, ToggleActiveEditorReadonlyInSession, ResetActiveEditorReadonlyInSession } from './fileActions.js';
+import { ToggleAutoSaveAction, FocusFilesExplorer, GlobalCompareResourcesAction, ShowActiveFileInExplorer, CompareWithClipboardAction, NEW_FILE_COMMAND_ID, NEW_FILE_LABEL, NEW_FOLDER_COMMAND_ID, NEW_FOLDER_LABEL, TRIGGER_RENAME_LABEL, MOVE_FILE_TO_TRASH_LABEL, COPY_FILE_LABEL, PASTE_FILE_LABEL, FileCopiedContext, renameHandler, moveFileToTrashHandler, copyFileHandler, pasteFileHandler, deleteFileHandler, cutFileHandler, /* DOWNLOAD_COMMAND_ID, */ openFilePreserveFocusHandler, /* DOWNLOAD_LABEL, */ OpenActiveFileInEmptyWorkspace, /* UPLOAD_COMMAND_ID, UPLOAD_LABEL, */ CompareNewUntitledTextFilesAction, SetActiveEditorReadonlyInSession, SetActiveEditorWriteableInSession, ToggleActiveEditorReadonlyInSession, ResetActiveEditorReadonlyInSession } from './fileActions.js';
+
 import { revertLocalChangesCommand, acceptLocalChangesCommand, CONFLICT_RESOLUTION_CONTEXT } from './editors/textFileSaveErrorHandler.js';
 import { MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandAction } from '../../../../platform/action/common/action.js';
 import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
 import { openWindowCommand, newWindowCommand } from './fileCommands.js';
-import { COPY_PATH_COMMAND_ID, REVEAL_IN_EXPLORER_COMMAND_ID, OPEN_TO_SIDE_COMMAND_ID, REVERT_FILE_COMMAND_ID, SAVE_FILE_COMMAND_ID, SAVE_FILE_LABEL, SAVE_FILE_AS_COMMAND_ID, SAVE_FILE_AS_LABEL, SAVE_ALL_IN_GROUP_COMMAND_ID, OpenEditorsGroupContext, COMPARE_WITH_SAVED_COMMAND_ID, COMPARE_RESOURCE_COMMAND_ID, SELECT_FOR_COMPARE_COMMAND_ID, ResourceSelectedForCompareContext, OpenEditorsDirtyEditorContext, COMPARE_SELECTED_COMMAND_ID, REMOVE_ROOT_FOLDER_COMMAND_ID, REMOVE_ROOT_FOLDER_LABEL, SAVE_FILES_COMMAND_ID, COPY_RELATIVE_PATH_COMMAND_ID, SAVE_FILE_WITHOUT_FORMATTING_COMMAND_ID, SAVE_FILE_WITHOUT_FORMATTING_LABEL, OpenEditorsReadonlyEditorContext, OPEN_WITH_EXPLORER_COMMAND_ID, NEW_UNTITLED_FILE_COMMAND_ID, NEW_UNTITLED_FILE_LABEL, OpenEditorsSelectedFileOrUntitledContext } from './fileConstants.js';
+import { COPY_PATH_COMMAND_ID, REVEAL_IN_EXPLORER_COMMAND_ID, OPEN_TO_SIDE_COMMAND_ID, REVERT_FILE_COMMAND_ID, SAVE_FILE_COMMAND_ID, SAVE_FILE_LABEL, SAVE_FILE_AS_COMMAND_ID, SAVE_FILE_AS_LABEL, SAVE_ALL_IN_GROUP_COMMAND_ID, OpenEditorsGroupContext, COMPARE_WITH_SAVED_COMMAND_ID, COMPARE_RESOURCE_COMMAND_ID, SELECT_FOR_COMPARE_COMMAND_ID, ResourceSelectedForCompareContext, OpenEditorsDirtyEditorContext, COMPARE_SELECTED_COMMAND_ID, REMOVE_ROOT_FOLDER_COMMAND_ID, REMOVE_ROOT_FOLDER_LABEL, SAVE_FILES_COMMAND_ID, COPY_RELATIVE_PATH_COMMAND_ID, SAVE_FILE_WITHOUT_FORMATTING_COMMAND_ID, SAVE_FILE_WITHOUT_FORMATTING_LABEL, OpenEditorsReadonlyEditorContext, /* OPEN_WITH_EXPLORER_COMMAND_ID, */ NEW_UNTITLED_FILE_COMMAND_ID, NEW_UNTITLED_FILE_LABEL, OpenEditorsSelectedFileOrUntitledContext } from './fileConstants.js';
+
 import { CommandsRegistry, ICommandHandler } from '../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { FilesExplorerFocusCondition, ExplorerRootContext, ExplorerFolderContext, ExplorerResourceWritableContext, ExplorerResourceCut, ExplorerResourceMoveableToTrash, ExplorerResourceAvailableEditorIdsContext } from '../common/files.js';
+import { FilesExplorerFocusCondition, ExplorerRootContext, ExplorerFolderContext, ExplorerResourceWritableContext, ExplorerResourceCut, ExplorerResourceMoveableToTrash, /* ExplorerResourceAvailableEditorIdsContext */ } from '../common/files.js';
+
 import { ADD_ROOT_FOLDER_COMMAND_ID, ADD_ROOT_FOLDER_LABEL } from '../../../browser/actions/workspaceCommands.js';
 import { CLOSE_SAVED_EDITORS_COMMAND_ID, CLOSE_EDITORS_IN_GROUP_COMMAND_ID, CLOSE_EDITOR_COMMAND_ID, CLOSE_OTHER_EDITORS_IN_GROUP_COMMAND_ID, REOPEN_WITH_COMMAND_ID } from '../../../browser/parts/editor/editorCommands.js';
 import { AutoSaveAfterShortDelayContext } from '../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { WorkbenchListDoubleSelection } from '../../../../platform/list/browser/listService.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { DirtyWorkingCopiesContext, EnterMultiRootWorkspaceSupportContext, HasWebFileSystemAccess, WorkbenchStateContext, WorkspaceFolderCountContext, ResourceContextKey, ActiveEditorAvailableEditorIdsContext, MultipleEditorsSelectedInGroupContext, TwoEditorsSelectedInGroupContext, SelectedEditorsInGroupFileOrUntitledResourceContextKey } from '../../../common/contextkeys.js';
-import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { DirtyWorkingCopiesContext, EnterMultiRootWorkspaceSupportContext, /* HasWebFileSystemAccess, */ WorkbenchStateContext, WorkspaceFolderCountContext, ResourceContextKey, ActiveEditorAvailableEditorIdsContext, MultipleEditorsSelectedInGroupContext, TwoEditorsSelectedInGroupContext, SelectedEditorsInGroupFileOrUntitledResourceContextKey } from '../../../common/contextkeys.js';
+// import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IExplorerService } from './files.js';
@@ -160,9 +164,10 @@ export const revealInSideBarCommand = {
 };
 
 // Editor Title Context Menu
-appendEditorTitleContextMenuItem(COPY_PATH_COMMAND_ID, copyPathCommand.title, ResourceContextKey.IsFileSystemResource, '1_cutcopypaste', true);
+// Amypo Security: Commented out to prevent users from copying absolute project paths to their clipboard or opening native file explorer
+// appendEditorTitleContextMenuItem(COPY_PATH_COMMAND_ID, copyPathCommand.title, ResourceContextKey.IsFileSystemResource, '1_cutcopypaste', true);
 appendEditorTitleContextMenuItem(COPY_RELATIVE_PATH_COMMAND_ID, copyRelativePathCommand.title, ResourceContextKey.IsFileSystemResource, '1_cutcopypaste', true);
-appendEditorTitleContextMenuItem(revealInSideBarCommand.id, revealInSideBarCommand.title, ResourceContextKey.IsFileSystemResource, '2_files', false, 1);
+// appendEditorTitleContextMenuItem(revealInSideBarCommand.id, revealInSideBarCommand.title, ResourceContextKey.IsFileSystemResource, '2_files', false, 1);
 
 export function appendEditorTitleContextMenuItem(id: string, title: string, when: ContextKeyExpression | undefined, group: string, supportsMultiSelect: boolean, order?: number): void {
 	const precondition = supportsMultiSelect !== true ? MultipleEditorsSelectedInGroupContext.negate() : undefined;
@@ -208,11 +213,14 @@ export function appendToCommandPalette({ id, title, category, metadata }: IComma
 	});
 }
 
+// Amypo Security: Commented out to prevent users from discovering absolute paths via command palette
+/*
 appendToCommandPalette({
 	id: COPY_PATH_COMMAND_ID,
 	title: nls.localize2('copyPathOfActive', "Copy Path of Active File"),
 	category: Categories.File
 });
+*/
 appendToCommandPalette({
 	id: COPY_RELATIVE_PATH_COMMAND_ID,
 	title: nls.localize2('copyRelativePathOfActive', "Copy Relative Path of Active File"),
@@ -502,6 +510,8 @@ MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	when: ContextKeyExpr.and(ExplorerFolderContext.toNegated(), ResourceContextKey.HasResource)
 });
 
+// Amypo Security: Commented out 'Open With' to prevent system path leaks in the picker
+/*
 MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	group: 'navigation',
 	order: 20,
@@ -511,6 +521,8 @@ MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	},
 	when: ContextKeyExpr.and(ExplorerFolderContext.toNegated(), ExplorerResourceAvailableEditorIdsContext),
 });
+*/
+
 
 MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	group: '3_compare',
@@ -564,46 +576,26 @@ MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	when: ExplorerFolderContext
 });
 
+// Amypo Security: Commented out Download/Upload to restrict file system interactions
+/*
 MenuRegistry.appendMenuItem(MenuId.ExplorerContext, ({
 	group: '5b_importexport',
 	order: 10,
-	command: {
-		id: DOWNLOAD_COMMAND_ID,
-		title: DOWNLOAD_LABEL
-	},
-	when: ContextKeyExpr.or(
-		// native: for any remote resource
-		ContextKeyExpr.and(IsWebContext.toNegated(), ResourceContextKey.Scheme.notEqualsTo(Schemas.file)),
-		// web: for any files
-		ContextKeyExpr.and(IsWebContext, ExplorerFolderContext.toNegated(), ExplorerRootContext.toNegated()),
-		// web: for any folders if file system API support is provided
-		ContextKeyExpr.and(IsWebContext, HasWebFileSystemAccess)
+...
 	)
 }));
+*/
 
-MenuRegistry.appendMenuItem(MenuId.ExplorerContext, ({
-	group: '5b_importexport',
-	order: 20,
-	command: {
-		id: UPLOAD_COMMAND_ID,
-		title: UPLOAD_LABEL,
-	},
-	when: ContextKeyExpr.and(
-		// only in web
-		IsWebContext,
-		// only on folders
-		ExplorerFolderContext,
-		// only on writable folders
-		ExplorerResourceWritableContext
-	)
-}));
 
+// Amypo Security: Commented out to prevent users from copying absolute project paths from the sidebar
+/*
 MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	group: '6_copypath',
 	order: 10,
 	command: copyPathCommand,
 	when: ResourceContextKey.IsFileSystemResource
 });
+*/
 
 MenuRegistry.appendMenuItem(MenuId.ExplorerContext, {
 	group: '6_copypath',
@@ -782,12 +774,16 @@ MenuRegistry.appendMenuItem(MenuId.ChatAttachmentsContext, {
 	when: ContextKeyExpr.and(ResourceContextKey.IsFileSystemResource, ExplorerFolderContext.toNegated())
 });
 
+// Amypo Security: Commented out local system reveal commands
+/*
 MenuRegistry.appendMenuItem(MenuId.ChatAttachmentsContext, {
 	group: 'navigation',
 	order: 20,
 	command: revealInSideBarCommand,
 	when: ResourceContextKey.IsFileSystemResource
 });
+*/
+
 
 MenuRegistry.appendMenuItem(MenuId.ChatAttachmentsContext, {
 	group: '1_cutcopypaste',
@@ -813,12 +809,16 @@ for (const menuId of [MenuId.ChatInlineResourceAnchorContext, MenuId.ChatInputRe
 		when: ContextKeyExpr.and(ResourceContextKey.HasResource, ExplorerFolderContext.toNegated())
 	});
 
+// Amypo Security: Commented out local system reveal commands
+/*
 	MenuRegistry.appendMenuItem(menuId, {
 		group: 'navigation',
 		order: 20,
 		command: revealInSideBarCommand,
 		when: ResourceContextKey.IsFileSystemResource
 	});
+*/
+
 
 	MenuRegistry.appendMenuItem(menuId, {
 		group: '1_cutcopypaste',

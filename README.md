@@ -11,11 +11,11 @@ Amypo Coder is a custom-branded code editor based on VS Code. It is designed to 
 
 ## Development
 
-Amypo Coder is an open-source project. You can find the source code on GitHub at [muruganatham/Amypocoder](https://github.com/muruganatham/Amypocoder).
+Amypo Coder is an open-source project. You can find the source code on GitHub at [Amypocoder](https://github.com/).
 
 ### Building from Source
 
-To build Amypo Coder from source, follow the instructions in [the documentation](https://github.com/muruganatham/Amypocoder/wiki/How-to-Contribute).
+To build Amypo Coder from source, follow the instructions in [the documentation](https://github.com/).
 
 ## Contributing
 

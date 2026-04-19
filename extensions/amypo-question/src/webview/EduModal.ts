@@ -4,10 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+export interface ICourseInfo {
+	course_name: string;
+	topic_name?: string;
+	module_name: string;
+	course_type?: number;
+	test_type?: string;
+	languages?: string[];
+	errorMessage?: string | null;
+	version?: string;
+	shouldRestore?: boolean;
+	user_name?: string;
+	user_email?: string;
+	user_roll_no?: string;
+	user_college?: string;
+	user_department?: string;
+	user_batch?: string;
+	user_section?: string;
+}
+
 export class EduViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'amypoEduView';
     private _view?: vscode.WebviewView;
-    private _courseInfo?: any;
+    private _courseInfo?: ICourseInfo;
     private _lastMessage?: any;
     private _webviewReady = false;
     private _onConfirm?: () => void;
@@ -99,7 +118,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     }
 
     // public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string }, onConfirm: () => void) {
-    public updateView(courseInfo: { course_name: string; module_name: string; languages?: string[]; errorMessage?: string; version?: string; shouldRestore?: boolean }, onConfirm: () => void) {
+    public updateView(courseInfo: ICourseInfo, onConfirm: () => void) {
         this._courseInfo = courseInfo;
         this._onConfirm = onConfirm;
         this._webviewReady = false; // Reset — new HTML will fire 'ready' again
@@ -133,7 +152,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         </body></html>`;
     }
 
-    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: any) {
+    private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, courseInfo: ICourseInfo) {
         const nonce = getNonce();
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'logo.png'));
 

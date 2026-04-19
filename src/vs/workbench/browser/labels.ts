@@ -467,7 +467,9 @@ class ResourceLabelWidget extends IconLabel {
 				}
 
 				if (typeof label.description === 'string') {
-					const untitledDescription = untitledModel.resource.path;
+					// Amypo Security: Mask untitled file paths
+					// const untitledDescription = untitledModel.resource.path;
+					const untitledDescription = '[Amypo Assessment Workspace]';
 					if (label.name !== untitledDescription) {
 						label.description = untitledDescription;
 					} else {
@@ -475,7 +477,9 @@ class ResourceLabelWidget extends IconLabel {
 					}
 				}
 
-				const untitledTitle = untitledModel.resource.path;
+				// Amypo Security: Mask untitled file titles in tooltips
+				// const untitledTitle = untitledModel.resource.path;
+				const untitledTitle = '[Amypo Assessment Workspace]';
 				if (untitledModel.name !== untitledTitle) {
 					options.title = `${untitledModel.name} • ${untitledTitle}`;
 				} else {

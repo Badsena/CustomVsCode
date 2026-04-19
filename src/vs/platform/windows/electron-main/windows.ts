@@ -239,6 +239,9 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 		options.alwaysOnTop = true;
 	}
 
+	// Amypo Security: Force the application window to always float above other applications
+	// options.alwaysOnTop = true;
+
 	return options;
 }
 

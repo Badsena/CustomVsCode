@@ -432,8 +432,32 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		result.on('end', () => console.log('merged result ENDED'));
 	}
 
+	const name = 'extensions';
+	console.log(`[build] Starting packaging for ${name}...`);
+
 	const finalStream = result.pipe(util2.setExecutableBit(['**/*.sh']));
 	finalStream.on('end', () => console.log('final exported stream ENDED'));
+
+	// Safety: ensure final stream ends if its input (result) ends
+	let ended = false;
+	const onEnd = () => ended = true;
+	finalStream.on('end', onEnd);
+	finalStream.on('finish', onEnd);
+	finalStream.on('close', onEnd);
+
+	result.on('end', () => {
+		setTimeout(() => {
+			if (ended) {
+				return;
+			}
+			console.log('[build] Safety timeout triggered for final exported stream (stalled for 60s)');
+			(finalStream as any).emit?.('end');
+			(finalStream as any).emit?.('finish');
+			(finalStream as any).end?.();
+			(finalStream as any).destroy?.();
+		}, 60000); // 60s grace period for large I/O
+	});
+
 	return finalStream as any;
 }
 

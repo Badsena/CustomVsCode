@@ -90,7 +90,13 @@ export function getPathLabel(resource: URI, formatting: IPathLabelFormatting): s
 
 	// normalize
 	const pathLib = os === OperatingSystem.Windows ? win32 : posix;
-	return pathLib.normalize(normalizeDriveLetter(absolutePath, os === OperatingSystem.Windows));
+	const finalPath = pathLib.normalize(normalizeDriveLetter(absolutePath, os === OperatingSystem.Windows));
+
+	// Amypo Security: Commented out to prevent leaking absolute OS paths to assessment users via tooltips/hovers
+	// return finalPath;
+	
+	// Instead, just return the file name and a restricted environment tag
+	return `[Amypo Assessment Workspace] \\ ${pathLib.basename(finalPath)}`;
 }
 
 function getRelativePathLabel(resource: URI, relativePathProvider: IRelativePathProvider, os: OperatingSystem): string | undefined {

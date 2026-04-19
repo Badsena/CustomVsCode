@@ -187,7 +187,9 @@ function createBreadcrumbDndObserver(accessor: ServicesAccessor, container: HTML
 
 					fillInSymbolsDragData([{
 						name: item.symbol.name,
-						fsPath: item.uri.fsPath,
+						// Amypo Security: Mask the physical system path to prevent leakage during drag operations
+						// fsPath: item.uri.fsPath,
+						fsPath: '[Amypo Assessment Workspace]',
 						range: item.symbol.range,
 						kind: item.symbol.kind
 					}], event);
