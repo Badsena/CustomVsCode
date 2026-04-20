@@ -246,7 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4092;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285740|bjxcSEUsX0qiUpvRS0CwOVUOdvtgCa2U7NYyJULGabe6f3a8';
+	const STATIC_TOKEN = '285758|wnlxNAK40OH27c2J8Lj5iGxCYMqyany23bnRTgYT66c7a95e';
 	const STATIC_MODULE_ID = 996;
 
 	//  State
@@ -815,7 +815,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			currentAllocationData = allocation;
 			activeAllocation = allocation;
 			activeTestType = test_type;
-			activeModuleId = moduleId ?? 0;
+			activeModuleId = (allocation.module_id ? parseInt(allocation.module_id) : moduleId) ?? 0;
 			activeToken = token;
 			testStartTime = Date.now();
 
@@ -1355,6 +1355,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 		await context.globalState.update('amypo.token', activeToken);
 		const lastTest = context.globalState.get<any>('amypo.lastTest');
+		if (lastTest) {
+			activeTestType = lastTest.test_type ?? 0;
+			activeModuleId = lastTest.module_id ?? 0;
+			console.log('[Amypo] Restored test metadata:', { activeTestType, activeModuleId });
+		}
 
 		console.log('[Amypo] Restored state:', { currentProjectPath, currentRepoUrl, currentProjectType });
 
