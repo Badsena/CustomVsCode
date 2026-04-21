@@ -437,9 +437,9 @@ export class CodeApplication extends Disposable {
 		//
 		app.on('web-contents-created', (event, contents) => {
 			// ✅ Amypo Security: Aggressively close DevTools if someone forces them open via extensions/flags
-			contents.on('devtools-opened', () => {
-				contents.closeDevTools();
-			});
+			// contents.on('devtools-opened', () => {
+			// 	contents.closeDevTools();
+			// });
 
 			// Auxiliary Window: delegate to `AuxiliaryWindow` class
 			if (contents?.opener?.url.startsWith(`${Schemas.vscodeFileResource}://${VSCODE_AUTHORITY}/`)) {

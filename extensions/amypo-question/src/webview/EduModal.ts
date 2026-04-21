@@ -80,6 +80,11 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         this._onPull();
                     }
                     break;
+                case 'submit':
+                    if (this._onSubmit) {
+                        this._onSubmit();
+                    }
+                    break;
                 case 'startTest':
                     if (this._onConfirm) {
                         this._onConfirm();
@@ -101,12 +106,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
     private _onSave?: () => void;
     private _onVerify?: () => void;
     private _onPull?: () => void;
+    private _onSubmit?: () => void;
     private _onReady?: () => void;
 
     public setOnReload(callback: () => void) { this._onReload = callback; }
     public setOnSave(callback: () => void) { this._onSave = callback; }
     public setOnVerify(callback: () => void) { this._onVerify = callback; }
     public setOnPull(callback: () => void) { this._onPull = callback; }
+    public setOnSubmit(callback: () => void) { this._onSubmit = callback; }
     public setOnReady(callback: () => void) {
         if (this._webviewReady) {
             // Webview already fired ready — call immediately
@@ -606,6 +613,12 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         </div>
                     </button>
                     <button class="btn-action btn-primary" id="verify-btn"><span>Check Verify</span></button>
+                    <button class="btn-action btn-success" id="submit-btn" style="background: #e67e22; border-color: #d35400;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="btn-spinner" id="submit-spinner"></div>
+                            <span>Final Submit</span>
+                        </div>
+                    </button>
                 </div>
 
                 <!-- Verification Loader UI -->
@@ -794,6 +807,23 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     };
                 }
 
+                const submitBtn = document.getElementById('submit-btn');
+                if (submitBtn) {
+                    submitBtn.onclick = () => {
+                        const status = document.getElementById('status-bar');
+                        if (status) {
+                            status.className = 'status-msg info';
+                            status.style.display = 'block';
+                            status.innerText = 'Submitting Final Results...';
+                        }
+
+                        submitBtn.disabled = true;
+                        document.getElementById('submit-spinner').style.display = 'block';
+
+                        vscode.postMessage({ command: 'submit' });
+                    };
+                }
+
                 const pullBtn = document.getElementById('pull-btn');
                 if (pullBtn) {
                     pullBtn.onclick = () => {
@@ -907,6 +937,14 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                         vOverlay.style.display = 'none';
                                     }
                                     if (vInterval) clearInterval(vInterval);
+                                }
+
+                                // Re-enable submit button on results
+                                const subBtn = document.getElementById('submit-btn');
+                                if (subBtn) {
+                                    subBtn.disabled = false;
+                                    const subSpinner = document.getElementById('submit-spinner');
+                                    if (subSpinner) subSpinner.style.display = 'none';
                                 }
 
                                 // Show results modal if payload exists

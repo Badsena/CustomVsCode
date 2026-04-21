@@ -244,10 +244,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4163;
+	const STATIC_ALLOCATION_ID = 4165;
 	const STATIC_TEST_TYPE = 0;
 	const STATIC_TOKEN = '285788|Ka3jbYs6cpXXlaKt0JiW52Fc5WocUp0jbXLvngwn0bbfa04c';
-	const STATIC_MODULE_ID = 1018;
+	const STATIC_MODULE_ID = 1020;
 
 	//  State
 	let currentAllocationData: any = null;
@@ -260,6 +260,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	let activeModuleId: number = 0;
 	let activeToken: string = '';
 	let activeQuestionDatas: any[] = [];
+	let lastVerificationResult: any = null;
 	let activeAllocation: any = context.globalState.get<any>('amypo.testDetails')?.allocation ?? null;
 	let testStartTime = Date.now();
 
@@ -1223,85 +1224,102 @@ export async function activate(context: vscode.ExtensionContext) {
 				});
 			}
 
-			// Store verification mark to the backend
-			try {
-				const now = Date.now();
-				const testTimer = Math.floor((now - testStartTime) / 1000);
-
-				let passed_testcases = 0;
-
-				const total_mark_raw = fullQuestion?.total_mark ?? question?.total_mark ?? 0;
-				const total_mark = typeof total_mark_raw === 'string' ? parseFloat(total_mark_raw) : total_mark_raw;
-				let user_mark = question?.mark ?? 0;
-
-				console.log('total_testcases', total_testcases);
-				console.log('result?.test_results', result?.test_results);
-
-
-
-				if (result?.test_results) {
-					passed_testcases = result.test_results?.passed ?? 0;
-					result.test_results.total = total_testcases > 0 ? total_testcases : (parseInt(result.test_results.total, 10) || 0);
-					result.test_results.passed = passed_testcases;
-					result.test_results.failed = Math.max(0, result.test_results.total - passed_testcases);
-				}
-
-				if (total_mark > 0) {
-					const countToUse = total_testcases > 0 ? total_testcases : (result?.test_results?.total > 0 ? result.test_results.total : 1);
-					const each_testcase_mark = total_mark / countToUse;
-					user_mark = each_testcase_mark * passed_testcases;
-				}
-
-				const payload: any = {
-					allocate_id: currentAllocationData?.id ? parseInt(currentAllocationData.id) : 0,
-					test_type: activeTestType,
-					module_id: activeModuleId,
-					questionId: question?.id,
-					type: question?.type,
-					course_allocation_id: currentAllocationData?.allocation_id,
-					topic_id: currentAllocationData?.topic_id,
-					db: currentAllocationData?.db,
-					topic_test_id: currentAllocationData?.topic_id || currentAllocationData?.test_id,
-					solution: '',
-					question_timer: testTimer,
-					run_count: question?.run_count ?? 0,
-					verify_count: (question?.verify_count ?? 0) + 1,
-					deb_count: question?.deb_count ?? 0,
-					opt_count: question?.opt_count ?? 0,
-					compile_id: question?.compile_id ?? 0,
-					error: question?.error_array ?? [],
-					mark: user_mark,
-					test_cases: result?.test_results ? result.test_results : [],
-					timer: testTimer,
-					tab_switched: 0,
-					question_category: fullQuestion?.question_category ?? question?.question_category ?? 0,
-					total_mark: total_mark,
-					qb_name: fullQuestion?.qb_name ?? question?.qb_name ?? 0,
-					q_id: fullQuestion?.question_id ?? question?.question_id ?? 0,
-				};
-
-				console.log('[Amypo] Payload for submit mark:', payload);
-
-				const endpoint = activeTestType === 2
-					? `${API_URL}/sandbox/link_submit`
-					: `${API_URL}/sandbox/submit`;
-
-				const resp = await jsonsubmitData(payload, endpoint, 0, activeToken);
-				console.log('[Amypo] Submit mark resp:', resp);
-
-				if (resp?.status === 200) {
-					if (user_mark > 0 && question) {
-						question.solve_status = 2; // update local status to submitted
-					}
-					console.log('[Amypo] Mark stored successfully.');
-				}
-			} catch (markError) {
-				console.error('[Amypo] Error storing verification mark:', markError);
-			}
+			lastVerificationResult = {
+				result,
+				total_testcases,
+				testStartTime
+			};
 
 		} catch (error: any) {
 			console.error('[Amypo] Verification error:', error);
 			eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Verification failed: ${error.message}` });
+		}
+	});
+
+	eduViewProvider.setOnSubmit(async () => {
+		if (!lastVerificationResult) {
+			eduViewProvider.postMessage({ state: 'status', type: 'error', text: 'Please verify your work before submitting.' });
+			return;
+		}
+
+		try {
+			const { result, total_testcases, testStartTime } = lastVerificationResult;
+			const cachedQuestion = context.globalState.get<any>('amypo.cachedQuestion');
+			const fullQuestion = cachedQuestion?.payload;
+			const question = activeQuestionDatas[0];
+
+			// Store verification mark to the backend
+			const now = Date.now();
+			const testTimer = Math.floor((now - testStartTime) / 1000);
+
+			let passed_testcases = 0;
+
+			const total_mark_raw = fullQuestion?.total_mark ?? question?.total_mark ?? 0;
+			const total_mark = typeof total_mark_raw === 'string' ? parseFloat(total_mark_raw) : total_mark_raw;
+			let user_mark = question?.mark ?? 0;
+
+			if (result?.test_results) {
+				passed_testcases = result.test_results?.passed ?? 0;
+				result.test_results.total = total_testcases > 0 ? total_testcases : (parseInt(result.test_results.total, 10) || 0);
+				result.test_results.passed = passed_testcases;
+				result.test_results.failed = Math.max(0, result.test_results.total - passed_testcases);
+			}
+
+			if (total_mark > 0) {
+				const countToUse = total_testcases > 0 ? total_testcases : (result?.test_results?.total > 0 ? result.test_results.total : 1);
+				const each_testcase_mark = total_mark / countToUse;
+				user_mark = each_testcase_mark * passed_testcases;
+			}
+
+			const payload: any = {
+				allocate_id: currentAllocationData?.id ? parseInt(currentAllocationData.id) : 0,
+				test_type: activeTestType,
+				module_id: activeModuleId,
+				questionId: question?.id,
+				type: question?.type,
+				course_allocation_id: currentAllocationData?.allocation_id,
+				topic_id: currentAllocationData?.topic_id,
+				db: currentAllocationData?.db,
+				topic_test_id: currentAllocationData?.topic_id || currentAllocationData?.test_id,
+				solution: '',
+				question_timer: testTimer,
+				run_count: question?.run_count ?? 0,
+				verify_count: (question?.verify_count ?? 0) + 1,
+				deb_count: question?.deb_count ?? 0,
+				opt_count: question?.opt_count ?? 0,
+				compile_id: question?.compile_id ?? 0,
+				error: question?.error_array ?? [],
+				mark: user_mark,
+				test_cases: result?.test_results ? result.test_results : [],
+				timer: testTimer,
+				tab_switched: 0,
+				question_category: fullQuestion?.question_category ?? question?.question_category ?? 0,
+				total_mark: total_mark,
+				qb_name: fullQuestion?.qb_name ?? question?.qb_name ?? 0,
+				q_id: fullQuestion?.question_id ?? question?.question_id ?? 0,
+			};
+
+			console.log('[Amypo] Payload for submit mark:', payload);
+
+			const endpoint = activeTestType === 2
+				? `${API_URL}/sandbox/link_submit`
+				: `${API_URL}/sandbox/submit`;
+
+			const resp = await jsonsubmitData(payload, endpoint, 0, activeToken);
+			console.log('[Amypo] Submit mark resp:', resp);
+
+			if (resp?.status === 200) {
+				if (user_mark > 0 && question) {
+					question.solve_status = 2; // update local status to submitted
+				}
+				eduViewProvider.postMessage({ state: 'status', type: 'success', text: 'Final results submitted successfully!' });
+				console.log('[Amypo] Mark stored successfully.');
+			} else {
+				throw new Error(resp?.message || 'Submission failed');
+			}
+		} catch (error: any) {
+			console.error('[Amypo] Error during final submission:', error);
+			eduViewProvider.postMessage({ state: 'status', type: 'error', text: `Submission failed: ${error.message}` });
 		}
 	});
 
