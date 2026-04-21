@@ -244,10 +244,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4092;
+	const STATIC_ALLOCATION_ID = 4164;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285787|HNWZ9LCX2LfDVkz5fGSoVnyuVYyOWt7yPHnYEbaEe4e4311c';
-	const STATIC_MODULE_ID = 996;
+	const STATIC_TOKEN = '285788|Ka3jbYs6cpXXlaKt0JiW52Fc5WocUp0jbXLvngwn0bbfa04c';
+	const STATIC_MODULE_ID = 1019;
 
 	//  State
 	let currentAllocationData: any = null;
@@ -455,7 +455,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	): Promise<void> => {
 		// ✅ Combined Security Solution
 		// 1. Hidden directory in AppData so students can't easily find it
-		const parentPath = path.join(process.env.LOCALAPPDATA || os.homedir(), '.amypo', 'workspace');
+		const parentPath = path.join(process.env.LOCALAPPDATA || os.homedir(), 'amypo', 'workspace');
 
 		// Extract repository name from URL (preventing nested github.com/owner directories)
 		let sanitizedFolderName = 'project';
@@ -469,6 +469,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const CLSID = process.platform === 'win32'
 			? '.{20D04FE0-3AEA-1069-A2D8-08002B30309D}'
 			: '';
+
 
 		const projectPath = path.join(parentPath, sanitizedFolderName + CLSID);
 
@@ -1323,7 +1324,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Also check workspace folder as a fallback
 	// Normalize path separators and case to prevent mismatch on Windows
 	const currentFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	const amypoWorkspace = path.join(process.env.LOCALAPPDATA || os.homedir(), '.amypo', 'workspace');
+	const amypoWorkspace = path.join(process.env.LOCALAPPDATA || os.homedir(), 'amypo', 'workspace');
 
 	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
 	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();

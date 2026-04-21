@@ -267,7 +267,8 @@ export async function verifySpringBoot(request: VerificationRequest) {
 
 		const testStartTime = Date.now();
 		// Maven clean test command - may take time
-		const { stdout, stderr, exitCode } = await execAllowFail(`cd "${projectRoot}" && mvn clean test`, {
+		const { stdout, stderr, exitCode } = await execAllowFail(`mvn clean test`, {
+			cwd: projectRoot,
 			maxBuffer: 50 * 1024 * 1024,
 			timeout: 480000 // 8 minutes
 		});
@@ -363,9 +364,9 @@ export async function verifyReact(request: VerificationRequest) {
 		console.log('🧪 Running React tests in:', projectRoot);
 
 		const testStartTime = Date.now();
-		const testCmd = `cd "${projectRoot}" && npm test -- src/testcase --watchAll=false`;
+		const testCmd = `npm test -- src/testcase --watchAll=false`;
 
-		const { stdout, stderr, exitCode } = await execAllowFail(testCmd);
+		const { stdout, stderr, exitCode } = await execAllowFail(testCmd, { cwd: projectRoot });
 		const fullOutput = `${stdout || ''}${stderr ? '\n' + stderr : ''}`;
 		const testDuration = ((Date.now() - testStartTime) / 1000).toFixed(2);
 		const testSuccess = exitCode === 0;
@@ -406,12 +407,11 @@ export async function verifyReact(request: VerificationRequest) {
 export async function verifyFullStack(request: VerificationRequest) {
 	let token = 'AmypoToken'
 	const { project_path, question_id, qb_name, backend_url } = request;
-	const localDestPath = project_path;
-	const springDeletePath = path.join(project_path, 'src', 'test');
+	const springDeletePath = path.join(project_path, 'demo', 'src', 'test');
 	const reactDeletePath = path.join(project_path, 'reactapp', 'src', 'testcase');
 
 	try {
-		await hideTestFolder(project_path, '**/src/test', 'src/test');
+		await hideTestFolder(project_path, '**/src/test', 'demo/src/test');
 		await hideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
 
 		console.log('Fetching fullstack testcases from:', backend_url);
@@ -442,18 +442,42 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		console.log('✓ Fullstack Testcase fetched successfully');
 
-		if (!fs.existsSync(localDestPath)) fs.mkdirSync(localDestPath, { recursive: true });
-
 		const zipFilePath = path.join(project_path, 'testcases_fullstack.zip');
 		fs.writeFileSync(zipFilePath, Buffer.from(response.data));
 
+		const tempExtractPath = path.join(project_path, 'temp_testcases');
+		if (!fs.existsSync(tempExtractPath)) fs.mkdirSync(tempExtractPath, { recursive: true });
+
 		try {
-			await extract(zipFilePath, { dir: path.resolve(localDestPath) });
-			console.log('✓ Files extracted to fullstack directory');
+			await extract(zipFilePath, { dir: path.resolve(tempExtractPath) });
+			console.log('✓ Files extracted to temporary directory');
+
+			// Move Backend tests to demo/src/test
+			let springSrc = path.join(tempExtractPath, 'src', 'test');
+			if (!fs.existsSync(springSrc)) springSrc = path.join(tempExtractPath, 'demo', 'src', 'test');
+
+			if (fs.existsSync(springSrc)) {
+				if (fs.existsSync(springDeletePath)) fs.rmSync(springDeletePath, { recursive: true, force: true });
+				fs.mkdirSync(path.dirname(springDeletePath), { recursive: true });
+				fs.renameSync(springSrc, springDeletePath);
+				console.log('✓ Backend tests moved to demo directory');
+			}
+
+			// Move Frontend tests to reactapp/src/testcase
+			let reactSrc = path.join(tempExtractPath, 'src', 'testcase');
+			if (!fs.existsSync(reactSrc)) reactSrc = path.join(tempExtractPath, 'reactapp', 'src', 'testcase');
+
+			if (fs.existsSync(reactSrc)) {
+				if (fs.existsSync(reactDeletePath)) fs.rmSync(reactDeletePath, { recursive: true, force: true });
+				fs.mkdirSync(path.dirname(reactDeletePath), { recursive: true });
+				fs.renameSync(reactSrc, reactDeletePath);
+				console.log('✓ Frontend tests moved to reactapp directory');
+			}
 		} catch (extractErr) {
 			console.error('Failed to extract fullstack zip:', extractErr);
 			throw new Error('Testcase extraction failed. Please ensure you have sufficient permissions.');
 		} finally {
+			if (fs.existsSync(tempExtractPath)) fs.rmSync(tempExtractPath, { recursive: true, force: true });
 			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
 		}
 
@@ -462,8 +486,7 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		// 1. SPRING BOOT
 		const springRoot = path.join(project_path, 'demo');
-		const springTestCmd = `cd "${springRoot}" && mvn clean test`;
-		const springExec = await execAllowFail(springTestCmd, { maxBuffer: 50 * 1024 * 1024, timeout: 480000 });
+		const springExec = await execAllowFail(`mvn clean test`, { cwd: springRoot, maxBuffer: 50 * 1024 * 1024, timeout: 480000 });
 		const springResults = parseTestResults(springExec.stdout);
 
 		// 2. REACT
@@ -472,8 +495,8 @@ export async function verifyFullStack(request: VerificationRequest) {
 		let reactResults = parseReactTestResults('');
 
 		if (fs.existsSync(reactRoot)) {
-			const reactTestCmd = `cd "${reactRoot}" && npm test -- src/testcase --watchAll=false`;
-			reactExec = await execAllowFail(reactTestCmd, { maxBuffer: 50 * 1024 * 1024, timeout: 300000 });
+			const reactTestCmd = `npm test -- src/testcase --watchAll=false`;
+			reactExec = await execAllowFail(reactTestCmd, { cwd: reactRoot, maxBuffer: 50 * 1024 * 1024, timeout: 300000 });
 			reactResults = parseReactTestResults(`${reactExec.stdout || ''}${reactExec.stderr ? '\n' + reactExec.stderr : ''}`);
 		} else {
 			reactExec.stdout = "No 'reactapp' directory found to run React tests.\n";
@@ -528,14 +551,9 @@ export async function verifyFullStack(request: VerificationRequest) {
 			console.error('Backend 422 details:', details);
 		}
 
-		const springTests = path.join(project_path, 'src', 'test');
-		const reactTests = path.join(project_path, 'reactapp', 'src', 'testcase');
-		if (fs.existsSync(springTests)) fs.rmSync(springTests, { recursive: true, force: true });
-		if (fs.existsSync(reactTests)) fs.rmSync(reactTests, { recursive: true, force: true });
-
 		throw new Error(details ? `${error.message}: ${details} ` : error.message);
 	} finally {
-		await unhideTestFolder(project_path, '**/src/test', 'src/test');
+		await unhideTestFolder(project_path, '**/src/test', 'demo/src/test');
 		await unhideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
 	}
 }
@@ -596,7 +614,8 @@ export async function verifySelenium(request: VerificationRequest) {
 		const projectRoot = project_path;
 		console.log('🧪 Running Selenium tests in:', projectRoot);
 
-		const { stdout, stderr, exitCode } = await execAllowFail(`cd "${projectRoot}" && mvn clean test`, {
+		const { stdout, stderr, exitCode } = await execAllowFail(`mvn clean test`, {
+			cwd: projectRoot,
 			maxBuffer: 50 * 1024 * 1024,
 			timeout: 480000
 		});
