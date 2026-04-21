@@ -11,17 +11,17 @@ export function getBrowserTemplate(
 	initialUrl: string,
 	projects: ProjectInfo[] = []
 ): string {
-    const nonce = getNonce();
-    const projectsJson = JSON.stringify(projects);
+	const nonce = getNonce();
+	const projectsJson = JSON.stringify(projects);
 
-    // ✅ Detect what's available at template generation time
-    const hasFrontend = projects.some(p => p.category === 'frontend');
-    const hasBackend  = projects.some(p => p.category === 'backend');
+	// ✅ Detect what's available at template generation time
+	const hasFrontend = projects.some(p => p.category === 'frontend');
+	const hasBackend = projects.some(p => p.category === 'backend');
 
-    // ✅ Decide initial mode
-    const initialMode = hasFrontend ? 'frontend' : hasBackend ? 'backend' : 'frontend';
+	// ✅ Decide initial mode
+	const initialMode = hasFrontend ? 'frontend' : hasBackend ? 'backend' : 'frontend';
 
-    return `<!DOCTYPE html>
+	return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -171,11 +171,6 @@ export function getBrowserTemplate(
     <button class="nav-btn" id="btn-pin" style="margin-left: 8px;" title="Pin Tab">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
         <path d="M11.5 1h-7l1 5-2 2v2h3v5l1 1 1-1v-5h3V8l-2-2 1-5z"/>
-      </svg>
-    </button>
-    <button class="nav-btn" id="btn-external" title="System Browser">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M1.5 1h13l1 1v13l-1 1h-13l-1-1v-13l1-1zm1 1v11h11v-11h-11z"/>
       </svg>
     </button>
   </div>
@@ -356,10 +351,10 @@ export function getBrowserTemplate(
 }
 
 function getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
