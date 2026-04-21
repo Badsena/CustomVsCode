@@ -247,7 +247,8 @@ async function resourcesToClipboard(resources: URI[], relative: boolean, clipboa
 
 const copyPathCommandHandler: ICommandHandler = async (accessor, resource: unknown) => {
 	const resources = getMultiSelectedResources(resource, accessor.get(IListService), accessor.get(IEditorService), accessor.get(IEditorGroupsService), accessor.get(IExplorerService));
-	await resourcesToClipboard(resources, false, accessor.get(IClipboardService), accessor.get(ILabelService), accessor.get(IConfigurationService));
+	// ✅ Amypo Security: Force relative path to prevent absolute path exposure via clipboard
+	await resourcesToClipboard(resources, true, accessor.get(IClipboardService), accessor.get(ILabelService), accessor.get(IConfigurationService));
 };
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
@@ -309,7 +310,8 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 		const activeInput = editorService.activeEditor;
 		const resource = EditorResourceAccessor.getOriginalUri(activeInput, { supportSideBySide: SideBySideEditor.PRIMARY });
 		const resources = resource ? [resource] : [];
-		await resourcesToClipboard(resources, false, accessor.get(IClipboardService), accessor.get(ILabelService), accessor.get(IConfigurationService));
+		// ✅ Amypo Security: Force relative path to prevent absolute path exposure via clipboard
+		await resourcesToClipboard(resources, true, accessor.get(IClipboardService), accessor.get(ILabelService), accessor.get(IConfigurationService));
 	}
 });
 

@@ -223,19 +223,19 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private readonly _amypoBlockedPatterns: { pattern: RegExp; label: string }[] = [
 		// ✅ Navigation Blocking — cd .. is handled by the smart check in _amypoIsBlocked()
 		// Do NOT add cd .. patterns here — they would override the smart subfolder logic!
-		{ pattern: /^\s*cd\s+[a-zA-Z]:[/\\]/i,        label: 'cd to drive' },
-		{ pattern: /^\s*cd\s+~\s*$/i,                 label: 'cd ~' },
-		{ pattern: /^\s*cd\s+[/\\]\s*$/i,             label: 'cd /' },
-		{ pattern: /^\s*cd\s*$(?!\s*\S)/i,            label: 'cd (empty)' },
+		{ pattern: /^\s*cd\s+[a-zA-Z]:[/\\]/i, label: 'cd to drive' },
+		{ pattern: /^\s*cd\s+~\s*$/i, label: 'cd ~' },
+		{ pattern: /^\s*cd\s+[/\\]\s*$/i, label: 'cd /' },
+		{ pattern: /^\s*cd\s*$(?!\s*\S)/i, label: 'cd (empty)' },
 
 		// File listing
-		{ pattern: /^\s*(?:dir|ls|tree)\b/i,          label: 'File listing restricted' },
+		{ pattern: /^\s*(?:dir|tree)\b/i, label: 'File listing restricted' },
 
 		// Delete / destructive
-		{ pattern: /^\s*(?:del|rm|rmdir|rd)\b/i,      label: 'File deletion restricted' },
+		{ pattern: /^\s*(?:del|rm|rmdir|rd)\b/i, label: 'File deletion restricted' },
 
 		// Copy / Move
-		{ pattern: /^\s*(?:copy|cp|move|mv)\b/i,      label: 'File modification restricted' },
+		{ pattern: /^\s*(?:copy|cp|move|mv)\b/i, label: 'File modification restricted' },
 
 		// Shell / Elevation / Network
 		{ pattern: /^\s*(?:sudo|bash|sh|zsh|pwsh|powershell|cmd|curl|wget)\b/i, label: 'Protected command restricted' },
@@ -508,6 +508,10 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				case TerminalCapability.CwdDetection: {
 					capabilityListeners.set(e.id, e.capability.onDidChangeCwd(e => {
 						this._cwd = e;
+						// ✅ Amypo: Keep tracked CWD in sync with Shell Integration ground truth
+						// This prevents false-positive blocks when the user hasn't done any manual cd yet
+						const sep = isWindows ? '\\' : '/';
+						this._amypoTrackedCwd = e.replace(/[\\/]/g, sep);
 						this._setTitle(this.title, TitleEventSource.Config);
 					}));
 					break;
@@ -567,6 +571,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		// ✅ Initialize Amypo tracking
 		const initialCwd = this._shellLaunchConfig.cwd;
 		this._initialCwd = initialCwd instanceof URI ? initialCwd.fsPath : (typeof initialCwd === 'string' ? initialCwd : undefined);
+		// Seed the tracked CWD immediately so the cd-blocker has a baseline from the very first keystroke
+		if (this._initialCwd) {
+			const sep = isWindows ? '\\' : '/';
+			this._amypoTrackedCwd = this._initialCwd.replace(/[\\/]/g, sep);
+		}
 
 		this._containerReadyBarrier = new AutoOpenBarrier(Constants.WaitForContainerThreshold);
 		this._attachBarrier = new AutoOpenBarrier(1000);
@@ -758,10 +767,14 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 						if (target === '..') {
 							// Go up one directory
 							const sep = isWindows ? '\\' : '/';
-							const parts = currentTracked.replace(/[\\/]/g, sep).split(sep).filter(Boolean);
+							const normalizedTracked = currentTracked.replace(/[\\/]/g, sep);
+							const parts = normalizedTracked.split(sep).filter(Boolean);
 							if (parts.length > 1) {
 								parts.pop();
-								this._amypoTrackedCwd = (isWindows ? '' : '/') + parts.join(sep);
+								// ✅ Fix: On Windows preserve drive letter (e.g. 'C:' stays as first part)
+								// On Windows: parts[0] = 'C:' → join gives 'C:\folder' (no leading sep needed)
+								// On Linux/Mac: parts[0] = 'home' → join gives 'home/folder' (needs leading '/')
+								this._amypoTrackedCwd = isWindows ? parts.join(sep) : '/' + parts.join(sep);
 							}
 						} else if (!path.isAbsolute(target)) {
 							const joined = path.join(currentTracked, target);
@@ -845,7 +858,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _amypoGetProjectRoot(): string | null {
 		try {
 			const sep = isWindows ? '\\' : '/';
-			
+
 			const folders = this._workspaceContextService.getWorkspace().folders;
 			if (folders && folders.length > 0) {
 				return folders[0].uri.fsPath.replace(/[\\/]/g, sep);
@@ -1789,9 +1802,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		// ✅ AMYPO CODER CORE - PowerShell Prompt Disguise
 		const projectRootForPrompt = this._amypoGetProjectRoot();
 		if (projectRootForPrompt) {
-			const isPwsh = (this._shellLaunchConfig.executable || this.shellType || 'powershell').toLowerCase().includes('powershell') || 
-						   (this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('pwsh');
-			
+			const isPwsh = (this._shellLaunchConfig.executable || this.shellType || 'powershell').toLowerCase().includes('powershell') ||
+				(this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('pwsh');
+
 			if (isPwsh) {
 				const promptOverride = `
 function prompt {
@@ -1854,32 +1867,29 @@ Clear-Host
 	}
 
 	private _onProcessData(ev: IProcessDataEvent): void {
-		// Amypo Security: Redact absolute workspace paths from terminal output before it hits the screen
+		// ✅ Amypo Security: Advanced Path Redactor
+		// Handles terminal line wrapping (\r\n) and PowerShell truncation (...)
 		if (this._workspaceContextService) {
 			const folders = this._workspaceContextService.getWorkspace().folders;
 			if (folders.length > 0) {
 				const workspacePath = folders[0].uri.fsPath;
 				
-				/* Previous simple redactor - Commented out for reference
-				const escapedPath = workspacePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-				const pattern = isWindows ? escapedPath.replace(/\\\\/g, '[\\\\\\/]') : escapedPath;
-				const regex = new RegExp(pattern, 'gi');
-				if (ev.data.toLowerCase().includes(workspacePath.toLowerCase()) || (isWindows && ev.data.includes(workspacePath.replace(/\\/g, '/')))) {
-					ev.data = ev.data.replace(regex, '[Amypo Assessment Workspace]');
-				}
-				*/
-
-				// Ultimate Scrubber: Detect the .amypo/workspace session folder dynamically
-				// This handles CLSIDs like {20D04FE...} and different slash types
-				const workspaceRootMatch = workspacePath.match(/.*\.amypo[\\\/]workspace[\\\/][^\\\/]+/i);
-				const rootToRedact = workspaceRootMatch ? workspaceRootMatch[0] : workspacePath;
-
-				const escapedRoot = rootToRedact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-				const rootPattern = isWindows ? escapedRoot.replace(/\\\\/g, '[\\\\\\/]') : escapedRoot;
-				const globalRegex = new RegExp(rootPattern, 'gi');
+				// 1. Full Path Redaction (Tolerates terminal line wraps \r\n mid-string)
+				const wrapPattern = workspacePath.split('')
+					.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex chars cleanly
+					.join('[\\r\\n]*'); // allow newlines between characters from terminal wrapping
+				const wrapRegex = new RegExp(wrapPattern, 'gi');
+				ev.data = ev.data.replace(wrapRegex, '[Amypo Workspace]');
 				
-				if (ev.data.toLowerCase().includes('amypo')) {
-					ev.data = ev.data.replace(globalRegex, '[Amypo Assessment Workspace]');
+				// 2. PowerShell Truncated Path Redaction (e.g. C:\Users\[User]\...[ID]})
+				const userMatch = workspacePath.match(/(?:[A-Za-z]:)?[\\\\\\/]Users[\\\\\\/][^\\\\\\/]+/i);
+				if (userMatch) {
+					const baseUserPattern = userMatch[0].split('')
+						.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+						.join('[\\r\\n]*');
+					// Match base user path + optional folders + ... + closing folder segment
+					const truncRegex = new RegExp(baseUserPattern + `(?:[^\\s'":()]+[\\\\\\/])*?\\.\\.\\.[^\\s'":()]+`, 'gi');
+					ev.data = ev.data.replace(truncRegex, '[Amypo Workspace]');
 				}
 			}
 		}

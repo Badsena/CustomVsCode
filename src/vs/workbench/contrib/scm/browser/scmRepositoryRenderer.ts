@@ -159,8 +159,9 @@ export class RepositoryRenderer implements ICompressibleTreeRenderer<ISCMReposit
 				: repository.provider.name;
 		}
 
+		// ✅ Amypo Security: Use relative path in SCM repo title tooltip to prevent absolute path exposure
 		const title = repository.provider.rootUri
-			? `${repository.provider.label}: ${this.labelService.getUriLabel(repository.provider.rootUri)}`
+			? `${repository.provider.label}: ${this.labelService.getUriLabel(repository.provider.rootUri, { relative: true })}`
 			: repository.provider.label;
 
 		templateData.label.setLabel(label, description, { title });

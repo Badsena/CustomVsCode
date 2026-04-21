@@ -718,6 +718,10 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			this._win = new electron.BrowserWindow(options);
 			mark('code/didCreateCodeBrowserWindow');
 
+			// ✅ Amypo Security: Prevent OS-level screenshots and screen recording
+			// This renders the window as a black box in Snipping Tool/OBS
+			this._win.setContentProtection(true);
+
 			this._id = this._win.id;
 			this.setWin(this._win, options);
 

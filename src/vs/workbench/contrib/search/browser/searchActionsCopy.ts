@@ -146,7 +146,8 @@ async function copyPathCommand(accessor: ServicesAccessor, fileMatch: ISearchTre
 	const clipboardService = accessor.get(IClipboardService);
 	const labelService = accessor.get(ILabelService);
 
-	const text = labelService.getUriLabel(fileMatch.resource, { noPrefix: true });
+	// ✅ Amypo Security: Use relative path to prevent absolute path exposure in clipboard
+	const text = labelService.getUriLabel(fileMatch.resource, { relative: true, noPrefix: true });
 	await clipboardService.writeText(text);
 }
 
@@ -235,7 +236,8 @@ function fileMatchToString(fileMatch: ISearchTreeFileMatch, labelService: ILabel
 	const matchTextRows = fileMatch.matches()
 		.sort(searchMatchComparer)
 		.map(match => matchToString(match, 2));
-	const uriString = labelService.getUriLabel(fileMatch.resource, { noPrefix: true });
+	// ✅ Amypo Security: Use relative path to prevent absolute path exposure in Copy All
+	const uriString = labelService.getUriLabel(fileMatch.resource, { relative: true, noPrefix: true });
 	return {
 		text: `${uriString}${lineDelimiter}${matchTextRows.join(lineDelimiter)}`,
 		count: matchTextRows.length

@@ -205,6 +205,14 @@ export class CodeApplication extends Disposable {
 		]);
 
 		session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
+
+
+			
+			// ✅ Amypo Security: Block internal screen sharing / recording APIs
+			if ((permission as string) === 'display-capture') {
+				return callback(false);
+			}
+
 			if (isUrlFromWebview(details.requestingUrl)) {
 				return callback(allowedPermissionsInWebview.has(permission));
 			}
@@ -215,6 +223,11 @@ export class CodeApplication extends Disposable {
 		});
 
 		session.defaultSession.setPermissionCheckHandler((_webContents, permission, _origin, details) => {
+			// ✅ Amypo Security: Block internal screen sharing / recording APIs
+			if ((permission as string) === 'display-capture') {
+				return false;
+			}
+
 			if (isUrlFromWebview(details.requestingUrl)) {
 				return allowedPermissionsInWebview.has(permission);
 			}
@@ -423,6 +436,10 @@ export class CodeApplication extends Disposable {
 		// !!! DO NOT CHANGE without consulting the documentation !!!
 		//
 		app.on('web-contents-created', (event, contents) => {
+			// ✅ Amypo Security: Aggressively close DevTools if someone forces them open via extensions/flags
+			contents.on('devtools-opened', () => {
+				contents.closeDevTools();
+			});
 
 			// Auxiliary Window: delegate to `AuxiliaryWindow` class
 			if (contents?.opener?.url.startsWith(`${Schemas.vscodeFileResource}://${VSCODE_AUTHORITY}/`)) {
@@ -532,8 +549,9 @@ export class CodeApplication extends Disposable {
 			return this.resolveShellEnvironment(args, env, false);
 		});
 
-		validatedIpcMain.on('vscode:toggleDevTools', event => event.sender.toggleDevTools());
-		validatedIpcMain.on('vscode:openDevTools', event => event.sender.openDevTools());
+		// ✅ Amypo Security: Disable Developer Tools from IPC to prevent Node Screenshots
+		validatedIpcMain.on('vscode:toggleDevTools', event => { /* blocked */ });
+		validatedIpcMain.on('vscode:openDevTools', event => { /* blocked */ });
 
 		validatedIpcMain.on('vscode:reloadWindow', event => event.sender.reload());
 

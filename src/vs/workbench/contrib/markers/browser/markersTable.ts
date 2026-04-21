@@ -225,7 +225,8 @@ class MarkerFileColumnRenderer implements ITableRenderer<MarkerTableItem, IMarke
 	renderElement(element: MarkerTableItem, index: number, templateData: IMarkerFileColumnTemplateData): void {
 		const positionLabel = Messages.MARKERS_PANEL_AT_LINE_COL_NUMBER(element.marker.startLineNumber, element.marker.startColumn);
 
-		templateData.columnElement.title = `${this.labelService.getUriLabel(element.marker.resource, { relative: false })} ${positionLabel}`;
+		// ✅ Amypo Security: Use relative path in tooltip to prevent absolute path exposure
+		templateData.columnElement.title = `${this.labelService.getUriLabel(element.marker.resource, { relative: true })} ${positionLabel}`;
 		templateData.fileLabel.set(this.labelService.getUriLabel(element.marker.resource, { relative: true }), element.fileMatches);
 		templateData.positionLabel.set(positionLabel, undefined);
 	}

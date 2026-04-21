@@ -38,6 +38,9 @@ const enum WindowSettingNames {
 	title = 'window.title',
 }
 
+// ✅ Amypo Security: Locked window title — only use safe, non-path-revealing variables.
+// Do NOT use ${activeEditorLong}, ${rootPath}, ${folderPath}, ${activeFolderLong} etc.
+// as they expose absolute file system paths in the title bar.
 export const defaultWindowTitle = (() => {
 	if (isMacintosh && isNative) {
 		return '${activeEditorShort}${separator}${rootName}${separator}${profileName}'; // macOS has native dirty indicator
