@@ -287,7 +287,12 @@ export async function verifySpringBoot(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			testResults.total = request.testcase_count;
-			testResults.passed = Math.max(0, testResults.total - testResults.failed - testResults.skipped - testResults.errors);
+			if (testResults.passed > 0) {
+				testResults.passed = Math.max(0, testResults.total - testResults.failed - testResults.skipped - testResults.errors);
+			} else {
+				testResults.passed = 0;
+				testResults.failed = testResults.total;
+			}
 		}
 
 		return {
@@ -383,7 +388,12 @@ export async function verifyReact(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			parsedResults.total = request.testcase_count;
-			parsedResults.passed = Math.max(0, parsedResults.total - parsedResults.failed);
+			if (parsedResults.passed > 0) {
+				parsedResults.passed = Math.max(0, parsedResults.total - parsedResults.failed);
+			} else {
+				parsedResults.passed = 0;
+				parsedResults.failed = parsedResults.total;
+			}
 		}
 
 		return {
@@ -505,9 +515,9 @@ export async function verifyFullStack(request: VerificationRequest) {
 		const testDuration = ((Date.now() - testStartTime) / 1000).toFixed(2);
 		console.log(`✓ Fullstack Tests completed in ${testDuration} seconds`);
 
-		const total = springResults.total + reactResults.total;
-		const passed = springResults.passed + reactResults.passed;
-		const failed = springResults.failed + reactResults.failed;
+		let total = springResults.total + reactResults.total;
+		let passed = springResults.passed + reactResults.passed;
+		let failed = springResults.failed + reactResults.failed;
 		const skipped = springResults.skipped + reactResults.skipped;
 		const errors = springResults.errors + reactResults.errors;
 
@@ -524,7 +534,12 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			aggregatedResults.total = request.testcase_count;
-			aggregatedResults.passed = Math.max(0, aggregatedResults.total - aggregatedResults.failed);
+			if (aggregatedResults.passed > 0) {
+				aggregatedResults.passed = Math.max(0, aggregatedResults.total - aggregatedResults.failed);
+			} else {
+				aggregatedResults.passed = 0;
+				aggregatedResults.failed = aggregatedResults.total;
+			}
 		}
 
 		const fullOutput = `======= SPRING BOOT =======\n${springExec.stdout}\n${springExec.stderr}\n\n======= REACT =======\n${reactExec.stdout}\n${reactExec.stderr}`;
@@ -687,7 +702,12 @@ export async function verifySelenium(request: VerificationRequest) {
 
 		if (request.testcase_count && request.testcase_count > 0) {
 			results.total = request.testcase_count;
-			results.passed = Math.max(0, results.total - results.failed);
+			if (results.passed > 0) {
+				results.passed = Math.max(0, results.total - results.failed);
+			} else {
+				results.passed = 0;
+				results.failed = results.total;
+			}
 		}
 
 		return {

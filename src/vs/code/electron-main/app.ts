@@ -207,7 +207,7 @@ export class CodeApplication extends Disposable {
 		session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
 
 
-			
+
 			// ✅ Amypo Security: Block internal screen sharing / recording APIs
 			if ((permission as string) === 'display-capture') {
 				return callback(false);
@@ -552,6 +552,9 @@ export class CodeApplication extends Disposable {
 		// ✅ Amypo Security: Disable Developer Tools from IPC to prevent Node Screenshots
 		validatedIpcMain.on('vscode:toggleDevTools', event => { /* blocked */ });
 		validatedIpcMain.on('vscode:openDevTools', event => { /* blocked */ });
+
+		// validatedIpcMain.on('vscode:toggleDevTools', event => {event.sender.toggleDevTools(); });
+		// validatedIpcMain.on('vscode:openDevTools', event => {event.sender.openDevTools(); });
 
 		validatedIpcMain.on('vscode:reloadWindow', event => event.sender.reload());
 

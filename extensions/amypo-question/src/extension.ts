@@ -244,10 +244,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4164;
+	const STATIC_ALLOCATION_ID = 4163;
 	const STATIC_TEST_TYPE = 0;
 	const STATIC_TOKEN = '285788|Ka3jbYs6cpXXlaKt0JiW52Fc5WocUp0jbXLvngwn0bbfa04c';
-	const STATIC_MODULE_ID = 1019;
+	const STATIC_MODULE_ID = 1018;
 
 	//  State
 	let currentAllocationData: any = null;
@@ -1159,6 +1159,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			let total_testcases = 0;
 			const fullQuestion = cachedQuestion?.payload;
 			if (fullQuestion?.testcaseCount) {
+
+				console.log('testcaseCount', fullQuestion.testcaseCount);
+
 				try {
 					const test_count = typeof fullQuestion.testcaseCount === 'string'
 						? JSON.parse(fullQuestion.testcaseCount)
@@ -1171,7 +1174,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					} else if (currentProjectType === 'selenium') {
 						total_testcases = parseInt(test_count?.selenium, 10) || 0;
 					} else if (currentProjectType === 'fullstack') {
-						total_testcases = (parseInt(test_count?.spring, 10) || 0) + (parseInt(test_count?.react, 10) || 0);
+						total_testcases = (parseInt(test_count?.backend, 10) || 0) + (parseInt(test_count?.frontend, 10) || 0);
 					}
 				} catch (e) { }
 			}
@@ -1232,6 +1235,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				let user_mark = question?.mark ?? 0;
 
 				console.log('total_testcases', total_testcases);
+				console.log('result?.test_results', result?.test_results);
+
 
 
 				if (result?.test_results) {
