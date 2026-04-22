@@ -229,7 +229,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		{ pattern: /^\s*cd\s*$(?!\s*\S)/i, label: 'cd (empty)' },
 
 		// File listing
-		{ pattern: /^\s*(?:dir|tree)\b/i, label: 'File listing restricted' },
+		{ pattern: /^\s*(?:dir|ls|tree)\b/i, label: 'File listing restricted' },
 
 		// Delete / destructive
 		{ pattern: /^\s*(?:del|rm|rmdir|rd)\b/i, label: 'File deletion restricted' },
@@ -1873,14 +1873,14 @@ Clear-Host
 			const folders = this._workspaceContextService.getWorkspace().folders;
 			if (folders.length > 0) {
 				const workspacePath = folders[0].uri.fsPath;
-				
+
 				// 1. Full Path Redaction (Tolerates terminal line wraps \r\n mid-string)
 				const wrapPattern = workspacePath.split('')
 					.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex chars cleanly
 					.join('[\\r\\n]*'); // allow newlines between characters from terminal wrapping
 				const wrapRegex = new RegExp(wrapPattern, 'gi');
 				ev.data = ev.data.replace(wrapRegex, '[Amypo Workspace]');
-				
+
 				// 2. PowerShell Truncated Path Redaction (e.g. C:\Users\[User]\...[ID]})
 				const userMatch = workspacePath.match(/(?:[A-Za-z]:)?[\\\\\\/]Users[\\\\\\/][^\\\\\\/]+/i);
 				if (userMatch) {

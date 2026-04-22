@@ -78,11 +78,10 @@ export class WorkspaceTrustEnablementService extends Disposable implements IWork
 	}
 
 	isWorkspaceTrustEnabled(): boolean {
-		if (this.environmentService.disableWorkspaceTrust) {
-			return false;
-		}
-
-		return !!this.configurationService.getValue(WORKSPACE_TRUST_ENABLED);
+		// Suppress unused property errors while disabling the feature
+		this.environmentService;
+		this.configurationService;
+		return false;
 	}
 }
 

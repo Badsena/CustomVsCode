@@ -261,16 +261,16 @@ export function getBrowserTemplate(
       overlay.classList.add('hidden');
     });
 
-    document.getElementById('btn-refresh').addEventListener('click', () => { navigateTo(frame.src); });
-    document.getElementById('btn-external').addEventListener('click', () => { vscode.postMessage({ type: 'openExternal', url: frame.src }); });
-    document.getElementById('btn-pin').addEventListener('click', () => { vscode.postMessage({ type: 'pin' }); });
-    devToolsBtn.addEventListener('click', () => {
+    document.getElementById('btn-refresh')?.addEventListener('click', () => { navigateTo(frame.src); });
+    document.getElementById('btn-external')?.addEventListener('click', () => { vscode.postMessage({ type: 'openExternal', url: frame.src }); });
+    document.getElementById('btn-pin')?.addEventListener('click', () => { vscode.postMessage({ type: 'pin' }); });
+    devToolsBtn?.addEventListener('click', () => {
       const currentUrl = frame.src || '';
       vscode.postMessage({ type: 'toggleDevTools', currentUrl });
     });
-    document.getElementById('btn-back').addEventListener('click', () => { try { frame.contentWindow.history.back(); } catch {} });
-    document.getElementById('btn-open-folder').addEventListener('click', () => { vscode.postMessage({ type: 'openFolder' }); });
-    urlBar.addEventListener('keydown', (e) => { if (e.key === 'Enter') { navigateTo(urlBar.value.trim()); } });
+    document.getElementById('btn-back')?.addEventListener('click', () => { try { frame.contentWindow.history.back(); } catch {} });
+    document.getElementById('btn-open-folder')?.addEventListener('click', () => { vscode.postMessage({ type: 'openFolder' }); });
+    urlBar?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { navigateTo(urlBar.value.trim()); } });
 
     document.querySelectorAll('.mode-tab').forEach(tab => {
       tab.addEventListener('click', () => {

@@ -127,6 +127,9 @@
 		"javascript.suggest.enabled": true,
 		"javascript.validate.enable": true,
 		"typescript.suggest.enabled": true,
+		"js/ts.suggest.autoImports": true,
+		"javascript.suggest.autoImports": true,
+		"typescript.suggest.autoImports": true,
 		"editor.quickSuggestions": {
 			"other": true,
 			"comments": false,

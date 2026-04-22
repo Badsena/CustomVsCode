@@ -550,11 +550,11 @@ export class CodeApplication extends Disposable {
 		});
 
 		// ✅ Amypo Security: Disable Developer Tools from IPC to prevent Node Screenshots
-		validatedIpcMain.on('vscode:toggleDevTools', event => { /* blocked */ });
-		validatedIpcMain.on('vscode:openDevTools', event => { /* blocked */ });
+		// validatedIpcMain.on('vscode:toggleDevTools', event => { /* blocked */ });
+		// validatedIpcMain.on('vscode:openDevTools', event => { /* blocked */ });
 
-		// validatedIpcMain.on('vscode:toggleDevTools', event => {event.sender.toggleDevTools(); });
-		// validatedIpcMain.on('vscode:openDevTools', event => {event.sender.openDevTools(); });
+		validatedIpcMain.on('vscode:toggleDevTools', event => {event.sender.toggleDevTools(); });
+		validatedIpcMain.on('vscode:openDevTools', event => {event.sender.openDevTools(); });
 
 		validatedIpcMain.on('vscode:reloadWindow', event => event.sender.reload());
 
