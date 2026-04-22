@@ -332,9 +332,16 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .report-btn { color: #ff7675; border: 1px solid #fab1a0; border-radius: 6px; padding: 6px 16px; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
                 .report-btn:hover { background-color: var(--vscode-list-hoverBackground, #ffeaa7); }
 
-                .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-foreground, #2d3436); }
+                .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-foreground, #2d3436); user-select: none; -webkit-user-select: none; }
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
-                .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
+                .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; overflow-wrap: break-word; }
+                .q-description img { max-width: 100%; height: auto; margin: 20px 0 32px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block !important; float: none !important; }
+                .q-description ul, .q-description ol { padding-left: 24px; margin-bottom: 16px; overflow: hidden; }
+                .q-description li { margin-bottom: 8px; }
+                .q-description table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+                .q-description th, .q-description td { border: 1px solid var(--vscode-widget-border, #dfe4ea); padding: 8px 12px; text-align: left; }
+                .q-description pre { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 16px 0; font-family: var(--vscode-editor-font-family, monospace); }
+                .q-description code { font-family: var(--vscode-editor-font-family, monospace); background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 4px; }
 
                 .action-bar {
                     position: absolute;
