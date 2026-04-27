@@ -140,7 +140,20 @@
 		"editor.wordBasedSuggestions": "matchingDocuments",
 
 		"editor.definitionLinkOpensInPeek": false,
-		"javascript.preferences.importModuleSpecifier": "relative"
+		"javascript.preferences.importModuleSpecifier": "relative",
+		
+		"files.watcherExclude": {
+			"**/*{20D04FE0-3AEA-1069-A2D8-08002B30309D}/**": true,
+			"**/.git/objects/**": true,
+			"**/.git/subtree-cache/**": true,
+			"**/node_modules/*/**": true,
+			"**/.hg/store/**": true
+		},
+		"typescript.tsserver.watchOptions": {
+			"watchFile": "dynamicPriorityPolling",
+			"watchDirectory": "dynamicPriorityPolling",
+			"fallbackPolling": "dynamicPriority"
+		}
 	},
 	"amypoSecretKey": "AMY-X9K2-2026-SECURE",
 	"amypoGithubToken": "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",
