@@ -126,6 +126,64 @@ export class DevToolsProxy {
 	 * Handle an incoming proxy request.
 	 */
 	private _handleRequest(clientReq: http.IncomingMessage, clientRes: http.ServerResponse): void {
+		// ── Transparent CORS Proxy for Backend APIs ──
+		if (clientReq.url && clientReq.url.startsWith('/__amypo_cors_proxy__/')) {
+			// Handle Preflight
+			if (clientReq.method === 'OPTIONS') {
+				clientRes.setHeader('Access-Control-Allow-Origin', '*');
+				clientRes.setHeader('Access-Control-Allow-Methods', '*');
+				clientRes.setHeader('Access-Control-Allow-Headers', '*');
+				clientRes.writeHead(200);
+				clientRes.end();
+				return;
+			}
+
+			const match = clientReq.url.match(/^\/__amypo_cors_proxy__\/(\d+)(.*)/);
+			if (match) {
+				const backendPort = parseInt(match[1], 10);
+				const realPath = match[2] || '/';
+
+				const headers = { ...clientReq.headers };
+				headers['host'] = `localhost:${backendPort}`;
+				headers.origin = `http://localhost:${this._targetPort}`;
+				if (headers.referer) {
+					headers.referer = `http://localhost:${this._targetPort}/`;
+				}
+
+				const options: http.RequestOptions = {
+					hostname: 'localhost',
+					port: backendPort,
+					path: realPath,
+					method: clientReq.method,
+					headers: headers,
+				};
+
+				const proxyReq = http.request(options, (proxyRes) => {
+					// Inject CORS headers so browser doesn't complain
+					clientRes.setHeader('Access-Control-Allow-Origin', '*');
+					clientRes.setHeader('Access-Control-Allow-Methods', '*');
+					clientRes.setHeader('Access-Control-Allow-Headers', '*');
+					
+					// Remove existing CORS headers from backend to avoid duplicates
+					const resHeaders = { ...proxyRes.headers };
+					delete resHeaders['access-control-allow-origin'];
+					delete resHeaders['access-control-allow-methods'];
+					delete resHeaders['access-control-allow-headers'];
+
+					clientRes.writeHead(proxyRes.statusCode || 200, resHeaders);
+					proxyRes.pipe(clientRes);
+				});
+
+				proxyReq.on('error', (err) => {
+					clientRes.writeHead(502);
+					clientRes.end('CORS Proxy Error: ' + err.message);
+				});
+
+				clientReq.pipe(proxyReq);
+				return;
+			}
+		}
+
 		// ── Serve local eruda.js directly from the proxy ──
 		if (clientReq.url === '/__amypo__/eruda.js') {
 			if (fs.existsSync(this._erudaFilePath)) {
@@ -138,15 +196,28 @@ export class DevToolsProxy {
 			return;
 		}
 
+		const headers = { ...clientReq.headers };
+		headers['host'] = `localhost:${this._targetPort}`;
+		
+		// ✅ Fix CORS and "Invalid Host header" errors:
+		// Spoof the Origin and Referer so the dev server and backend think 
+		// the request is coming from their own port, not the proxy port.
+		if (headers.origin) {
+			headers.origin = `http://localhost:${this._targetPort}`;
+		}
+		if (headers.referer) {
+			headers.referer = (headers.referer as string).replace(
+				`localhost:${this._proxyPort}`, 
+				`localhost:${this._targetPort}`
+			);
+		}
+
 		const options: http.RequestOptions = {
 			hostname: 'localhost',
 			port: this._targetPort,
 			path: clientReq.url,
 			method: clientReq.method,
-			headers: {
-				...clientReq.headers,
-				host: `localhost:${this._targetPort}`,
-			},
+			headers: headers,
 		};
 
 		// Remove accept-encoding to get plain text (easier to inject)
@@ -210,7 +281,7 @@ export class DevToolsProxy {
 		});
 
 		stream.on('end', () => {
-			let rawData = Buffer.concat(chunks).toString('utf8');
+			const rawData = Buffer.concat(chunks).toString('utf8');
 			let html = rawData;
 
 			// ── If not HTML (e.g. JSON/Text), wrap in a basic shell so eruda can load ──
@@ -218,8 +289,39 @@ export class DevToolsProxy {
 				html = `<!DOCTYPE html><html><head><title>Amypo DevTools Proxy</title></head><body><pre style="word-wrap: break-word; white-space: pre-wrap;">${rawData}</pre></body></html>`;
 			}
 
-			// ── Inject eruda.js ──
+			// ── Inject eruda.js and CORS Bypass Wrapper ──
 			const erudaScript = `
+<!-- Amypo DevTools CORS Bypass -->
+<script>
+(function() {
+  const proxyPort = ${this._proxyPort};
+  
+  // Rewrite Fetch
+  const origFetch = window.fetch;
+  window.fetch = function(...args) {
+    if (typeof args[0] === 'string') {
+      const match = args[0].match(/^http:\\/\\/localhost:(\\d+)(.*)/);
+      if (match && parseInt(match[1]) !== proxyPort) {
+        args[0] = '/__amypo_cors_proxy__/' + match[1] + match[2];
+      }
+    }
+    return origFetch.apply(this, args);
+  };
+
+  // Rewrite XHR
+  const origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    if (typeof url === 'string') {
+      const match = url.match(/^http:\\/\\/localhost:(\\d+)(.*)/);
+      if (match && parseInt(match[1]) !== proxyPort) {
+        url = '/__amypo_cors_proxy__/' + match[1] + match[2];
+      }
+    }
+    return origOpen.call(this, method, url, ...rest);
+  };
+})();
+</script>
+
 <!-- Amypo DevTools: eruda.js injection -->
 <script src="/__amypo__/eruda.js"></script>
 <script>
@@ -230,18 +332,42 @@ export class DevToolsProxy {
         useShadowDom: true,
         autoScale: true
       });
+
+      // ✅ Prevent Eruda from covering the bottom of the webpage (like footers and buttons)
+      const adjustViewport = (isShown) => {
+        if (isShown) {
+          document.documentElement.style.setProperty('padding-bottom', '50vh', 'important');
+        } else {
+          document.documentElement.style.removeProperty('padding-bottom');
+        }
+      };
+
+      // Override show and hide methods since eruda.on doesn't exist in all versions
+      const origShow = eruda.show;
+      eruda.show = function() {
+        adjustViewport(true);
+        return origShow.apply(this, arguments);
+      };
+
+      const origHide = eruda.hide;
+      eruda.hide = function() {
+        adjustViewport(false);
+        return origHide.apply(this, arguments);
+      };
+
       eruda.show();
+      adjustViewport(true);
     }
   } catch(e) { console.warn('eruda init failed:', e); }
 </script>`;
 
-			// Try to inject before </head>, fallback to before </body>, fallback to end
-			if (html.includes('</head>')) {
-				html = html.replace('</head>', erudaScript + '\n</head>');
-			} else if (html.includes('</body>')) {
-				html = html.replace('</body>', erudaScript + '\n</body>');
+			// ✅ Inject at the VERY TOP of <head> so it overrides fetch/XHR before React/Angular loads!
+			if (html.match(/<head[^>]*>/i)) {
+				html = html.replace(/(<head[^>]*>)/i, '$1\n' + erudaScript);
+			} else if (html.match(/<html[^>]*>/i)) {
+				html = html.replace(/(<html[^>]*>)/i, '$1\n' + erudaScript);
 			} else {
-				html += erudaScript;
+				html = erudaScript + html;
 			}
 
 			// Build response headers (remove original encoding since we decompressed)
