@@ -63,7 +63,17 @@ export function getShellProcessTooltip(instance: ITerminalInstance, showDetailed
 		} else {
 			commandLine += instance.shellLaunchConfig.executable;
 		}
-		const args = asArray(instance.injectedArgs || instance.shellLaunchConfig.args || []).map(x => x.match(/\s/) ? `'${x}'` : x).join(' ');
+		const rawArgs = asArray(instance.injectedArgs || instance.shellLaunchConfig.args || []);
+		let args = rawArgs.map(x => x.match(/\s/) ? `'${x}'` : x).join(' ');
+
+		// ✅ Amypo Security: Mask the injected powershell prompt script so it doesn't leak the absolute project path
+		if (args.includes('function prompt {') && args.includes('amypo')) {
+			args = '-NoExit [Amypo Protected Environment]';
+		} else {
+			// Catch-all: hide any raw path that looks like the Amypo workspace path
+			args = args.replace(/[a-zA-Z]:\\[^\s"']*amypo[^\s"']*/gi, '[Virtual Workspace]');
+		}
+
 		if (args) {
 			commandLine += ` ${args}`;
 		}

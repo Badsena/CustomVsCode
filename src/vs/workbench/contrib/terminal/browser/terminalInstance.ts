@@ -868,7 +868,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			if (launchCwd) {
 				const pathStr = typeof launchCwd === 'string'
 					? launchCwd
-					: (launchCwd as any).fsPath || launchCwd.toString();
+					: (launchCwd && typeof (launchCwd as { fsPath?: string }).fsPath === 'string')
+						? (launchCwd as { fsPath: string }).fsPath
+						: launchCwd.toString();
 				return pathStr.replace(/[\\/]/g, sep);
 			}
 
@@ -1799,11 +1801,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this.xterm?.resize(this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows);
 		}
 
-		// ✅ AMYPO CODER CORE - PowerShell Prompt Disguise
+		// ✅ AMYPO CODER CORE - PowerShell & CMD Prompt Disguise
 		const projectRootForPrompt = this._amypoGetProjectRoot();
 		if (projectRootForPrompt) {
 			const isPwsh = (this._shellLaunchConfig.executable || this.shellType || 'powershell').toLowerCase().includes('powershell') ||
 				(this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('pwsh');
+			const isCmd = (this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('cmd');
 
 			if (isPwsh) {
 				const promptOverride = `
@@ -1823,10 +1826,23 @@ function prompt {
         "PS amypo($projectName):\\$relative> "
     }
 }
+# ✅ Amypo Security: Override Set-Location to prevent absolute path leakage in native PowerShell errors
+function Set-Location {
+    try {
+        Microsoft.PowerShell.Management\\Set-Location @args -ErrorAction Stop
+    } catch [System.Management.Automation.ItemNotFoundException] {
+        Write-Host "cd : Cannot find path because it does not exist." -ForegroundColor Red
+    } catch {
+        Write-Host $_.Exception.Message -ForegroundColor Red
+    }
+}
 Clear-Host
 `;
 				// Inject the prompt override into shell args
 				this._shellLaunchConfig.args = ['-NoExit', '-Command', promptOverride];
+			} else if (isCmd) {
+				// ✅ For cmd.exe, we must use a static prompt to prevent conpty cursor desynchronization.
+				this._shellLaunchConfig.args = ['/k', 'prompt [Amypo Workspace]$G '];
 			}
 		}
 
@@ -1867,30 +1883,41 @@ Clear-Host
 	}
 
 	private _onProcessData(ev: IProcessDataEvent): void {
-		// ✅ Amypo Security: Advanced Path Redactor
-		// Handles terminal line wrapping (\r\n) and PowerShell truncation (...)
+		// ✅ Amypo Security: Advanced Path Redactor & Cursor Synchronizer
+		// Handles terminal line wrapping, PowerShell truncation, and Conpty Cursor Alignment
 		if (this._workspaceContextService) {
 			const folders = this._workspaceContextService.getWorkspace().folders;
 			if (folders.length > 0) {
 				const workspacePath = folders[0].uri.fsPath;
+				const replacement = '[Amypo Workspace]';
 
-				// 1. Full Path Redaction (Tolerates terminal line wraps \r\n mid-string)
+				// Flexible gap allows newlines, spaces (from PowerShell error indents), and ANSI escape codes
+				const flexibleGap = '(?:[\\r\\n\\s]|\\x1b\\[[0-9;]*[a-zA-Z])*';
+
+				// 1. Full Path Redaction
 				const wrapPattern = workspacePath.split('')
 					.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex chars cleanly
-					.join('[\\r\\n]*'); // allow newlines between characters from terminal wrapping
+					.join(flexibleGap); 
 				const wrapRegex = new RegExp(wrapPattern, 'gi');
-				ev.data = ev.data.replace(wrapRegex, '[Amypo Workspace]');
+				
+				if (ev.data.match(wrapRegex)) {
+					ev.data = ev.data.replace(wrapRegex, replacement);
+				}
 
-				// 2. PowerShell Truncated Path Redaction (e.g. C:\Users\[User]\...[ID]})
+				// 2. PowerShell Truncated Path Redaction (e.g. C:\Use \r\n  rs\Admin\...[ID]})
 				const userMatch = workspacePath.match(/(?:[A-Za-z]:)?[\\\\\\/]Users[\\\\\\/][^\\\\\\/]+/i);
 				if (userMatch) {
 					const baseUserPattern = userMatch[0].split('')
 						.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-						.join('[\\r\\n]*');
-					// Match base user path + optional folders + ... + closing folder segment
-					const truncRegex = new RegExp(baseUserPattern + `(?:[^\\s'":()]+[\\\\\\/])*?\\.\\.\\.[^\\s'":()]+`, 'gi');
-					ev.data = ev.data.replace(truncRegex, '[Amypo Workspace]');
+						.join(flexibleGap);
+					// Match base user path + optional wrapped folders + ... + closing segment
+					const truncRegex = new RegExp(baseUserPattern + `(?:[^\\s'":()]|` + flexibleGap + `)*?\\.\\.\\.(?:[^\\s'":()]|` + flexibleGap + `)*`, 'gi');
+					ev.data = ev.data.replace(truncRegex, replacement);
 				}
+
+				// 3. PowerShell Error Polish: Remove the [Amypo Workspace] path entirely from native errors
+				ev.data = ev.data.replace(/Cannot find path(?:[\r\n\s]|\x1b\[[0-9;]*[a-zA-Z])*'\[Amypo Workspace\][^']*'/gi, 'Cannot find path');
+				ev.data = ev.data.replace(/\(\[Amypo Workspace\][^:]*:/gi, '(');
 			}
 		}
 
