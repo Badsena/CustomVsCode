@@ -141,7 +141,7 @@ function ensureOutputEnds(name: string, input: NodeJS.ReadableStream, output: No
 			if (ended) {
 				return;
 			}
-			console.log(`[build] Safety timeout triggered for ${name} (stalled for 60s)`);
+			console.log(`[build] Safety timeout triggered for ${name} (stalled for 300s)`);
 			try {
 				(output as any).end?.();
 				(duplex as any).emit?.('end');
@@ -151,7 +151,7 @@ function ensureOutputEnds(name: string, input: NodeJS.ReadableStream, output: No
 			} catch (e) {
 				console.error(`[build] Error in safety timeout for ${name}: ${e}`);
 			}
-		}, 60000); // 60s grace period for large I/O
+		}, 300000); // 300s grace period for large I/O
 	});
 }
 

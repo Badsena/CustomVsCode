@@ -86,6 +86,7 @@ export class PreviewManager {
                                 this.navigate(`http://localhost:${port}`);
                             }
                         });
+                        this.refreshStatus();
                     }
                 }
             });
@@ -99,18 +100,19 @@ export class PreviewManager {
                     this._currentProjects = this._currentProjects.filter(p => !(p.type === 'dynamic' && p.port === port));
                 });
                 this._terminalPorts.delete(terminal);
-                if (this._panel) {
-                    this._panel.webview.postMessage({
-                        type: 'updateProjects',
-                        projects: this._currentProjects
-                    });
-                }
+                this.refreshStatus();
             }
         });
     }
 
     public refreshStatus(): void {
         this._onStatusChange.fire();
+        if (this._panel) {
+            this._panel.webview.postMessage({
+                type: 'updateProjects',
+                projects: this._currentProjects
+            });
+        }
     }
 
     public static getInstance(extensionUri: vscode.Uri): PreviewManager {
@@ -122,6 +124,10 @@ export class PreviewManager {
 
     public get isOpen(): boolean {
         return !!this._panel;
+    }
+
+    public get isServerRunning(): boolean {
+        return this._dynamicPorts.size > 0;
     }
 
     // ✅ Fixed toggle — if closing just close, if opening use current projects

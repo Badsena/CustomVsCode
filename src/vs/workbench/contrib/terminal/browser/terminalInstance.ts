@@ -1,4 +1,4 @@
-/*---------------------------------------------------------------------------------------------
+﻿/*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
@@ -170,7 +170,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _fixedCols: number | undefined;
 	private _fixedRows: number | undefined;
 	private _cwd: string | undefined = undefined;
-	private _amypoTrackedCwd: string | undefined = undefined;
 	private _initialCwd: string | undefined = undefined;
 	private _injectedArgs: string[] | undefined = undefined;
 	private _layoutSettingsChanged: boolean = true;
@@ -219,42 +218,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	}
 
 	private _isVisible: boolean;
-	private _amypoInputBuffer: string = '';
-	private readonly _amypoBlockedPatterns: { pattern: RegExp; label: string }[] = [
-		// ✅ Navigation Blocking — cd .. is handled by the smart check in _amypoIsBlocked()
-		// Do NOT add cd .. patterns here — they would override the smart subfolder logic!
-		{ pattern: /^\s*cd\s+[a-zA-Z]:[/\\]/i, label: 'cd to drive' },
-		{ pattern: /^\s*cd\s+~\s*$/i, label: 'cd ~' },
-		{ pattern: /^\s*cd\s+[/\\]\s*$/i, label: 'cd /' },
-		{ pattern: /^\s*cd\s*$(?!\s*\S)/i, label: 'cd (empty)' },
-
-		// File listing
-		{ pattern: /^\s*(?:dir|ls|tree)\b/i, label: 'File listing restricted' },
-
-		// Delete / destructive
-		{ pattern: /^\s*(?:del|rm|rmdir|rd)\b/i, label: 'File deletion restricted' },
-
-		// Copy / Move
-		{ pattern: /^\s*(?:copy|cp|move|mv)\b/i, label: 'File modification restricted' },
-
-		// Shell / Elevation / Network
-		{ pattern: /^\s*(?:sudo|bash|sh|zsh|pwsh|powershell|cmd|curl|wget)\b/i, label: 'Protected command restricted' },
-
-		// Applications
-		{ pattern: /^\s*(?:start|explorer|notepad|code|cursor|windsurf)\b/i, label: 'Application launch restricted' },
-
-		// PowerShell specific
-		{ pattern: /^\s*(?:Remove-Item|Get-ChildItem|Copy-Item|Move-Item|Invoke-Expression|Invoke-WebRequest)\b/i, label: 'Protected command restricted' },
-
-		// Path revealing
-		{ pattern: /^\s*(?:pwd|\$PWD|Get-Location|gl)(\s|$)/i, label: 'Path revealing restricted' },
-
-		// Terminal sessions
-		{ pattern: /^\s*(?:powershell|pwsh|cmd|bash|zsh|wsl)(\s|$)/i, label: 'Sub-shell restricted' },
-
-		// Set-Location (PowerShell alias for cd) — only block going up/out
-		{ pattern: /^\s*(?:Set-Location|sl)\s+\.\./i, label: 'Navigation restricted' }
-	];
 
 	get isVisible(): boolean { return this._isVisible; }
 
@@ -508,10 +471,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				case TerminalCapability.CwdDetection: {
 					capabilityListeners.set(e.id, e.capability.onDidChangeCwd(e => {
 						this._cwd = e;
-						// ✅ Amypo: Keep tracked CWD in sync with Shell Integration ground truth
-						// This prevents false-positive blocks when the user hasn't done any manual cd yet
-						const sep = isWindows ? '\\' : '/';
-						this._amypoTrackedCwd = e.replace(/[\\/]/g, sep);
 						this._setTitle(this.title, TitleEventSource.Config);
 					}));
 					break;
@@ -567,15 +526,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this.statusList = this._register(this._scopedInstantiationService.createInstance(TerminalStatusList));
 		this._initDimensions();
 		this._processManager = this._createProcessManager();
-
-		// ✅ Initialize Amypo tracking
-		const initialCwd = this._shellLaunchConfig.cwd;
-		this._initialCwd = initialCwd instanceof URI ? initialCwd.fsPath : (typeof initialCwd === 'string' ? initialCwd : undefined);
-		// Seed the tracked CWD immediately so the cd-blocker has a baseline from the very first keystroke
-		if (this._initialCwd) {
-			const sep = isWindows ? '\\' : '/';
-			this._amypoTrackedCwd = this._initialCwd.replace(/[\\/]/g, sep);
-		}
 
 		this._containerReadyBarrier = new AutoOpenBarrier(Constants.WaitForContainerThreshold);
 		this._attachBarrier = new AutoOpenBarrier(1000);
@@ -706,184 +656,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	public getContribution<T extends ITerminalContribution>(id: string): T | null {
 		return this._contributions.get(id) as T | null;
 	}
-
-	private _getTerminalLine(): string {
-		try {
-			if (!this.xterm?.raw?.buffer?.active) return '';
-			const activeBuffer = this.xterm.raw.buffer.active;
-			const lineIndex = activeBuffer.baseY + activeBuffer.cursorY;
-			const line = activeBuffer.getLine(lineIndex);
-			return line?.translateToString(true) || '';
-		} catch {
-			return '';
-		}
-	}
-
-	private async _handleOnData(data: string): Promise<void> {
-		// ✅ Amypo Security — Buffer input and block dangerous commands
-		let blocked = false;
-
-		try {
-			for (let i = 0; i < data.length; i++) {
-				const char = data[i];
-
-				if (char === '\r' || char === '\n') {
-					// Method 1: The keystroke buffer (catches exactly what was typed)
-					const commandTyped = this._amypoInputBuffer.trim();
-
-					// Method 2: The xterm visible line (catches autocomplete and arrow-key history!)
-					// Strip the shell prompt (e.g., 'PS C:\> ', 'admin@host:~$ ', 'C:\folder> ')
-					const visibleLine = this._getTerminalLine();
-					const commandVisible = visibleLine.replace(/^.*[>#$]\s*/, '').trim();
-
-					// Check both! If either violates the rules, we block.
-					const blockedLabel = this._amypoIsBlocked(commandTyped) || this._amypoIsBlocked(commandVisible);
-
-					if (blockedLabel) {
-						blocked = true;
-
-						// 1. Send Escape key to clear the shell's pending input buffer
-						const clearKey = isWindows ? '\x1b' : '\x03';
-						await this._processManager.write(clearKey);
-
-						// 2. Send Enter so PowerShell prints a fresh clean prompt immediately
-						await this._processManager.write('\r');
-
-						// 5. Show VS Code notification popup as well
-						this._notificationService.warn(`AmypoCoder: "${blockedLabel}" is not allowed in the assessment environment.`);
-
-						this._amypoInputBuffer = '';
-						break;
-					}
-
-					// ✅ Command was ALLOWED — track CWD changes for cd commands
-					const cdMatch = commandTyped.match(/^\s*(?:cd|sl|Set-Location)\s+(.+)/i);
-					if (cdMatch) {
-						let target = cdMatch[1].trim();
-						if ((target.startsWith('"') && target.endsWith('"')) || (target.startsWith("'") && target.endsWith("'"))) {
-							target = target.slice(1, -1);
-						}
-						const currentTracked = this._amypoTrackedCwd || this._cwd || this._initialCwd || '';
-						if (target === '..') {
-							// Go up one directory
-							const sep = isWindows ? '\\' : '/';
-							const normalizedTracked = currentTracked.replace(/[\\/]/g, sep);
-							const parts = normalizedTracked.split(sep).filter(Boolean);
-							if (parts.length > 1) {
-								parts.pop();
-								// ✅ Fix: On Windows preserve drive letter (e.g. 'C:' stays as first part)
-								// On Windows: parts[0] = 'C:' → join gives 'C:\folder' (no leading sep needed)
-								// On Linux/Mac: parts[0] = 'home' → join gives 'home/folder' (needs leading '/')
-								this._amypoTrackedCwd = isWindows ? parts.join(sep) : '/' + parts.join(sep);
-							}
-						} else if (!path.isAbsolute(target)) {
-							const joined = path.join(currentTracked, target);
-							this._amypoTrackedCwd = isWindows ? joined.replace(/\//g, '\\') : joined.replace(/\\/g, '/');
-						} else {
-							this._amypoTrackedCwd = isWindows ? target.replace(/\//g, '\\') : target.replace(/\\/g, '/');
-						}
-					}
-
-					this._amypoInputBuffer = '';
-				} else if (char === '\b' || char === '\x7f') {
-					this._amypoInputBuffer = this._amypoInputBuffer.slice(0, -1);
-				} else if (data.charCodeAt(i) >= 32) {
-					this._amypoInputBuffer += char;
-				}
-			}
-		} catch (err) {
-			console.error('[Amypo Guard] Error in _handleOnData:', err);
-			// On error, block data to be safe
-			blocked = true;
-		}
-
-		// Only forward data if NOT blocked
-		if (!blocked) {
-			await this._processManager.write(data);
-			this._onDidInputData.fire(data);
-		}
-	}
-
-
-	// ✅ Smart Blocking Detection
-	private _amypoIsBlocked(command: string): string | null {
-		// ✅ 1. Block ANY cd .. variation
-		if (/^\s*(cd|sl|Set-Location)\b.*?\.\./i.test(command)) {
-			const projectRoot = this._amypoGetProjectRoot();
-
-			if (!projectRoot) {
-				// If we have not loaded a workspace folder yet, block root navigation to be safe until it loads
-				return 'cd .. (at project root)';
-			}
-
-			// ✅ Platform-aware path normalization
-			const sep = isWindows ? '\\' : '/';
-			// Use tracked CWD first (most reliable), then Shell Integration, then initial
-			const currentPath = (this._amypoTrackedCwd || this._cwd || this._initialCwd || '').replace(/[\\/]/g, sep).toLowerCase();
-			const normalizedProjectRoot = projectRoot.replace(/[\\/]/g, sep).toLowerCase();
-
-			// If we don't know the current path, assume we are AT root → BLOCK (safe default)
-			if (!currentPath) {
-				return 'cd .. (at project root)';
-			}
-
-			// AT root — block any '..'
-			if (currentPath === normalizedProjectRoot || currentPath === normalizedProjectRoot + sep) {
-				return 'cd .. (at project root)';
-			}
-
-			// INSIDE project subfolder — allow single '..', block deep '..'
-			if (currentPath.startsWith(normalizedProjectRoot + sep)) {
-				if (/\.\.[/\\]\.\./i.test(command)) {
-					return 'cd ../.. (cannot leave project)';
-				}
-				return null; // ✅ Normal cd .. inside project is fine
-			}
-
-			// Outside project or unknown — BLOCK to be safe
-			return 'cd .. (at project root)';
-		}
-
-		// ✅ 2. Block other dangerous commands
-		for (const { pattern, label } of this._amypoBlockedPatterns) {
-			if (pattern.test(command)) {
-				return label;
-			}
-		}
-
-		return null;
-	}
-
-	// ✅ Get project root — tries 3 sources for maximum reliability
-	private _amypoGetProjectRoot(): string | null {
-		try {
-			const sep = isWindows ? '\\' : '/';
-
-			const folders = this._workspaceContextService.getWorkspace().folders;
-			if (folders && folders.length > 0) {
-				return folders[0].uri.fsPath.replace(/[\\/]/g, sep);
-			}
-
-			const launchCwd = this.shellLaunchConfig.cwd;
-			if (launchCwd) {
-				const pathStr = typeof launchCwd === 'string'
-					? launchCwd
-					: (launchCwd && typeof (launchCwd as { fsPath?: string }).fsPath === 'string')
-						? (launchCwd as { fsPath: string }).fsPath
-						: launchCwd.toString();
-				return pathStr.replace(/[\\/]/g, sep);
-			}
-
-			if (this._initialCwd) {
-				return this._initialCwd.replace(/[\\/]/g, sep);
-			}
-
-			return null;
-		} catch {
-			return null;
-		}
-	}
-
 
 	private _getIcon(): TerminalIcon | undefined {
 		if (!this._icon) {
@@ -1079,7 +851,8 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 
 		this._register(this._processManager.onProcessData(e => this._onProcessData(e)));
 		this._register(xterm.raw.onData(async data => {
-			await this._handleOnData(data);
+			await this._processManager.write(data);
+			this._onDidInputData.fire(data);
 		}));
 		this._register(xterm.raw.onBinary(data => this._processManager.processBinary(data)));
 		// Init conpty compat and link handler after process creation as they rely on the
@@ -1091,7 +864,8 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			if (processTraits?.windowsPty?.backend === 'conpty') {
 				this._register(xterm.raw.parser.registerCsiHandler({ final: 'c' }, params => {
 					if (params.length === 0 || params.length === 1 && params[0] === 0) {
-						this._handleOnData('\x1b[?61;4c');
+						this._processManager.write('\x1b[?61;4c');
+						this._onDidInputData.fire('\x1b[?61;4c');
 						return true;
 					}
 					return false;
@@ -1723,7 +1497,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			switch (type) {
 				case ProcessPropertyType.Cwd:
 					this._cwd = value as IProcessPropertyMap[ProcessPropertyType.Cwd];
-					this._amypoTrackedCwd = this._cwd; // Keep tracked CWD in sync with OS truth
 					this._labelComputer?.refreshLabel(this);
 					break;
 				case ProcessPropertyType.InitialCwd:
@@ -1801,51 +1574,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			this.xterm?.resize(this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows);
 		}
 
-		// ✅ AMYPO CODER CORE - PowerShell & CMD Prompt Disguise
-		const projectRootForPrompt = this._amypoGetProjectRoot();
-		if (projectRootForPrompt) {
-			const isPwsh = (this._shellLaunchConfig.executable || this.shellType || 'powershell').toLowerCase().includes('powershell') ||
-				(this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('pwsh');
-			const isCmd = (this._shellLaunchConfig.executable || this.shellType || '').toLowerCase().includes('cmd');
-
-			if (isPwsh) {
-				const promptOverride = `
-function prompt {
-    $fullPath = (Get-Location).Path
-    # ✅ Do NOT double escape backslashes, PowerShell treats backslashes as literal
-    $projectRoot = '${projectRootForPrompt}'
-    $projectName = Split-Path -Leaf $projectRoot
-    # ✅ Remove CLSID from display name
-    $projectName = $projectName -replace '\\.\\{[^}]+\\}$', ''
-    # ✅ Case-insensitive replace using -ireplace
-    $relative = $fullPath -ireplace [regex]::Escape($projectRoot), ''
-    $relative = $relative.TrimStart('\\').TrimStart('/')
-    if ($relative -eq '' -or $relative -eq $fullPath) {
-        "PS amypo($projectName):\\> "
-    } else {
-        "PS amypo($projectName):\\$relative> "
-    }
-}
-# ✅ Amypo Security: Override Set-Location to prevent absolute path leakage in native PowerShell errors
-function Set-Location {
-    try {
-        Microsoft.PowerShell.Management\\Set-Location @args -ErrorAction Stop
-    } catch [System.Management.Automation.ItemNotFoundException] {
-        Write-Host "cd : Cannot find path because it does not exist." -ForegroundColor Red
-    } catch {
-        Write-Host $_.Exception.Message -ForegroundColor Red
-    }
-}
-Clear-Host
-`;
-				// Inject the prompt override into shell args
-				this._shellLaunchConfig.args = ['-NoExit', '-Command', promptOverride];
-			} else if (isCmd) {
-				// ✅ For cmd.exe, we must use a static prompt to prevent conpty cursor desynchronization.
-				this._shellLaunchConfig.args = ['/k', 'prompt [Amypo Workspace]$G '];
-			}
-		}
-
 		const originalIcon = this.shellLaunchConfig.icon;
 		await this._processManager.createProcess(this._shellLaunchConfig, this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows).then(result => {
 			if (result) {
@@ -1883,44 +1611,6 @@ Clear-Host
 	}
 
 	private _onProcessData(ev: IProcessDataEvent): void {
-		// ✅ Amypo Security: Advanced Path Redactor & Cursor Synchronizer
-		// Handles terminal line wrapping, PowerShell truncation, and Conpty Cursor Alignment
-		if (this._workspaceContextService) {
-			const folders = this._workspaceContextService.getWorkspace().folders;
-			if (folders.length > 0) {
-				const workspacePath = folders[0].uri.fsPath;
-				const replacement = '[Amypo Workspace]';
-
-				// Flexible gap allows newlines, spaces (from PowerShell error indents), and ANSI escape codes
-				const flexibleGap = '(?:[\\r\\n\\s]|\\x1b\\[[0-9;]*[a-zA-Z])*';
-
-				// 1. Full Path Redaction
-				const wrapPattern = workspacePath.split('')
-					.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex chars cleanly
-					.join(flexibleGap); 
-				const wrapRegex = new RegExp(wrapPattern, 'gi');
-				
-				if (ev.data.match(wrapRegex)) {
-					ev.data = ev.data.replace(wrapRegex, replacement);
-				}
-
-				// 2. PowerShell Truncated Path Redaction (e.g. C:\Use \r\n  rs\Admin\...[ID]})
-				const userMatch = workspacePath.match(/(?:[A-Za-z]:)?[\\\\\\/]Users[\\\\\\/][^\\\\\\/]+/i);
-				if (userMatch) {
-					const baseUserPattern = userMatch[0].split('')
-						.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-						.join(flexibleGap);
-					// Match base user path + optional wrapped folders + ... + closing segment
-					const truncRegex = new RegExp(baseUserPattern + `(?:[^\\s'":()]|` + flexibleGap + `)*?\\.\\.\\.(?:[^\\s'":()]|` + flexibleGap + `)*`, 'gi');
-					ev.data = ev.data.replace(truncRegex, replacement);
-				}
-
-				// 3. PowerShell Error Polish: Remove the [Amypo Workspace] path entirely from native errors
-				ev.data = ev.data.replace(/Cannot find path(?:[\r\n\s]|\x1b\[[0-9;]*[a-zA-Z])*'\[Amypo Workspace\][^']*'/gi, 'Cannot find path');
-				ev.data = ev.data.replace(/\(\[Amypo Workspace\][^:]*:/gi, '(');
-			}
-		}
-
 		// Ensure events are split by SI command execute and command finished sequence to ensure the
 		// output of the command can be read by extensions and the output of the command is of a
 		// consistent form respectively. This must be done here as xterm.js does not currently have

@@ -65,10 +65,10 @@ function readSecretKey(): string | null {
 }
 
 // Auto-Update
-async function checkForExtensionUpdate(secretKey: string): Promise<boolean> {
+async function checkForExtensionUpdate(secretKey: string, context: vscode.ExtensionContext): Promise<boolean> {
+	const statusBarItem = vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Checking for updates...');
 	try {
-		const ext = vscode.extensions.getExtension('AMYPO.amypo-question');
-		const currentVersion = ext?.packageJSON?.version ?? '0.0.0';
+		const currentVersion = context.extension.packageJSON?.version ?? '0.0.0';
 		console.log(`[Amypo Update] Current version: ${currentVersion}`);
 
 		// ── Fetch version.json from private server
@@ -79,6 +79,7 @@ async function checkForExtensionUpdate(secretKey: string): Promise<boolean> {
 				validateStatus: (status) => status === 200
 			}
 		);
+		statusBarItem.dispose();
 
 		// ✅ Server returns an object with "extensions" array
 		const extensionData = versionResp.data.extensions?.find((e: any) => e.id === 'AMYPO.amypo-question');
@@ -185,7 +186,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	//  Auto-Update Check (blocking)
 	try {
-		const isUpdated = await checkForExtensionUpdate(secretKey);
+		const isUpdated = await checkForExtensionUpdate(secretKey, context);
 		if (isUpdated) {
 			console.log('[Amypo] Extension successfully updated, halting initialization.');
 			return;
@@ -246,7 +247,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4165;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285788|Ka3jbYs6cpXXlaKt0JiW52Fc5WocUp0jbXLvngwn0bbfa04c';
+	const STATIC_TOKEN = '285881|JPVibXICnj72YrYqZT7F9EpArcRg6zFiqM4JK4fc5db82792';
 	const STATIC_MODULE_ID = 1020;
 
 	//  State
@@ -1612,6 +1613,18 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 			return Promise.reject(error);
 		}
+	);
+	// ✅ Add version command
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'amypo.checkVersion', () => {
+				const version = vscode.extensions
+					.getExtension('AMYPO.amypo-question')
+					?.packageJSON?.version;
+				vscode.window.showInformationMessage(
+					`Amypo Version: ${version}`
+				);
+			})
 	);
 
 	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {

@@ -1,69 +1,77 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { PreviewManager } from '../webview/PreviewManager';
 import { ProjectDetector } from '../core/ProjectDetector';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'amypo-sidebar';
-    private _view?: vscode.WebviewView;
+	public static readonly viewType = 'amypo-sidebar';
+	private _view?: vscode.WebviewView;
 
-    constructor(
-        private readonly _extensionUri: vscode.Uri,
-        _projectDetector: ProjectDetector,
-        private readonly _previewManager: PreviewManager
-    ) {
-        void _projectDetector;
-    }
+	constructor(
+		private readonly _extensionUri: vscode.Uri,
+		_projectDetector: ProjectDetector,
+		private readonly _previewManager: PreviewManager,
+		private readonly _version: string
+	) {
+		void _projectDetector;
+	}
 
-    resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        _context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken
-    ) {
-        this._view = webviewView;
+	resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		_context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken
+	) {
+		this._view = webviewView;
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this._extensionUri]
-        };
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this._extensionUri]
+		};
 
-        // ✅ Set HTML once only — never replace it again
-        webviewView.webview.html = this._getHtmlContent(webviewView.webview);
+		// ✅ Set HTML once only — never replace it again
+		webviewView.webview.html = this._getHtmlContent(webviewView.webview);
 
-        webviewView.webview.onDidReceiveMessage(async (message) => {
-            switch (message.command) {
-                case 'openBrowser':
-                    await vscode.commands.executeCommand('amypo.toggleBrowser');
-                    break;
-                case 'refresh':
-                    this._previewManager.navigate('refresh');
-                    break;
-                case 'submit':
-                    await vscode.commands.executeCommand('amypo.submitTest');
-                    break;
-            }
-        });
+		// ✅ Set initial status
+		this.refresh();
 
-        // ✅ Send message to update UI — don't replace HTML
-        this._previewManager.onStatusChange(() => this.refresh());
-    }
+		webviewView.webview.onDidReceiveMessage(async (message) => {
+			switch (message.command) {
+				case 'openBrowser':
+					await vscode.commands.executeCommand('amypo.toggleBrowser');
+					break;
+				case 'refresh':
+					this._previewManager.navigate('refresh');
+					break;
+				case 'submit':
+					await vscode.commands.executeCommand('amypo.submitTest');
+					break;
+			}
+		});
 
-    // ✅ Fixed — send postMessage instead of replacing HTML
-    public refresh() {
-        if (this._view) {
-            const hasTest = !!this._previewManager.currentTest;
-            this._view.webview.postMessage({
-                command: 'updateStatus',
-                hasTest,
-                status: hasTest ? 'Active Test' : 'Ready'
-            });
-        }
-    }
+		// ✅ Send message to update UI — don't replace HTML
+		this._previewManager.onStatusChange(() => this.refresh());
+	}
 
-    private _getHtmlContent(webview: vscode.Webview): string {
-        const nonce = getNonce();
-        const cspSource = webview.cspSource;
+	// ✅ Fixed — send postMessage instead of replacing HTML
+	public refresh() {
+		if (this._view) {
+			const isRunning = this._previewManager.isServerRunning;
+			this._view.webview.postMessage({
+				command: 'updateStatus',
+				status: isRunning ? 'Running' : 'Stopped'
+			});
+		}
+	}
 
-        return `<!DOCTYPE html>
+	private _getHtmlContent(webview: vscode.Webview): string {
+		const nonce = getNonce();
+		const cspSource = webview.cspSource;
+		const version = this._version;
+
+		return `<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
@@ -113,12 +121,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     background: #4caf50;
                     color: white;
                 }
+                .version {
+                    position: fixed;
+                    bottom: 8px;
+                    right: 10px;
+                    font-size: 10px;
+                    color: var(--vscode-descriptionForeground);
+                    opacity: 0.6;
+                }
             </style>
         </head>
         <body>
-            <p class="status" id="status-text">Amypo Coder — Ready</p>
+            <p class="status" id="status-text">Amypo Coder — ${this._previewManager.isServerRunning ? 'Running' : 'Stopped'}</p>
             <button id="btn-open-browser">🌐 Open Browser</button>
             <button id="btn-submit">✅ Submit Test</button>
+            <span class="version">v${version}</span>
 
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
@@ -144,15 +161,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             </script>
         </body>
         </html>`;
-    }
+	}
 }
 
 function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
 }
 

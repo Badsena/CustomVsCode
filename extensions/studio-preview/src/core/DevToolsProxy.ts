@@ -53,32 +53,44 @@ export class DevToolsProxy {
 			});
 
 			// ── WebSocket upgrade support (HMR for React/Vite) ──
-			this._server.on('upgrade', (req, socket, _head) => {
+			this._server.on('upgrade', (req, socket, head) => {
+				const headers = { ...req.headers };
+				headers['host'] = `localhost:${this._targetPort}`;
+				if (headers.origin) {
+					headers.origin = `http://localhost:${this._targetPort}`;
+				}
+
 				const proxyReq = http.request({
-					hostname: 'localhost',
+					hostname: '127.0.0.1',
 					port: this._targetPort,
 					path: req.url,
 					method: req.method,
-					headers: req.headers,
+					headers: headers,
 				});
 
-				proxyReq.on('upgrade', (proxyRes, proxySocket, _proxyHead) => {
-					socket.write(
-						`HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode || 101} ${proxyRes.statusMessage || 'Switching Protocols'}\r\n` +
-						Object.entries(proxyRes.headers)
-							.map(([k, v]) => `${k}: ${v}`)
-							.join('\r\n') +
-						'\r\n\r\n'
-					);
+				proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+					let response = `HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode || 101} ${proxyRes.statusMessage || 'Switching Protocols'}\r\n`;
+					for (const [key, value] of Object.entries(proxyRes.headers)) {
+						if (Array.isArray(value)) {
+							for (const v of value) response += `${key}: ${v}\r\n`;
+						} else {
+							response += `${key}: ${value}\r\n`;
+						}
+					}
+					response += '\r\n';
+					
+					socket.write(response);
+					if (proxyHead && proxyHead.length) socket.write(proxyHead);
 					proxySocket.pipe(socket);
 					socket.pipe(proxySocket);
 				});
 
-				proxyReq.on('error', () => {
+				proxyReq.on('error', (err) => {
+					console.error('[DevToolsProxy] WebSocket proxy error:', err.message);
 					socket.destroy();
 				});
 
-				proxyReq.end();
+				proxyReq.end(head);
 			});
 
 			this._server.on('error', (err) => {
@@ -151,7 +163,7 @@ export class DevToolsProxy {
 				}
 
 				const options: http.RequestOptions = {
-					hostname: 'localhost',
+					hostname: '127.0.0.1',
 					port: backendPort,
 					path: realPath,
 					method: clientReq.method,
@@ -213,7 +225,7 @@ export class DevToolsProxy {
 		}
 
 		const options: http.RequestOptions = {
-			hostname: 'localhost',
+			hostname: '127.0.0.1',
 			port: this._targetPort,
 			path: clientReq.url,
 			method: clientReq.method,
@@ -291,44 +303,13 @@ export class DevToolsProxy {
 
 			// ── Inject eruda.js and CORS Bypass Wrapper ──
 			const erudaScript = `
-<!-- Amypo DevTools CORS Bypass -->
-<script>
-(function() {
-  const proxyPort = ${this._proxyPort};
-  
-  // Rewrite Fetch
-  const origFetch = window.fetch;
-  window.fetch = function(...args) {
-    if (typeof args[0] === 'string') {
-      const match = args[0].match(/^http:\\/\\/localhost:(\\d+)(.*)/);
-      if (match && parseInt(match[1]) !== proxyPort) {
-        args[0] = '/__amypo_cors_proxy__/' + match[1] + match[2];
-      }
-    }
-    return origFetch.apply(this, args);
-  };
-
-  // Rewrite XHR
-  const origOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-    if (typeof url === 'string') {
-      const match = url.match(/^http:\\/\\/localhost:(\\d+)(.*)/);
-      if (match && parseInt(match[1]) !== proxyPort) {
-        url = '/__amypo_cors_proxy__/' + match[1] + match[2];
-      }
-    }
-    return origOpen.call(this, method, url, ...rest);
-  };
-})();
-</script>
-
 <!-- Amypo DevTools: eruda.js injection -->
 <script src="/__amypo__/eruda.js"></script>
 <script>
   try {
     if (typeof eruda !== 'undefined') {
       eruda.init({
-        tool: ['console', 'network', 'elements', 'resources'],
+        tool: ['console', 'network', 'elements', 'resources', 'sources', 'info'],
         useShadowDom: true,
         autoScale: true
       });
@@ -359,6 +340,44 @@ export class DevToolsProxy {
       adjustViewport(true);
     }
   } catch(e) { console.warn('eruda init failed:', e); }
+</script>
+
+<!-- Amypo DevTools CORS Bypass -->
+<script>
+(function() {
+  const proxyPort = ${this._proxyPort};
+  
+  // Rewrite Fetch
+  const origFetch = window.fetch;
+  window.fetch = function(...args) {
+    if (typeof args[0] === 'string') {
+      const match = args[0].match(/^http:\\/\\/localhost:(\\d+)(.*)/);
+      if (match && parseInt(match[1]) !== proxyPort) {
+        args[0] = '/__amypo_cors_proxy__/' + match[1] + match[2];
+      }
+    } else if (args[0] instanceof Request) {
+      // Handle Request objects
+      const url = args[0].url;
+      const match = url.match(/^http:\\/\\/localhost:(\\d+)(.*)/);
+      if (match && parseInt(match[1]) !== proxyPort) {
+        args[0] = new Request('/__amypo_cors_proxy__/' + match[1] + match[2], args[0]);
+      }
+    }
+    return origFetch.apply(this, args);
+  };
+
+  // Rewrite XHR
+  const origOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    if (typeof url === 'string') {
+      const match = url.match(/^http:\\/\\/localhost:(\\d+)(.*)/);
+      if (match && parseInt(match[1]) !== proxyPort) {
+        url = '/__amypo_cors_proxy__/' + match[1] + match[2];
+      }
+    }
+    return origOpen.call(this, method, url, ...rest);
+  };
+})();
 </script>`;
 
 			// ✅ Inject at the VERY TOP of <head> so it overrides fetch/XHR before React/Angular loads!

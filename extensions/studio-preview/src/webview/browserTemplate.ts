@@ -270,7 +270,17 @@ export function getBrowserTemplate(
     });
     document.getElementById('btn-back')?.addEventListener('click', () => { try { frame.contentWindow.history.back(); } catch {} });
     document.getElementById('btn-open-folder')?.addEventListener('click', () => { vscode.postMessage({ type: 'openFolder' }); });
-    urlBar?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { navigateTo(urlBar.value.trim()); } });
+    urlBar?.addEventListener('keydown', (e) => { 
+      if (e.key === 'Enter') { 
+        if (devToolsActive) {
+          devToolsActive = false;
+          devToolsBtn.classList.remove('active');
+          devToolsBtn.title = 'Toggle Student DevTools (eruda)';
+          vscode.postMessage({ type: 'toggleDevTools', currentUrl: frame.src }); // Tell backend to stop proxy
+        }
+        navigateTo(urlBar.value.trim()); 
+      } 
+    });
 
     document.querySelectorAll('.mode-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -281,6 +291,13 @@ export function getBrowserTemplate(
 
         urlBar.placeholder = 'localhost:3000...';
         const relevant = localProjects.filter(p => p.category === currentMode);
+        
+        if (devToolsActive) {
+          devToolsActive = false;
+          devToolsBtn.classList.remove('active');
+          vscode.postMessage({ type: 'toggleDevTools', currentUrl: frame.src });
+        }
+
         if (relevant.length > 0) {
           navigateTo('http://localhost:' + relevant[0].port);
           statusInd.className = 'running';
@@ -311,25 +328,34 @@ export function getBrowserTemplate(
 
       if (msg.type === 'updateProjects') {
         localProjects = msg.projects;
-        updateChips(frame.src);
+        updateChips(urlBar.value);
         updateTabVisibility();
       }
 
       if (msg.type === 'navigate') {
+        if (devToolsActive) {
+          devToolsActive = false;
+          devToolsBtn.classList.remove('active');
+          vscode.postMessage({ type: 'toggleDevTools', currentUrl: frame.src });
+        }
         if (msg.url === 'refresh') {
-          navigateTo(frame.src);
+          navigateTo(urlBar.value);
         } else {
-          navigateTo(msg.url || frame.src);
+          navigateTo(msg.url || urlBar.value);
         }
       }
 
       // ── DevTools: proxy started — switch iframe to proxy URL ──
       if (msg.type === 'enableDevTools') {
         devToolsActive = true;
-        originalUrl    = frame.src;   // remember where we were
+        originalUrl    = urlBar.value;   // remember what they typed
         devToolsBtn.classList.add('active');
         devToolsBtn.title = 'DevTools ON — click to turn off';
-        navigateTo(msg.url);
+        
+        // Change iframe but keep original URL in the bar!
+        frame.src = msg.url;
+        progress.className = 'loading';
+        overlay.classList.remove('hidden');
       }
 
       // ── DevTools: proxy stopped — revert iframe to direct URL ──
@@ -337,7 +363,11 @@ export function getBrowserTemplate(
         devToolsActive = false;
         devToolsBtn.classList.remove('active');
         devToolsBtn.title = 'Toggle Student DevTools (eruda)';
-        navigateTo(originalUrl || frame.src);
+        
+        // Revert iframe to whatever is in the URL bar
+        frame.src = urlBar.value || originalUrl;
+        progress.className = 'loading';
+        overlay.classList.remove('hidden');
         originalUrl = '';
       }
     });

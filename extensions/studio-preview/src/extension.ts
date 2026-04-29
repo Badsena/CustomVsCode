@@ -18,17 +18,139 @@ let isProcessing = false;
 let globalPreviewManager: PreviewManager | undefined;
 let globalSidebarProvider: SidebarProvider | undefined;
 
+// ── Auto-Update Helpers ──
+
+function httpsGetJson(url: string): Promise<any> {
+	const https = require('https');
+	return new Promise((resolve, reject) => {
+		https.get(url, { timeout: 5000 }, (res: any) => {
+			if (res.statusCode !== 200) {
+				res.resume();
+				return reject(new Error(`HTTP ${res.statusCode}`));
+			}
+			let data = '';
+			res.on('data', (chunk: string) => data += chunk);
+			res.on('end', () => {
+				try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+			});
+		}).on('error', reject);
+	});
+}
+
+function httpsDownload(url: string): Promise<Buffer> {
+	const https = require('https');
+	return new Promise((resolve, reject) => {
+		https.get(url, { timeout: 60000 }, (res: any) => {
+			if (res.statusCode !== 200) {
+				res.resume();
+				return reject(new Error(`HTTP ${res.statusCode}`));
+			}
+			const chunks: Buffer[] = [];
+			res.on('data', (chunk: Buffer) => chunks.push(chunk));
+			res.on('end', () => resolve(Buffer.concat(chunks)));
+		}).on('error', reject);
+	});
+}
+
+async function checkForExtensionUpdate(context: vscode.ExtensionContext): Promise<boolean> {
+	const statusBarItem = vscode.window.setStatusBarMessage('$(sync~spin) Amypo Browser: Checking for updates...');
+	try {
+		const currentVersion = context.extension.packageJSON?.version ?? '0.0.0';
+		console.log(`[Amypo Browser Update] Current version: ${currentVersion}`);
+
+		const versionData = await httpsGetJson('https://1102amy21.amypo.ai/storage/version.json');
+		statusBarItem.dispose();
+
+		const extensionData = versionData.extensions
+			?.find((e: any) => e.id === 'AMYPO.amypo-browser');
+		const latestVersion = extensionData?.version;
+		const downloadUrl = extensionData?.downloadUrl;
+
+		if (!latestVersion || !downloadUrl) {
+			console.log('[Amypo Browser Update] Extension "AMYPO.amypo-browser" not found in version.json — skipping.');
+			return false;
+		}
+
+		console.log(`[Amypo Browser Update] Server: ${latestVersion} | Current: ${currentVersion}`);
+
+		if (currentVersion === latestVersion) {
+			console.log('[Amypo Browser Update] Already up to date.');
+			return false;
+		}
+
+		if (!compareVersions(latestVersion, currentVersion)) {
+			console.log('[Amypo Browser Update] No newer version.');
+			return false;
+		}
+
+		console.log(`[Amypo Browser Update] New version found: ${latestVersion}`);
+
+		await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: `Amypo Browser: Updating to v${latestVersion}...`,
+			cancellable: false
+		}, async (progress) => {
+
+			progress.report({ message: 'Downloading...' });
+			const vsixBuffer = await httpsDownload(downloadUrl);
+
+			progress.report({ message: 'Saving...' });
+			const tempDir = path.join(os.tmpdir(), 'amypo-updates');
+			await fs.promises.mkdir(tempDir, { recursive: true });
+			const vsixPath = path.join(tempDir, `amypo-browser-${latestVersion}.vsix`);
+			await fs.promises.writeFile(vsixPath, vsixBuffer);
+			console.log(`[Amypo Browser Update] VSIX saved: ${vsixPath}`);
+
+			progress.report({ message: 'Installing...' });
+			await vscode.commands.executeCommand(
+				'workbench.extensions.installExtension',
+				vscode.Uri.file(vsixPath)
+			);
+
+			try { await fs.promises.unlink(vsixPath); } catch { }
+			progress.report({ message: 'Done!' });
+		});
+
+		vscode.window.showInformationMessage(`✅ Amypo Browser updated to v${latestVersion}. Reloading...`);
+		vscode.commands.executeCommand('workbench.action.reloadWindow');
+		return true;
+
+	} catch (error: any) {
+		console.warn('[Amypo Browser Update] Update check failed:', error.message);
+		console.warn('[Amypo Browser Update] Stack:', error.stack);
+		return false;
+	}
+}
+
+function compareVersions(versionA: string, versionB: string): boolean {
+	const a = versionA.split('.').map(Number);
+	const b = versionB.split('.').map(Number);
+	for (let i = 0; i < 3; i++) {
+		if ((a[i] || 0) > (b[i] || 0)) { return true; }
+		if ((a[i] || 0) < (b[i] || 0)) { return false; }
+	}
+	return false;
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Browser] Activating…');
+
+	// ── Auto-update check (non-blocking)
+	checkForExtensionUpdate(context).catch((err) => {
+		console.error('[Amypo Browser Update] Unhandled:', err);
+	});
 
 	const projectDetector = new ProjectDetector();
 	const previewManager = PreviewManager.getInstance(context.extensionUri);
 	globalPreviewManager = previewManager;
 
+	const version = context.extension.packageJSON?.version ?? '0.0.0';
+
 	const sidebarProvider = new SidebarProvider(
 		context.extensionUri,
 		projectDetector,
-		previewManager
+		previewManager,
+		version
 	);
 	globalSidebarProvider = sidebarProvider;
 
@@ -112,7 +234,15 @@ export function activate(context: vscode.ExtensionContext) {
 	const openCmd = vscode.commands.registerCommand('amypo.openSimpleBrowser',
 		() => vscode.commands.executeCommand('amypo.toggleBrowser'));
 
-	context.subscriptions.push(toggleCmd, openCmd, autoReloadListener,
+	const refreshCmd = vscode.commands.registerCommand('amypo.refreshBrowser', () => {
+		previewManager.navigate('refresh');
+	});
+
+	const stopCmd = vscode.commands.registerCommand('amypo.stopServer', () => {
+		previewManager.toggle(); // Closes the browser
+	});
+
+	context.subscriptions.push(toggleCmd, openCmd, refreshCmd, stopCmd, autoReloadListener,
 		{
 			dispose: () => {
 				previewManager.dispose();

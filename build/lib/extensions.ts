@@ -78,7 +78,10 @@ function fromLocal(extensionPath: string, forWeb: boolean, _disableMangle: boole
 			delete data.dependencies;
 			delete data.devDependencies;
 			if (data.main) {
-				data.main = data.main.replace('/out/', '/dist/');
+				data.main = data.main.replace(/\bout\b/, 'dist');
+			}
+			if (data.browser) {
+				data.browser = data.browser.replace(/\bout\b/, 'dist');
 			}
 			return data;
 		});
@@ -154,6 +157,14 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 	}).then(fileNames => {
 		console.log(`[vsce] listFiles finished for ${extensionPath} (${fileNames.length} files)`);
 		let finalFileNames = fileNames;
+
+		// Always ensure package.json and package.nls.json are included if they exist
+		['package.json', 'package.nls.json'].forEach(p => {
+			if (fs.existsSync(path.join(extensionPath, p)) && !finalFileNames.includes(p)) {
+				finalFileNames.push(p);
+			}
+		});
+
 		if (packagedDependencies.length > 0) {
 			const packagedDependencyFileNames = packagedDependencies.flatMap(dependency =>
 				glob.sync(path.join(extensionPath, 'node_modules', dependency, '**'), { nodir: true, dot: true })
@@ -170,7 +181,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 					})
 			);
 
-			finalFileNames = Array.from(new Set([...fileNames, ...packagedDependencyFileNames]));
+			finalFileNames = Array.from(new Set([...finalFileNames, ...packagedDependencyFileNames]));
 		}
 
 		const files = finalFileNames
@@ -366,7 +377,7 @@ export function packageNativeLocalExtensionsStream(forWeb: boolean, disableMangl
  */
 export function packageAllLocalExtensionsStream(forWeb: boolean, disableMangle: boolean): Stream {
 	return mergeWithTimeout(
-		900000, // 15 mins
+		3600000, // 60 mins (esbuild-bundled extensions need time on Windows)
 		packageNonNativeLocalExtensionsStream(forWeb, disableMangle),
 		packageNativeLocalExtensionsStream(forWeb, disableMangle)
 	);
@@ -401,9 +412,12 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
 	);
+
+	console.log(`[build] Found ${localExtensionsDescriptions.length} ${native ? 'native' : 'non-native'} extensions: ${localExtensionsDescriptions.map(d => d.name).join(', ')}`);
+
 	const localExtensionsStream = localExtensionsDescriptions.length === 0 ? es.readArray([]) : minifyExtensionResources(
 		mergeWithTimeout(
-			300000, // 5 min per extension group
+			1800000, // 30 min per extension group (esbuild-bundled extensions need time)
 			...localExtensionsDescriptions.map(extension => {
 				const s = fromLocal(extension.path, forWeb, disableMangle);
 				s.on('end', () => console.log('✓ fromLocal ENDED:', extension.name));
@@ -428,7 +442,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		localExtensionsStream.on('end', () => console.log('localExtensionsStream ENDED'));
 		depStream.on('end', () => console.log('depStream ENDED'));
 
-		result = mergeWithTimeout(300000, localExtensionsStream, depStream as any) as any;
+		result = mergeWithTimeout(600000, localExtensionsStream, depStream as any) as any;
 		result.on('end', () => console.log('merged result ENDED'));
 	}
 
@@ -450,12 +464,12 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			if (ended) {
 				return;
 			}
-			console.log('[build] Safety timeout triggered for final exported stream (stalled for 60s)');
+			console.log('[build] Safety timeout triggered for final exported stream (stalled for 300s)');
 			(finalStream as any).emit?.('end');
 			(finalStream as any).emit?.('finish');
 			(finalStream as any).end?.();
 			(finalStream as any).destroy?.();
-		}, 60000); // 60s grace period for large I/O
+		}, 300000); // 300s grace period for large I/O
 	});
 
 	return finalStream as any;
