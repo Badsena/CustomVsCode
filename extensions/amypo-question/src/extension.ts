@@ -473,7 +473,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			: '';
 
 
-		const projectPath = path.join(parentPath, sanitizedFolderName + CLSID);
+		const projectPath = path.join(parentPath, sanitizedFolderName);
 
 		let finalUrl = repoUrl ?? null;
 		let isTemplate = false;
@@ -1550,7 +1550,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		console.log('enter test details');
 
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {
@@ -1560,18 +1560,62 @@ export async function activate(context: vscode.ExtensionContext) {
 			cancellable: false
 		}, async (progress) => {
 			try {
+				const projectPathToDelete = currentProjectPath;
+
 				progress.report({ message: 'Syncing Git and Server state...' });
 				// syncGit('save') handles both Git push and Amypo state sync
 				await syncGit('save');
 
 				// Delete the local project folder after saving
-				if (currentProjectPath && fs.existsSync(currentProjectPath)) {
+				if (projectPathToDelete && fs.existsSync(projectPathToDelete)) {
 					progress.report({ message: 'Deleting local project folder...' });
+
+					// Close all editors to release file locks
+					await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
+
+
 					try {
-						await fs.promises.rm(currentProjectPath, { recursive: true, force: true });
-						console.log(`[Amypo] Deleted project folder: ${currentProjectPath}`);
+						await fs.promises.rm(projectPathToDelete, { recursive: true, force: true });
+						console.log(`[Amypo] Deleted project folder: ${projectPathToDelete}`);
 					} catch (err) {
-						console.error(`[Amypo] Error deleting folder on exit:`, err);
+						console.warn(`[Amypo] Folder is locked, deferring deletion to background process...`);
+
+						if (process.platform === 'win32') {
+							const scriptPath = path.join(os.tmpdir(), `amypo-cleanup-${Date.now()}.ps1`);
+							// Use \\?\ prefix to bypass shell restrictions on CLSID folders
+							const psScript = `
+								$folder = '\\\\?\\${projectPathToDelete.split('/').join('\\\\')}'
+								$maxRetries = 15
+								$retryCount = 0
+								Start-Sleep -Seconds 3
+								while (Test-Path -LiteralPath $folder) {
+									if ($retryCount -ge $maxRetries) { break }
+									try {
+										Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction Stop
+										break
+									} catch {
+										$retryCount++
+										Start-Sleep -Seconds 2
+									}
+								}
+								Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+							`;
+							fs.writeFileSync(scriptPath, psScript);
+
+							const child = require('child_process').spawn('cmd.exe', [
+								'/c', 'start', '""', '/MIN', 'powershell.exe',
+								'-WindowStyle', 'Hidden',
+								'-NoProfile',
+								'-ExecutionPolicy', 'Bypass',
+								'-File', scriptPath
+							], {
+								detached: true,
+								stdio: 'ignore',
+								windowsHide: true
+							});
+							child.unref();
+						}
 					}
 				}
 
