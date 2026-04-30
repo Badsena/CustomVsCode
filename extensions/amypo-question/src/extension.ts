@@ -221,11 +221,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.log('  token         :', token);
 				console.log('  server_type   :', server_type);
 				console.log('========================================');
-				eduViewProvider.updateView({
-					course_name: 'Amypo coder',
-					module_name: 'Datas Not Received',
-					errorMessage: `Test details allocation_id : ${allocation_id} token: ${token} test_type: ${test_type} module_id: ${module_id} server_type: ${server_type}`
-				}, () => { });
+				// eduViewProvider.updateView({
+				// 	course_name: 'Amypo coder',
+				// 	module_name: 'Datas Not Received',
+				// 	errorMessage: `Test details allocation_id : ${allocation_id} token: ${token} test_type: ${test_type} module_id: ${module_id} server_type: ${server_type}`
+				// }, () => { });
 
 				if (!allocation_id || !token) {
 					console.error('[Amypo] ERROR: Missing required params!');
@@ -1159,7 +1159,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// Extract total testcases from metadata
 			let total_testcases = 0;
-			const fullQuestion = cachedQuestion?.payload;
+			const fullQuestion = cachedQuestion?.payload ?? question;
 			if (fullQuestion?.testcaseCount) {
 
 				console.log('testcaseCount', fullQuestion.testcaseCount);
@@ -1183,8 +1183,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			const request = {
 				project_path: currentProjectPath,
-				question_id: cachedQuestion?.payload?.question_id,
-				qb_name: cachedQuestion?.payload?.qb_name || 'practice',
+				question_id: fullQuestion?.question_id ?? question?.question_id ?? question?.id,
+				qb_name: fullQuestion?.qb_name ?? question?.qb_name ?? 'practice',
 				token: activeToken,
 				backend_url: API_URL,
 				testcase_count: total_testcases
@@ -1503,6 +1503,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					? { state: 'loaded', payload: qData, stats: statsObj, aiFeatures }
 					: { state: 'error', message: 'Failed to retrieve question details.' };
 
+				if (qData) {
+					await context.globalState.update('amypo.cachedQuestion', questionMessage);
+				}
+
 				const savedCourseInfo = context.globalState.get<any>('amypo.courseInfo');
 				if (savedCourseInfo) {
 					const extVersion = vscode.extensions.getExtension('AMYPO.amypo-question')?.packageJSON?.version ?? '1.0.6';
@@ -1534,12 +1538,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Fresh launch — we expect the UriHandler to fire shortly after activate().
 		// We comment this out so it doesn't show a false alarm before the URL is processed.
 
-		vscode.window.showErrorMessage('Amypo: Test details not received from URL.');
-		eduViewProvider.updateView({
-			course_name: 'Amypo coder',
-			module_name: 'Datas Not Received',
-			errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
-		}, () => { });
+		// vscode.window.showErrorMessage('Amypo: Test details not received from URL.');
+		// eduViewProvider.updateView({
+		// 	course_name: 'Amypo coder',
+		// 	module_name: 'Datas Not Received',
+		// 	errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
+		// }, () => { });
 
 
 		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
