@@ -226,14 +226,6 @@ export class LabelService extends Disposable implements ILabelService {
 			label = this.appendWorkspaceSuffix(label, resource);
 		}
 
-		// Amypo Security: Commented out original return to prevent leaking absolute OS paths
-		// return label;
-
-		// Mask absolute paths for local files to prevent OS identity leaks in tooltips/titles
-		if (resource.scheme === 'file' && !options.relative) {
-			return `[Amypo Assessment Workspace] \\ ${basename(resource)}`;
-		}
-
 		return label;
 	}
 

@@ -68,27 +68,8 @@ export function addTerminalEnvironmentKeys(env: IProcessEnvironment, version: st
 		env['LANG'] = getLangEnvVariable(locale);
 	}
 	env['COLORTERM'] = 'truecolor';
-
-	// ✅ Amypo - Prevent ALL frameworks from auto-opening browser
+	// Disable external browser opening from terminal processes
 	env['BROWSER'] = 'none';
-	env['BROWSER_ARGS'] = '';
-	env['NO_BROWSER'] = '1';
-	env['LAUNCH_BROWSER'] = 'false';
-	env['BUN_CONFIG_NO_OPEN'] = 'true';
-	env['DOTNET_WATCH_SUPPRESS_BROWSER'] = '1';
-
-	// ✅ NEW - Missing frameworks
-	env['ASPNETCORE_BROWSER'] = 'none';
-	env['WEBPACK_DEV_SERVER_OPEN'] = 'false';
-	env['EXPO_NO_OPEN_BROWSER'] = '1';
-	env['STORYBOOK_DISABLE_BROWSER'] = 'true';
-	env['NUXT_OPEN'] = 'false';
-	env['GATSBY_OPEN'] = 'false';
-	env['DISABLE_OPEN_BROWSER'] = 'true';
-	env['OPEN_BROWSER'] = 'false';
-
-	// ✅ Spring Boot (Java)
-	env['JAVA_TOOL_OPTIONS'] = '-Dspring.devtools.livereload.enabled=false';
 }
 
 function mergeNonNullKeys(env: IProcessEnvironment, other: ITerminalEnvironment | undefined) {

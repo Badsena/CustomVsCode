@@ -120,7 +120,6 @@
 		"window.menuBarVisibility": "hidden",
 		"window.restoreWindows": "none",
 		"terminal.integrated.defaultProfile.windows": null,
-		"terminal.integrated.profiles.windows": {},
 		"extensions.autoUpdate": true,
 		"extensions.autoCheckUpdates": true,
 
@@ -141,9 +140,11 @@
 
 		"editor.definitionLinkOpensInPeek": false,
 		"javascript.preferences.importModuleSpecifier": "relative",
+		"typescript.preferences.importModuleSpecifier": "relative",
+		"javascript.updateImportsOnFileMove.enabled": "always",
+		"typescript.updateImportsOnFileMove.enabled": "always",
 		
 		"files.watcherExclude": {
-			"**/*{20D04FE0-3AEA-1069-A2D8-08002B30309D}/**": true,
 			"**/.git/objects/**": true,
 			"**/.git/subtree-cache/**": true,
 			"**/node_modules/*/**": true,

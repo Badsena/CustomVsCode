@@ -151,30 +151,6 @@ export abstract class BaseTerminalProfileResolverService extends Disposable impl
 		if (shellLaunchConfig.useShellEnvironment === undefined) {
 			shellLaunchConfig.useShellEnvironment = this._configurationService.getValue(TerminalSettingId.InheritEnv);
 		}
-
-		// ✅ Amypo - Prevent frameworks from auto-opening browser (Global Fix)
-		const amypoEnv = {
-			'BROWSER': 'none',
-			'BROWSER_ARGS': '',
-			'NO_BROWSER': '1',
-			'LAUNCH_BROWSER': 'false',
-			'BUN_CONFIG_NO_OPEN': 'true',
-			'DOTNET_WATCH_SUPPRESS_BROWSER': '1',
-			'ASPNETCORE_BROWSER': 'none',
-			'WEBPACK_DEV_SERVER_OPEN': 'false',
-			'EXPO_NO_OPEN_BROWSER': '1',
-			'STORYBOOK_DISABLE_BROWSER': 'true',
-			'NUXT_OPEN': 'false',
-			'GATSBY_OPEN': 'false',
-			'DISABLE_OPEN_BROWSER': 'true',
-			'OPEN_BROWSER': 'false',
-			'JAVA_TOOL_OPTIONS': '-Dspring.devtools.livereload.enabled=false',
-		};
-		if (shellLaunchConfig.env) {
-			Object.assign(shellLaunchConfig.env, amypoEnv);
-		} else {
-			shellLaunchConfig.env = amypoEnv;
-		}
 	}
 
 	async getDefaultShell(options: IShellLaunchConfigResolveOptions): Promise<string> {

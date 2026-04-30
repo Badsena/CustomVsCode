@@ -5,12 +5,12 @@
 
 import { ChildProcess, spawn } from 'child_process';
 import { app } from 'electron';
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync } from 'fs';
 import { mkdir, readFile, unlink } from 'fs/promises';
 import { release, tmpdir } from 'os';
-import { Delayer, ProcessTimeRunOnceScheduler, timeout } from '../../../base/common/async.js';
+import { Delayer } from '../../../base/common/async.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
-import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
+import { CancellationToken } from '../../../base/common/cancellation.js';
 import { memoize } from '../../../base/common/decorators.js';
 // import { hash } from '../../../base/common/hash.js';
 import * as path from '../../../base/common/path.js';
@@ -19,7 +19,6 @@ import { transform } from '../../../base/common/stream.js';
 import { URI } from '../../../base/common/uri.js';
 // import { checksum } from '../../../base/node/crypto.js';
 import * as pfs from '../../../base/node/pfs.js';
-import { killTree } from '../../../base/node/processes.js';
 import { getWindowsRelease } from '../../../base/node/windowsVersion.js';
 import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
@@ -55,7 +54,7 @@ function getUpdateType(): UpdateType {
 export class Win32UpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	private availableUpdate: IAvailableUpdate | undefined;
-	private updateCancellationTokenSource: CancellationTokenSource | undefined;
+
 
 	@memoize
 	get cachePath(): Promise<string> {
@@ -219,13 +218,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 			this.setState(State.AvailableForDownload(update));
 
-			// ✅ Auto start download immediately
-			setTimeout(() => {
-				if (this.state.type === StateType.AvailableForDownload) {
-					this.downloadUpdate(true);
-				}
-			}, 1000);
-
 		} catch (err: any) {
 			this.logService.error('[AmypoUpdate] Check failed:', err.message);
 			this.setState(State.Idle(getUpdateType()));
@@ -299,13 +291,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 			this.logService.info(`[AmypoUpdate] Downloaded to: ${finalPath}`);
 
-			// ✅ Set availableUpdate for install
 			this.availableUpdate = { packagePath: finalPath };
-			this.saveUpdateMetadata(state.update);
+			await this.saveUpdateMetadata(state.update);
+			
 			this.setState(State.Downloaded(state.update, true, false));
-
-			// ✅ Apply update (runs installer silently)
-			await this.doApplyUpdate();
 
 		} catch (err: any) {
 			this.logService.error('[AmypoUpdate] Download failed:', err.message);
@@ -339,145 +328,30 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const update = this.state.update;
 		const explicit = this.state.explicit;
-		this.setState(State.Updating(update));
 
-		const cachePath = await this.cachePath;
-		const sessionEndFlagPath = path.join(cachePath, 'session-ending.flag');
-		const cancelFilePath = path.join(cachePath, 'cancel.flag');
-		await this.unlink(cancelFilePath);
-
-		const progressFilePath = path.join(cachePath, 'update-progress');
-		await this.unlink(progressFilePath);
-
-		this.availableUpdate.updateFilePath = path.join(cachePath, `CodeSetup-${this.productService.quality}-${update.version}.flag`);
-		this.availableUpdate.cancelFilePath = cancelFilePath;
-
-		await pfs.Promises.writeFile(this.availableUpdate.updateFilePath, 'flag');
-		const child = spawn(this.availableUpdate.packagePath,
-			[
-				'/verysilent',
-				'/log',
-				`/update="${this.availableUpdate.updateFilePath}"`,
-				`/progress="${progressFilePath}"`,
-				`/sessionend="${sessionEndFlagPath}"`,
-				`/cancel="${cancelFilePath}"`,
-				'/nocloseapplications',
-				'/mergetasks=runcode,!desktopicon,!quicklaunchicon'
-			],
-			{
-				detached: true,
-				stdio: ['ignore', 'ignore', 'ignore'],
-				windowsVerbatimArguments: true,
-				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
-			}
-		);
-
-		this.availableUpdate.updateProcess = child;
-
-		child.once('exit', () => {
-			this.availableUpdate = undefined;
-			this.setState(State.Idle(getUpdateType()));
-		});
-
-		const readyMutexName = `${this.productService.win32MutexName}-ready`;
-		const mutex = await import('@vscode/windows-mutex');
-
-		this.updateCancellationTokenSource?.dispose(true);
-		const cts = this.updateCancellationTokenSource = new CancellationTokenSource();
-		const token = cts.token;
-
-		const poll = async () => {
-			while (this.state.type === StateType.Updating && !token.isCancellationRequested) {
-				if (mutex.isActive(readyMutexName)) {
-					this.setState(State.Ready(update, explicit, this._overwrite));
-					return;
-				}
-				try {
-					const progressContent = await readFile(progressFilePath, 'utf8');
-					if (!token.isCancellationRequested) {
-						const [currentStr, maxStr] = progressContent.split(',');
-						const currentProgress = parseInt(currentStr, 10);
-						const maxProgress = parseInt(maxStr, 10);
-						if (!isNaN(currentProgress) && !isNaN(maxProgress) && this.state.type === StateType.Updating) {
-							if (this.state.currentProgress !== currentProgress || this.state.maxProgress !== maxProgress) {
-								this.setState(State.Updating(update, currentProgress, maxProgress));
-							}
-						}
-					}
-				} catch {
-					// ignore
-				}
-				await timeout(500);
-			}
-		};
-
-		const cancelTimeout = new ProcessTimeRunOnceScheduler(() => {
-			this.logService.warn('update#doApplyUpdate: polling timed out');
-			this.setState(State.Idle(getUpdateType(), 'Update did not complete within expected time'));
-		}, 60 * 60 * 1000);
-
-		cancelTimeout.schedule();
-		poll().finally(() => {
-			cancelTimeout.dispose();
-			if (this.updateCancellationTokenSource === cts) {
-				this.updateCancellationTokenSource = undefined;
-			}
-			cts.dispose();
-		});
-	}
-
-	protected override async cancelPendingUpdate(): Promise<void> {
-		if (!this.availableUpdate) {
-			return;
-		}
-		this.updateCancellationTokenSource?.dispose(true);
-		this.updateCancellationTokenSource = undefined;
-
-		this.logService.trace('update#cancelPendingUpdate: cancelling pending update');
-		const { updateProcess, updateFilePath, cancelFilePath } = this.availableUpdate;
-
-		if (updateProcess && updateProcess.exitCode === null) {
-			updateProcess.removeAllListeners();
-			const exitPromise = new Promise<boolean>(resolve => updateProcess.once('exit', () => resolve(true)));
-			if (cancelFilePath) {
-				try {
-					await pfs.Promises.writeFile(cancelFilePath, 'cancel');
-				} catch (err) {
-					this.logService.warn('update#cancelPendingUpdate: failed to write cancel file', err);
-				}
-			}
-			const pid = updateProcess.pid;
-			const exited = await Promise.race([exitPromise, timeout(30 * 1000).then(() => false)]);
-			if (pid && !exited) {
-				this.logService.trace('update#cancelPendingUpdate: killing process tree');
-				await killTree(pid, true);
-			}
-		}
-
-		await this.unlink(updateFilePath);
-		await this.unlink(cancelFilePath);
-		this.availableUpdate = undefined;
+		// Move to Ready state to trigger "Restart to Update" UI
+		this.setState(State.Ready(update, explicit, false));
 	}
 
 	protected override doQuitAndInstall(): void {
 		if (this.state.type !== StateType.Ready || !this.availableUpdate) {
 			return;
 		}
-		this.logService.trace('update#quitAndInstall(): running raw#quitAndInstall()');
+		
+		this.logService.info('[AmypoUpdate] Quitting and installing update...');
 
-		if (this.availableUpdate.updateFilePath) {
-			try {
-				unlinkSync(this.availableUpdate.updateFilePath);
-			} catch {
-				// ignore
-			}
-		} else {
-			spawn(this.availableUpdate.packagePath, ['/silent', '/log', '/mergetasks=runcode,!desktopicon,!quicklaunchicon'], {
-				detached: true,
-				stdio: ['ignore', 'ignore', 'ignore'],
-				env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
-			});
-		}
+		const spawnOptions: any = {
+			detached: true,
+			stdio: ['ignore', 'ignore', 'ignore'],
+			env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
+		};
+
+		// Launch the setup.exe with silent flags
+		spawn(this.availableUpdate.packagePath, [
+			'/verysilent',
+			'/log',
+			'/mergetasks=runcode,!desktopicon,!quicklaunchicon'
+		], spawnOptions);
 	}
 
 
