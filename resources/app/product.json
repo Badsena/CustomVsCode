@@ -41,7 +41,7 @@
 	],
 	"updateUrl": "https://1102amy21.amypo.ai/",
 	"amypoAppVersion": "1.1.0",
-	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/version.json",
+	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/products/version.json",
 	"quality": "stable",
 	"commit": "amypocoder-1.0.0",
 	"target": "user",
@@ -130,5 +130,5 @@
 		"AMYPO.amypo-browser": [
 			"terminalDataWriteEvent"
 		]
-}
+	}
 }

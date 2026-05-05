@@ -41,7 +41,7 @@
 	],
 	"updateUrl": "https://1102amy21.amypo.ai/",
 	"amypoAppVersion": "1.1.0",
-	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/version.json",
+	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/products/version.json",
 	"quality": "stable",
 	"commit": "amypocoder-1.0.0",
 	"target": "user",
@@ -122,7 +122,6 @@
 		"terminal.integrated.defaultProfile.windows": null,
 		"extensions.autoUpdate": true,
 		"extensions.autoCheckUpdates": true,
-
 		"javascript.suggest.enabled": true,
 		"javascript.validate.enable": true,
 		"typescript.suggest.enabled": true,
@@ -137,13 +136,11 @@
 		"editor.suggestOnTriggerCharacters": true,
 		"editor.parameterHints.enabled": true,
 		"editor.wordBasedSuggestions": "matchingDocuments",
-
 		"editor.definitionLinkOpensInPeek": false,
 		"javascript.preferences.importModuleSpecifier": "relative",
 		"typescript.preferences.importModuleSpecifier": "relative",
 		"javascript.updateImportsOnFileMove.enabled": "always",
 		"typescript.updateImportsOnFileMove.enabled": "always",
-		
 		"files.watcherExclude": {
 			"**/.git/objects/**": true,
 			"**/.git/subtree-cache/**": true,

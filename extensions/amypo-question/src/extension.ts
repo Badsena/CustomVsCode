@@ -73,7 +73,7 @@ async function checkForExtensionUpdate(secretKey: string, context: vscode.Extens
 
 		// ── Fetch version.json from private server
 		const versionResp = await axios.get(
-			'https://1102amy21.amypo.ai/storage/version.json',
+			'https://1102amy21.amypo.ai/storage/products/version.json',
 			{
 				timeout: 5000,
 				validateStatus: (status) => status === 200

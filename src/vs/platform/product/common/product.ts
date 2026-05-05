@@ -66,7 +66,7 @@ else {
 			nameLong: 'Code - OSS Dev',
 			applicationName: 'code-oss',
 			amypoAppVersion: '1.0.0',
-			amypoUpdateUrl: 'https://1102amy21.amypo.ai/storage/version.json',
+			amypoUpdateUrl: 'https://1102amy21.amypo.ai/storage/products/version.json',
 			dataFolderName: '.vscode-oss',
 			urlProtocol: 'code-oss',
 			reportIssueUrl: 'https://github.com/microsoft/vscode/issues/new',
