@@ -174,6 +174,7 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 			})));
 		}
 
+<<<<<<< HEAD
 		// Custom Window Controls (Native Windows/Linux/Mac)
 		if (
 			!hasNativeTitlebar(this.configurationService) &&		// not for native title bars
@@ -191,9 +192,21 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 			this.windowControlsContainer.style.width = 'auto';
 			this.windowControlsContainer.style.display = 'flex';
 			this.windowControlsContainer.style.alignItems = 'center';
+=======
+		// ✅ Modern Premium Exit button (Cross-Platform)
+		const rightContent = this.rootContainer.querySelector('.titlebar-right') as HTMLElement;
+		const exitButtonContainer = this.windowControlsContainer || rightContent;
+		
+		if (exitButtonContainer) {
+			if (exitButtonContainer === this.windowControlsContainer) {
+				// Ensure the container is visible and aligned
+				exitButtonContainer.style.width = 'auto';
+				exitButtonContainer.style.display = 'flex';
+				exitButtonContainer.style.alignItems = 'center';
+			}
+>>>>>>> 544fadc8 (exit)
 
-			// ✅ Modern Premium Exit button
-			const exitButton = append(this.windowControlsContainer, $('a.exit-button', {
+			const exitButton = append(exitButtonContainer, $('a.exit-button', {
 				style: `
 					background-color: #e81123;
 					color: white;
@@ -240,7 +253,14 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 					// this.hostService.close();
 				});
 			}));
+		}
 
+		// Custom Window Controls (Native Windows/Linux)
+		if (
+			!hasNativeTitlebar(this.configurationService) &&		// not for native title bars
+			!useWindowControlsOverlay(this.configurationService) &&	// not when controls are natively drawn
+			this.windowControlsContainer
+		) {
 			// Resizer
 			this.resizer = append(this.rootContainer, $('div.resizer'));
 			this._register(Event.runAndSubscribe(this.layoutService.onDidChangeWindowMaximized, ({ windowId, maximized }) => {
