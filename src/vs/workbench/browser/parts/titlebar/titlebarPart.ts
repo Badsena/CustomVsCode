@@ -819,7 +819,7 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	protected get isCommandCenterVisible() {
-		return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		return false; // ✅ AmypoCoder: Disable Command Center entirely to remove "Welcome" title
 	}
 
 	private get editorActionsEnabled(): boolean {
