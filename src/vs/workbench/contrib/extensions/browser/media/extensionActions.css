@@ -118,6 +118,7 @@
 .monaco-action-bar .action-item.disabled .action-label.extension-action.undo-ignore,
 .monaco-action-bar .action-item .action-label.extension-action.install.hide,
 .monaco-action-bar .action-item.disabled .action-label.extension-action.install-other-server:not(.installing),
+.monaco-action-bar .action-item.hide,
 .monaco-action-bar .action-item.disabled .action-label.extension-action.uninstall:not(.uninstalling),
 .monaco-action-bar .action-item.disabled .action-label.extension-action.hide-when-disabled,
 .monaco-action-bar .action-item.disabled .action-label.extension-action.update,

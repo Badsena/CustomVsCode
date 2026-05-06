@@ -15,7 +15,7 @@
     "onLanguage:scss",
     "onCommand:_css.applyCodeAction"
   ],
-  "main": "./client/out/node/cssClientMain",
+  "main": "./client/dist/node/cssClientMain",
   "browser": "./client/dist/browser/cssClientMain",
   "capabilities": {
     "virtualWorkspaces": true,

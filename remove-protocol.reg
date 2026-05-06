@@ -1,0 +1,6 @@
+Windows Registry Editor Version 5.00
+
+; --- This file REMOVES the protocol registrations ---
+
+[-HKEY_CLASSES_ROOT\amypo]
+[-HKEY_CLASSES_ROOT\amypocoder]

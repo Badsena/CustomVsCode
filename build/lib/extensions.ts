@@ -41,7 +41,7 @@ function minifyExtensionResources(input: Stream): Stream {
 }
 
 function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): Stream {
-	const packageJsonFilter = filter('extensions/*/package.json', { restore: true });
+	const packageJsonFilter = filter('package.json', { restore: true });
 	return input
 		.pipe(packageJsonFilter)
 		.pipe(buffer())
@@ -122,91 +122,88 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 	const result = es.through();
 	const extensionName = path.basename(extensionPath);
 
-	// Extensions built with esbuild can still externalize runtime dependencies.
-	// Ensure those externals are included in the packaged built-in extension.
 	const packagedDependenciesByExtension: Record<string, string[]> = {
 		'git': ['@vscode/fs-copyfile']
 	};
 	const packagedDependencies = packagedDependenciesByExtension[extensionName] ?? [];
 
 	const esbuildScript = path.join(extensionPath, esbuildConfigFileName);
+	const distPath = path.join(extensionPath, 'dist');
 
-	// Run esbuild, then collect the files
-	new Promise<void>((resolve, reject) => {
-		const proc = cp.execFile(process.argv[0], [esbuildScript], {}, (error, _stdout, stderr) => {
-			if (error) {
-				return reject(error);
-			}
+	const runBuild = async () => {
+		// If dist already exists, we can skip esbuild to prevent Windows hangs
+		if (fs.existsSync(distPath)) {
+			fancyLog(`${ansiColors.green('esbuild')}: Skipping for ${ansiColors.yellow(extensionName)} as dist/ already exists.`);
+		} else if (fs.existsSync(esbuildScript)) {
+			fancyLog(`${ansiColors.green('esbuild')}: Running for ${ansiColors.yellow(extensionName)}...`);
+			await new Promise<void>((resolve, reject) => {
+				const proc = cp.execFile(process.argv[0], ['--experimental-strip-types', esbuildScript], {}, (error, _stdout, stderr) => {
+					if (error) {
+						fancyLog.error(`[esbuild Error]: ${stderr}`);
+						return reject(error);
+					}
+					resolve();
+				});
+				proc.stdout?.on('data', d => fancyLog(`[esbuild stdout]: ${d}`));
+				proc.stderr?.on('data', d => fancyLog(`[esbuild stderr]: ${d}`));
+			});
+		}
 
-			const matches = (stderr || '').match(/\> (.+): error: (.+)?/g);
-			fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(path.basename(extensionPath), esbuildConfigFileName))} with ${matches ? matches.length : 0} errors.`);
-			for (const match of matches || []) {
-				fancyLog.error(match);
+		fancyLog(`[vsce]: Listing files for ${ansiColors.yellow(extensionName)}...`);
+		let fileNames: string[] = [];
+		try {
+			fileNames = await vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
+		} catch (err) {
+			fancyLog.warn(`[vsce]: listFiles failed for ${extensionName}, using fallback.`);
+		}
+
+		// FALLBACK & FORCED INCLUSION
+		// We MUST have these files for the extension to work
+		const forcedFiles = ['package.json', 'package.nls.json', 'dist/main.js', 'dist/extension.js'];
+		forcedFiles.forEach(f => {
+			if (fs.existsSync(path.join(extensionPath, f)) && !fileNames.includes(f)) {
+				fileNames.push(f);
 			}
-			return resolve();
 		});
 
-		proc.stdout!.on('data', (data) => {
-			fancyLog(`${ansiColors.green('esbuilding')}: ${data.toString('utf8')}`);
-		});
-		proc.stderr!.on('data', () => { /* drain explicitly to prevent buffer stall on Windows */ });
-	}).then(() => {
-		// After esbuild completes, collect all files using vsce
-		console.log(`[vsce] listFiles starting for ${extensionPath}...`);
-		return vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
-	}).then(fileNames => {
-		console.log(`[vsce] listFiles finished for ${extensionPath} (${fileNames.length} files)`);
-		let finalFileNames = fileNames;
-
-		// Always ensure package.json and package.nls.json are included if they exist
-		['package.json', 'package.nls.json'].forEach(p => {
-			if (fs.existsSync(path.join(extensionPath, p)) && !finalFileNames.includes(p)) {
-				finalFileNames.push(p);
-			}
-		});
+		// Include the entire dist folder if it exists
+		if (fs.existsSync(distPath)) {
+			const distFiles = glob.sync('dist/**', { cwd: extensionPath, nodir: true, dot: true });
+			fileNames = Array.from(new Set([...fileNames, ...distFiles]));
+		}
 
 		if (packagedDependencies.length > 0) {
 			const packagedDependencyFileNames = packagedDependencies.flatMap(dependency =>
 				glob.sync(path.join(extensionPath, 'node_modules', dependency, '**'), { nodir: true, dot: true })
 					.map((filePath: string) => path.relative(extensionPath, filePath))
-					.filter((filePath: string) => {
-						// Exclude non-.node files from build directories to avoid timestamp-sensitive
-						// artifacts (e.g. Makefile) that break macOS universal builds due to SHA mismatches.
-						const parts = filePath.split(path.sep);
-						const buildIndex = parts.indexOf('build');
-						if (buildIndex !== -1) {
-							return filePath.endsWith('.node');
-						}
-						return true;
-					})
 			);
-
-			finalFileNames = Array.from(new Set([...finalFileNames, ...packagedDependencyFileNames]));
+			fileNames = Array.from(new Set([...fileNames, ...packagedDependencyFileNames]));
 		}
 
-		const files = finalFileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
+		fancyLog(`[build]: Packaging ${ansiColors.yellow(extensionName)} with ${fileNames.length} files.`);
+
+		const vinylFiles = fileNames.map(fileName => {
+			const filePath = path.join(extensionPath, fileName);
+			return new File({
+				path: fileName,
 				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath)
-			}));
+				base: '.',
+				contents: fs.readFileSync(filePath)
+			});
+		});
 
-		if (files.length === 0) {
-			(result as any).end();
-		} else {
-			const source = es.readArray(files);
-			source.on('end', () => (result as any).end());
-			source.pipe(result, { end: false });
-		}
-	}).catch(err => {
-		console.error(`[vsce Error in fromLocalEsbuild for ${extensionPath}]:`, err);
+		const source = es.readArray(vinylFiles);
+		source.on('end', () => (result as any).end());
+		source.pipe(result, { end: false });
+	};
+
+	runBuild().catch(err => {
+		fancyLog.error(`[Error in fromLocalEsbuild for ${extensionName}]:`, err);
 		result.emit('error', err);
 		(result as any).end();
 	});
 
-	return result.pipe(createStatsStream(path.basename(extensionPath)));
+	return result.pipe(createStatsStream(extensionName));
 }
 
 

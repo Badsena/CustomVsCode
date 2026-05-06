@@ -924,9 +924,11 @@ export class UninstallAction extends ExtensionAction {
 			return;
 		}
 
-		if (this.extension.isBuiltin || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+		if (this.extension.isBuiltin || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
 			this.enabled = false;
-			this.hidden = this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question';
+			this.hidden = this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser';
+			this.label = UninstallAction.UninstallLabel;
+			this.class = UninstallAction.UninstallClass;
 			return;
 		}
 
@@ -1159,6 +1161,11 @@ export class MigrateDeprecatedExtensionAction extends ExtensionAction {
 		if (!this.extension?.local) {
 			return;
 		}
+		if (this.extension && (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser')) {
+			this.enabled = false;
+			this.hidden = true;
+			return;
+		}
 		if (this.extension.state !== ExtensionState.Installed) {
 			return;
 		}
@@ -1237,7 +1244,10 @@ export class DropDownExtensionActionViewItem extends ActionViewItem {
 	private getActions(menuActionGroups: IAction[][]): IAction[] {
 		let actions: IAction[] = [];
 		for (const menuActions of menuActionGroups) {
-			actions = [...actions, ...menuActions, new Separator()];
+			const visibleActions = menuActions.filter(a => !(a as any).hidden);
+			if (visibleActions.length) {
+				actions = [...actions, ...visibleActions, new Separator()];
+			}
 		}
 		return actions.length ? actions.slice(0, actions.length - 1) : actions;
 	}
@@ -1587,6 +1597,13 @@ export class InstallAnotherVersionAction extends ExtensionAction {
 	update(): void {
 		this.enabled = !!this.extension && !this.extension.isBuiltin && !!this.extension.identifier.uuid && !this.extension.deprecationInfo
 			&& this.allowedExtensionsService.isAllowed({ id: this.extension.identifier.id, publisherDisplayName: this.extension.publisherDisplayName }) === true;
+
+		if (this.extension && (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser')) {
+			this.enabled = false;
+			this.hidden = true;
+			return;
+		}
+
 		if (this.enabled && this.whenInstalled) {
 			this.enabled = !!this.extension?.local && !!this.extension.server && this.extension.state === ExtensionState.Installed;
 		}
@@ -1653,11 +1670,12 @@ export class EnableForWorkspaceAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped) {
-			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
 				this.enabled = false;
 				this.hidden = true;
 				return;
 			}
+
 			this.enabled = this.extension.state === ExtensionState.Installed
 				&& !this.extensionEnablementService.isEnabled(this.extension.local)
 				&& this.extensionEnablementService.canChangeWorkspaceEnablement(this.extension.local);
@@ -1689,7 +1707,7 @@ export class EnableGloballyAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped) {
-			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
 				this.enabled = false;
 				this.hidden = true;
 				return;
@@ -1728,7 +1746,7 @@ export class DisableForWorkspaceAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped && this.extensionService.extensions.some(e => areSameExtensions({ id: e.identifier.value, uuid: e.uuid }, this.extension!.identifier) && this.workspaceContextService.getWorkbenchState() !== WorkbenchState.EMPTY)) {
-			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
 				this.enabled = false;
 				this.hidden = true;
 				return;
@@ -1766,7 +1784,7 @@ export class DisableGloballyAction extends ExtensionAction {
 	update(): void {
 		this.enabled = false;
 		if (this.extension && this.extension.local && !this.extension.isWorkspaceScoped && this.extensionService.extensions.some(e => areSameExtensions({ id: e.identifier.value, uuid: e.uuid }, this.extension!.identifier))) {
-			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question') {
+			if (this.extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || this.extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
 				this.enabled = false;
 				this.hidden = true;
 				return;

@@ -17,7 +17,7 @@
   "enabledApiProposals": [
     "extensionsAny"
   ],
-  "main": "./client/out/node/htmlClientMain",
+  "main": "./client/dist/node/htmlClientMain",
   "browser": "./client/dist/browser/htmlClientMain",
   "capabilities": {
     "virtualWorkspaces": true,

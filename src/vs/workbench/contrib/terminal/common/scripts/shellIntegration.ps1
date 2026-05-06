@@ -92,7 +92,7 @@ if (-not $env:VSCODE_PYTHON_AUTOACTIVATE_GUARD) {
 	Get-ChildItem Env:VSCODE_PYTHON_*_ACTIVATE | Remove-Item -ErrorAction SilentlyContinue
 }
 
-function Global:__VSCode-Escape-Value([string]$value) {
+function Global:Invoke-VSCodeEscapeValue([string]$value) {
 	# NOTE: In PowerShell v6.1+, this can be written `$value -replace '…', { … }` instead of `[regex]::Replace`.
 	# Replace any non-alphanumeric characters.
 	[regex]::Replace($value, "[$([char]0x00)-$([char]0x1f)\\\n;]", { param($match)
@@ -129,7 +129,13 @@ function Global:Prompt() {
 	$Result += "$([char]0x1b)]633;A`a"
 	# Current working directory
 	# OSC 633 ; <Property>=<Value> ST
-	$Result += if ($pwd.Provider.Name -eq 'FileSystem') { "$([char]0x1b)]633;P;Cwd=$(__VSCode-Escape-Value $pwd.ProviderPath)`a" }
+	# Amypo: Redact the real workspace path before reporting CWD
+	$__vsc_cwd = $pwd.ProviderPath
+	if ($env:AMYPO_REDACT_PATH -eq 'true' -and $__vsc_cwd -match '(?i).*[\\/](amypo|CustomVsCode)[\\/]workspace[\\/]([^\\/]+)(.*)') {
+		$__vsc_sub = $Matches[3] -replace '^[\\/]','' -replace '/',"\\"
+		$__vsc_cwd = "Z:\$__vsc_sub"
+	}
+	$Result += if ($pwd.Provider.Name -eq 'FileSystem') { "$([char]0x1b)]633;P;Cwd=$(Invoke-VSCodeEscapeValue $__vsc_cwd)`a" }
 
 	# Send current environment variables as JSON
 	# OSC 633 ; EnvJson ; <Environment> ; <Nonce>
@@ -141,7 +147,7 @@ function Global:Prompt() {
             }
         }
         $envJson = $envMap | ConvertTo-Json -Compress
-        $Result += "$([char]0x1b)]633;EnvJson;$(__VSCode-Escape-Value $envJson);$($Global:__VSCodeState.Nonce)`a"
+        $Result += "$([char]0x1b)]633;EnvJson;$(Invoke-VSCodeEscapeValue $envJson);$($Global:__VSCodeState.Nonce)`a"
 	}
 
 	# Before running the original prompt, put $? back to what it was:
@@ -150,12 +156,16 @@ function Global:Prompt() {
 	}
 	# Run the original prompt
 	$OriginalPrompt += $Global:__VSCodeState.OriginalPrompt.Invoke()
+	# Amypo: Redact the real workspace path in the prompt text shown to the user
+	if ($env:AMYPO_REDACT_PATH -eq 'true') {
+		$OriginalPrompt = $OriginalPrompt -replace '(?i)[A-Z]:\\[^>]*?(amypo|CustomVsCode)\\workspace\\[^\\>]+\\?([^>]*)', 'Z:\$2'
+	}
 	$Result += $OriginalPrompt
 
 	# Prompt
 	# OSC 633 ; <Property>=<Value> ST
 	if ($Global:__VSCodeState.IsStable -eq "0") {
-		$Result += "$([char]0x1b)]633;P;Prompt=$(__VSCode-Escape-Value $OriginalPrompt)`a"
+		$Result += "$([char]0x1b)]633;P;Prompt=$(Invoke-VSCodeEscapeValue $OriginalPrompt)`a"
 	}
 
 	# Write command started
@@ -217,7 +227,7 @@ if (Get-Module -Name PSReadLine) {
 		# Command line
 		# OSC 633 ; E [; <CommandLine> [; <Nonce>]] ST
 		$Result = "$([char]0x1b)]633;E;"
-		$Result += $(__VSCode-Escape-Value $CommandLine)
+		$Result += $(Invoke-VSCodeEscapeValue $CommandLine)
 		# Only send the nonce if the OS is not Windows 10 as it seems to echo to the terminal
 		# sometimes
 		if ($Global:__VSCodeState.IsWindows10 -eq $false) {
@@ -238,7 +248,7 @@ if (Get-Module -Name PSReadLine) {
 	# Set ContinuationPrompt property
 	$Global:__VSCodeState.ContinuationPrompt = (Get-PSReadLineOption).ContinuationPrompt
 	if ($Global:__VSCodeState.ContinuationPrompt) {
-		[Console]::Write("$([char]0x1b)]633;P;ContinuationPrompt=$(__VSCode-Escape-Value $Global:__VSCodeState.ContinuationPrompt)`a")
+		[Console]::Write("$([char]0x1b)]633;P;ContinuationPrompt=$(Invoke-VSCodeEscapeValue $Global:__VSCodeState.ContinuationPrompt)`a")
 	}
 }
 

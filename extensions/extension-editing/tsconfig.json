@@ -1,8 +1,14 @@
 {
 	"extends": "../tsconfig.base.json",
-	"compilerOptions": { "types": ["node", "mocha"],
+	"compilerOptions": {
+		"types": ["node", "mocha"],
 		"rootDir": "./src",
 		"outDir": "./out",
+		"lib": ["ES2024"],
+		"typeRoots": [
+			"../../node_modules/@types",
+			"node_modules/@types"
+		]
 	},
 	"include": [
 		"src/**/*",

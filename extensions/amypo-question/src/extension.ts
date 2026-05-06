@@ -16,6 +16,57 @@ import { submitData, jsonsubmitData, fetchData } from './services/axios/submissi
 import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
+const DRIVE_LETTER = 'Z:';
+
+async function mapVirtualDrive(sourcePath: string): Promise<string> {
+	const drive = DRIVE_LETTER;
+	console.log(`[Amypo Security] Attempting to map ${sourcePath} to ${drive}`);
+
+	let attempts = 0;
+	while (attempts < 3) {
+		try {
+			// 1. Force unmap first (robustness)
+			try { await execAsync(`subst ${drive} /d`); } catch { }
+
+			// 2. Map the drive (sanitize path: remove leading \ if it exists)
+			let sanitizedSource = sourcePath.trim();
+			if (sanitizedSource.startsWith('\\') && sanitizedSource.match(/^\\[a-zA-Z]:/)) {
+				sanitizedSource = sanitizedSource.substring(1);
+			}
+			await execAsync(`subst ${drive} "${sanitizedSource}"`);
+
+			// 3. Verify it works
+			if (fs.existsSync(`${drive}\\`)) {
+				console.log(`[Amypo Security] Virtual Drive ${drive} successfully mapped and verified.`);
+				return drive;
+			} else {
+				throw new Error('Drive mapped but not accessible');
+			}
+		} catch (err: any) {
+			attempts++;
+			console.error(`[Amypo Security] Mapping attempt ${attempts} failed for ${sourcePath}:`, err.stderr ?? err.message);
+			if (attempts < 3) {
+				await new Promise(resolve => setTimeout(resolve, 1000));
+			}
+		}
+	}
+
+	console.error(`[Amypo Security] FATAL: All mapping attempts failed for ${sourcePath}. Falling back to original path.`);
+	return sourcePath;
+}
+
+/**
+ * unmapVirtualDrive - Unmaps the virtual drive letter
+ */
+async function unmapVirtualDrive(): Promise<void> {
+	if (process.platform !== 'win32') return;
+	try {
+		await execAsync(`subst ${DRIVE_LETTER} /d`);
+		console.log(`[Amypo Security] Virtual Drive ${DRIVE_LETTER} unmapped.`);
+	} catch (err) {
+		// Ignore if already unmapped or drive not found
+	}
+}
 
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
@@ -66,6 +117,12 @@ function readSecretKey(): string | null {
 
 // Auto-Update
 async function checkForExtensionUpdate(secretKey: string, context: vscode.ExtensionContext): Promise<boolean> {
+	// Skip auto-update if running in development mode to prevent overwriting local code
+	if (vscode.env.appRoot.toLowerCase().includes('customvscode') || vscode.env.machineId === 'some-dev-id') {
+		console.log('[Amypo Update] Development mode detected: Skipping auto-update check.');
+		return false;
+	}
+
 	const statusBarItem = vscode.window.setStatusBarMessage('$(sync~spin) Amypo: Checking for updates...');
 	try {
 		const currentVersion = context.extension.packageJSON?.version ?? '0.0.0';
@@ -195,6 +252,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.warn('[Amypo Update] Blocking update check error:', err);
 	}
 
+	//  Recovery Logic: Re-map Z: drive on startup if workspace is already open on Z:
+	const currentWorkspace = vscode.workspace.workspaceFolders?.[0];
+	if (currentWorkspace?.uri.fsPath.toLowerCase().startsWith('z:')) {
+		const cachedProjectPath = context.globalState.get<string>('amypo.projectPath');
+		if (cachedProjectPath && fs.existsSync(cachedProjectPath)) {
+			console.log('[Amypo] Workspace on Z: detected. Re-mapping virtual drive to:', cachedProjectPath);
+			await mapVirtualDrive(cachedProjectPath);
+		}
+	}
+
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
 			handleUri(uri: vscode.Uri) {
@@ -249,7 +316,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const STATIC_TEST_TYPE = 0;
 	const STATIC_TOKEN = '285881|JPVibXICnj72YrYqZT7F9EpArcRg6zFiqM4JK4fc5db82792';
 	const STATIC_MODULE_ID = 1020;
-
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -275,20 +341,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	const openFolderWithoutReload = (projectPath: string) => {
 		const folderUri = vscode.Uri.file(projectPath);
 
-		const alreadyInWorkspace = vscode.workspace.workspaceFolders?.some(
-			f => f.uri.fsPath === projectPath
+		// Get total number of existing folders to replace them all
+		const currentFoldersCount = vscode.workspace.workspaceFolders?.length ?? 0;
+
+		// Replace the entire workspace with just the virtual drive
+		// This forces the terminal and breadcrumbs to use the Z:\ path
+		vscode.workspace.updateWorkspaceFolders(
+			0,
+			currentFoldersCount,
+			{ uri: folderUri, name: "Amypo Project" }
 		);
 
-		if (!alreadyInWorkspace) {
-			vscode.workspace.updateWorkspaceFolders(
-				vscode.workspace.workspaceFolders?.length ?? 0,
-				null,
-				{ uri: folderUri }
-			);
-			console.log('[Amypo] Folder added to workspace:', projectPath);
-		} else {
-			console.log('[Amypo] Folder already in workspace — skipping.');
-		}
+		console.log('[Amypo] Workspace replaced with virtual drive:', projectPath);
 	};
 
 	// Inject a token into a GitHub HTTPS URL
@@ -516,7 +580,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('[Amypo] cloneAndOpenRepo →', {
 			url: authenticatedCloneUrl.replace(GITHUB_TOKEN, '***'),
 			testId,
-			projectPath,
+			projectPath: '[REDACTED]',
 		});
 
 		// Delete if already cloned to ensure a fresh state
@@ -591,7 +655,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.token', activeToken);
 			console.log('[Amypo] State saved to globalState before workspace change.');
 
-			openFolderWithoutReload(projectPath);
+			// Map the virtual drive to hide the real AppData path
+			const finalOpenPath = await mapVirtualDrive(projectPath);
+
+			console.log(`[Amypo] Final Path to Open: ${finalOpenPath}`);
+			openFolderWithoutReload(finalOpenPath);
 
 		} catch (err: any) {
 			console.error('[Amypo] Initialisation error:', err.stderr ?? err.message);
@@ -1352,7 +1420,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
 	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
-	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
+	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo) || normalizedCurrent.startsWith(DRIVE_LETTER.toLowerCase());
 
 	console.log('[Amypo] Guard check:', { currentFolder: normalizedCurrent, amypoWorkspace: normalizedAmypo, isInsideAmypoProject });
 
@@ -1363,6 +1431,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	if (shouldRestore) {
 		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
+
+		// Ensure Virtual Drive is mapped during restoration
+		const savedPath = context.globalState.get<string>('amypo.projectPath');
+		if (savedPath) {
+			await mapVirtualDrive(savedPath);
+		}
 
 		// Restore saved data from globalState
 		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
@@ -1555,7 +1629,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('enter test details');
 
 		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
-	}
+	} 
 
 	const doExitAndSave = async () => {
 		await vscode.window.withProgress({
@@ -1634,6 +1708,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				await context.globalState.update('amypo.questionData', undefined);
 				await context.globalState.update('amypo.courseInfo', undefined);
 				await context.globalState.update('amypo.cachedQuestion', undefined);
+
+				// Unmap the virtual drive on exit
+				await unmapVirtualDrive();
 
 				// Final exit
 				vscode.commands.executeCommand('workbench.action.closeWindow');

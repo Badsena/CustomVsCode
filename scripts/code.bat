@@ -8,9 +8,9 @@ pushd %~dp0\..
 :: Get electron, compile, built-in extensions
 :: Skipped — Electron already cached in .build\electron\
 :: Uncomment below to re-enable if Electron needs re-downloading:
-:: if "%VSCODE_SKIP_PRELAUNCH%"=="" (
-:: 	node build/lib/preLaunch.ts
-:: )
+if "%VSCODE_SKIP_PRELAUNCH%"=="" (
+	node build/lib/preLaunch.ts
+)
 
 set "NAMESHORT="
 for /f "tokens=2 delims=:," %%a in ('findstr /R /C:"\"nameShort\":.*" product.json') do if not defined NAMESHORT set "NAMESHORT=%%~a"

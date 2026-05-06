@@ -185,10 +185,12 @@ const terminalPlatformConfiguration: IConfigurationNode = {
 					args: [],
 					icon: Codicon.terminalCmd.id,
 				},
+				/*
 				'Git Bash': {
 					source: 'Git Bash',
 					icon: Codicon.terminalGitBash.id,
 				}
+				*/
 			},
 			additionalProperties: {
 				'anyOf': [

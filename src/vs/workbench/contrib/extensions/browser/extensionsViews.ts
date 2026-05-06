@@ -467,7 +467,7 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 
 		value = value.replace(/@installed/g, '').replace(/@sort:(\w+)(-\w*)?/g, '').trim().toLowerCase();
 
-		const matchingText = (e: IExtension) => (!e.isBuiltin || e.identifier.id.toLowerCase() === 'amypo.amypo-question') && (e.name.toLowerCase().indexOf(value) > -1 || e.displayName.toLowerCase().indexOf(value) > -1 || e.description.toLowerCase().indexOf(value) > -1)
+		const matchingText = (e: IExtension) => (!e.isBuiltin || e.identifier.id.toLowerCase() === 'amypo.amypo-question' || e.identifier.id.toLowerCase() === 'amypo.amypo-browser') && (e.name.toLowerCase().indexOf(value) > -1 || e.displayName.toLowerCase().indexOf(value) > -1 || e.description.toLowerCase().indexOf(value) > -1)
 			&& this.filterExtensionByCategory(e, includedCategories, excludedCategories);
 		let result;
 

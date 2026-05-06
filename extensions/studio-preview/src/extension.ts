@@ -53,6 +53,12 @@ function httpsDownload(url: string): Promise<Buffer> {
 }
 
 async function checkForExtensionUpdate(context: vscode.ExtensionContext): Promise<boolean> {
+	// Skip auto-update if running in development mode
+	if (vscode.env.appRoot.toLowerCase().includes('customvscode')) {
+		console.log('[Amypo Browser Update] Development mode detected: Skipping auto-update.');
+		return false;
+	}
+
 	const statusBarItem = vscode.window.setStatusBarMessage('$(sync~spin) Amypo Browser: Checking for updates...');
 	try {
 		const currentVersion = context.extension.packageJSON?.version ?? '0.0.0';

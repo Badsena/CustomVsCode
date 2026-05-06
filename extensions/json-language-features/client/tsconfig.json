@@ -1,15 +1,14 @@
 {
 	"extends": "../../tsconfig.base.json",
-	"compilerOptions": { "types": ["node", "mocha"],
+	"compilerOptions": {
+		"types": ["node", "mocha"],
 		"rootDir": "./src",
 		"outDir": "./out",
 		"lib": [
+			"ES2022",
 			"webworker"
 		],
-		"module": "Node16",
-		"typeRoots": [
-			"../node_modules/@types"
-		]
+		"module": "Node16"
 	},
 	"include": [
 		"src/**/*",

@@ -343,7 +343,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const spawnOptions: any = {
 			detached: true,
 			stdio: ['ignore', 'ignore', 'ignore'],
-			env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' }
+			env: { ...process.env }
 		};
 
 		// Launch the setup.exe with silent flags

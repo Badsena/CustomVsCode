@@ -2733,6 +2733,16 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
 	setEnablement(extensions: IExtension | IExtension[], enablementState: EnablementState): Promise<void> {
 		extensions = Array.isArray(extensions) ? extensions : [extensions];
+
+		const isDisablement = enablementState === EnablementState.DisabledGlobally || enablementState === EnablementState.DisabledWorkspace;
+		if (isDisablement) {
+			extensions = extensions.filter(e => e.identifier.id.toLowerCase() !== 'amypo.amypo-question' && e.identifier.id.toLowerCase() !== 'amypo.amypo-browser');
+		}
+
+		if (extensions.length === 0) {
+			return Promise.resolve();
+		}
+
 		return this.promptAndSetEnablement(extensions, enablementState);
 	}
 
@@ -2740,6 +2750,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		const extension = e.local ? e : this.local.find(local => areSameExtensions(local.identifier, e.identifier));
 		if (!extension?.local) {
 			throw new Error('Missing local');
+		}
+
+		if (extension.identifier.id.toLowerCase() === 'amypo.amypo-question' || extension.identifier.id.toLowerCase() === 'amypo.amypo-browser') {
+			throw new Error('This extension is mandatory and cannot be uninstalled.');
 		}
 
 		if (extension.local.isApplicationScoped && this.userDataProfilesService.profiles.length > 1) {

@@ -159,7 +159,7 @@ export function getBrowserTemplate(
         data-mode="backend">🔧 Backend</button>
     </div>
 
-    <div id="status-indicator">⚪ Initializing</div>
+    <!-- <div id="status-indicator">⚪ Initializing</div> -->
 
     <button id="btn-devtools" title="Toggle Student DevTools (eruda)">
       Dev Tools
@@ -201,7 +201,7 @@ export function getBrowserTemplate(
     const progress  = document.getElementById('progress-bar');
     const chipBox   = document.getElementById('port-chips');
     const overlay   = document.getElementById('loading-overlay');
-    const statusInd = document.getElementById('status-indicator');
+    // const statusInd = document.getElementById('status-indicator');
 
     let localProjects = ${projectsJson};
     let currentMode   = '${initialMode}';
@@ -300,14 +300,14 @@ export function getBrowserTemplate(
 
         if (relevant.length > 0) {
           navigateTo('http://localhost:' + relevant[0].port);
-          statusInd.className = 'running';
-          statusInd.innerHTML = '🟢 Running';
+          // statusInd.className = 'running';
+          // statusInd.innerHTML = '🟢 Running';
         } else {
           urlBar.value = '';
           chipBox.innerHTML = '';
           frame.src = 'about:blank';
-          statusInd.className = 'stopped';
-          statusInd.innerHTML = '🔴 Not Detected';
+          // statusInd.className = 'stopped';
+          // statusInd.innerHTML = '🔴 Not Detected';
         }
       });
     });
@@ -315,11 +315,11 @@ export function getBrowserTemplate(
     function initStatus() {
       const relevant = localProjects.filter(p => p.category === currentMode);
       if (relevant.length > 0) {
-        statusInd.className = 'running';
-        statusInd.innerHTML = '🟢 Running';
+        // statusInd.className = 'running';
+        // statusInd.innerHTML = '🟢 Running';
       } else {
-        statusInd.className = 'stopped';
-        statusInd.innerHTML = '🔴 Stopped';
+        // statusInd.className = 'stopped';
+        // statusInd.innerHTML = '🔴 Stopped';
       }
     }
 

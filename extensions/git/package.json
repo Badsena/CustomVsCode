@@ -57,7 +57,7 @@
   "extensionDependencies": [
     "vscode.git-base"
   ],
-  "main": "./out/main",
+  "main": "./dist/main",
   "icon": "resources/icons/git.png",
   "scripts": {
     "compile": "gulp compile-extension:git",

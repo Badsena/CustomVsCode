@@ -264,6 +264,10 @@ __vsc_update_cwd() {
 	else
 		__vsc_cwd="$PWD"
 	fi
+	# Amypo: Redact the real workspace path before reporting CWD
+	if [ "${AMYPO_REDACT_PATH:-}" = "true" ]; then
+		__vsc_cwd=$(echo "$__vsc_cwd" | sed -E 's|.*/([Aa]mypo\|[Cc]ustom[Vv]s[Cc]ode)/workspace/[^/]+/?(.*)$|Z:/\2|')
+	fi
 	builtin printf '\e]633;P;Cwd=%s\a' "$(__vsc_escape_value "$__vsc_cwd")"
 }
 
@@ -489,4 +493,44 @@ if [[ -z "${bash_preexec_imported:-}" ]]; then
 	else
 		PROMPT_COMMAND=__vsc_prompt_cmd
 	fi
+fi
+
+# Amypo: Redirect to virtual Z: drive and redact prompt for Git Bash on Windows
+if [ "${AMYPO_REDACT_PATH:-}" = "true" ] && [ "$__vsc_is_windows" = "1" ]; then
+	# Use the REAL workspace path from env var (set by terminalInstance.ts)
+	# This avoids issues when workspace is already opened on Z:\
+	__vsc_amypo_real_cwd=""
+	if [ -n "${AMYPO_WORKSPACE_PATH:-}" ]; then
+		__vsc_amypo_real_cwd="$AMYPO_WORKSPACE_PATH"
+		# Remove leading backslash if it exists (e.g. \C:\... -> C:\...)
+		__vsc_amypo_real_cwd="${__vsc_amypo_real_cwd#\\}"
+	else
+		# Fallback: try to get from current PWD (only if not already on Z:)
+		__vsc_amypo_pwd="$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")"
+		case "$__vsc_amypo_pwd" in
+			[Zz]:*) ;; # Already on Z:, skip
+			*) __vsc_amypo_real_cwd="$__vsc_amypo_pwd" ;;
+		esac
+		# Remove leading backslash if it exists
+		__vsc_amypo_real_cwd="${__vsc_amypo_real_cwd#\\}"
+		builtin unset __vsc_amypo_pwd
+	fi
+
+	# Ensure Z: drive is mapped if we have the real path
+	if [ -n "$__vsc_amypo_real_cwd" ] && ! test -d "/z/"; then
+		cmd.exe /c "subst Z: /d" 2>/dev/null
+		cmd.exe /c "subst Z: \"$__vsc_amypo_real_cwd\"" 2>/dev/null
+	fi
+
+	# Change to Z: drive if it exists
+	if test -d "/z/"; then
+		builtin cd /z/
+	fi
+
+	# Override PS1 AFTER all profile scripts have run
+	# This gives us the final word on the prompt display
+	__vsc_original_PS1='\[\e[32m\]Amypo\[\e[m\]:\[\e[34m\]\w\[\e[m\]\$ '
+	__vsc_custom_PS1=""
+
+	builtin unset __vsc_amypo_real_cwd
 fi

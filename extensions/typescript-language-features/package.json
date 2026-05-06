@@ -81,7 +81,7 @@
     "onLanguage:jsonc",
     "onWalkthrough:nodejsWelcome"
   ],
-  "main": "./out/extension",
+  "main": "./dist/extension",
   "browser": "./dist/browser/extension",
   "contributes": {
     "jsonValidation": [

@@ -77,7 +77,7 @@ export class BaseActionViewItem extends Disposable implements IActionViewItem {
 			this.updateChecked();
 		}
 
-		if (event.class !== undefined) {
+		if (event.class !== undefined || (event as any).hidden !== undefined) {
 			this.updateClass();
 		}
 
@@ -384,6 +384,9 @@ export class ActionViewItem extends BaseActionViewItem {
 	protected override updateClass(): void {
 		if (this.cssClass && this.label) {
 			this.label.classList.remove(...this.cssClass.split(' '));
+		}
+		if (this.element) {
+			this.element.classList.toggle('hide', !!(this._action as any).hidden);
 		}
 		if (this.action.id === Separator.ID && this.action.class) {
 			this.label?.classList.add(this.action.class);

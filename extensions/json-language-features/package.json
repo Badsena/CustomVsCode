@@ -19,7 +19,7 @@
     "onLanguage:snippets",
     "onCommand:json.validate"
   ],
-  "main": "./client/out/node/jsonClientMain",
+  "main": "./client/dist/node/jsonClientMain",
   "browser": "./client/dist/browser/jsonClientMain",
   "capabilities": {
     "virtualWorkspaces": true,

@@ -144,6 +144,15 @@ Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\shell"; Va
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\shell\open"; ValueType: string; ValueName: ""; ValueData: ""; Flags: uninsdeletevalue
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypocoder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""; Flags: uninsdeletevalue
 
+; --- Support for the old amypo:// protocol name ---
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo"; ValueType: string; ValueName: ""; ValueData: "URL:Amypo Coder Protocol"; Flags: uninsdeletekey
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletevalue
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#ExeBasename}.exe,0"; Flags: uninsdeletevalue
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\shell"; ValueType: string; ValueName: ""; ValueData: "open"; Flags: uninsdeletevalue
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\shell\open"; ValueType: string; ValueName: ""; ValueData: ""; Flags: uninsdeletevalue
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\amypo\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""--open-url"" ""%1"""; Flags: uninsdeletevalue
+
+
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: none; ValueName: "{#RegValueName}"; Flags: deletevalue uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.ascx\OpenWithProgids"; ValueType: string; ValueName: "{#RegValueName}.ascx"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.ascx"; ValueType: string; ValueName: ""; ValueData: "{cm:SourceFile,ASCX}"; Flags: uninsdeletekey; Tasks: associatewithfiles
