@@ -1692,8 +1692,8 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 						}
 						
 						this._logService.info('[Amypo Terminal] Injecting PowerShell args with sanitized path:', sanitizedPath);
-						// For PowerShell: use -NoExit -Command to map drive and switch
-						this._shellLaunchConfig.args = ['-NoExit', '-Command', `subst Z: "${sanitizedPath}"; Set-Location Z:\\`];
+						// For PowerShell: use -NoExit -Command to map drive, switch location, and prevent 'Microsoft' folder creation
+						this._shellLaunchConfig.args = ['-NoExit', '-Command', `subst Z: "${sanitizedPath}"; Set-Location Z:\\; if (Get-Module -ListAvailable PSReadLine) { Set-PSReadLineOption -HistorySavePath "$env:TEMP\\ps_history.txt" }`];
 					}
 				}
 			}
