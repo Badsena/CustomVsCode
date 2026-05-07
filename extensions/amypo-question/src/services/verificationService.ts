@@ -517,7 +517,7 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		let total = springResults.total + reactResults.total;
 		let passed = springResults.passed + reactResults.passed;
-		let failed = (springResults.passed > 0 ? springResults.failed : springResults.total) + (reactResults.passed > 0 ? reactResults.failed : reactResults.total);;
+		let failed = (springResults.passed > 0 ? springResults.failed + springResults.skipped + springResults.errors : springResults.total) + (reactResults.passed > 0 ? reactResults.failed : reactResults.total);;
 		const skipped = springResults.skipped + reactResults.skipped;
 		const errors = springResults.errors + reactResults.errors;
 
