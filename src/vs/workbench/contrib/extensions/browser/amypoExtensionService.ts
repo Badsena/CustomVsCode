@@ -9,16 +9,17 @@ let cachedExtensions: string[] | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_TTL = 30 * 1000;
 
-// Map unfriendly names to real IDs if necessary (e.g. "Online" -> "amypo.online")
-const extensionMap: Record<string, string> = {
-    // "Online": "amypo.online",
-};
+
+
+
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 
 export class AmypoExtensionService {
 
     static async getRecommendedExtensions(
         langId: number,
-        token: string
+        token: string,
+        notificationService?: INotificationService
     ): Promise<string[]> {
 
         const now = Date.now();
@@ -57,17 +58,27 @@ export class AmypoExtensionService {
             clearTimeout(timeout);
 
             if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
+                const errorMsg = `Server error: ${response.status}`;
+                notificationService?.error(`[Amypo Extension] ${errorMsg}`);
+                throw new Error(errorMsg);
             }
 
             const resp = await response.json();
-            console.log('[Amypo Extension] Raw response:', JSON.stringify(resp));
+            const rawResponseStr = JSON.stringify(resp);
+            console.log('[Amypo Extension] Raw response:', rawResponseStr);
+
+            // ✅ Show Notification with raw response
+            if (notificationService) {
+                notificationService.notify({
+                    severity: Severity.Info,
+                    message: `[Amypo Extension] Raw response: ${rawResponseStr}`,
+                    sticky: false
+                });
+            }
 
             if (resp && resp.data && Array.isArray(resp.data.extension)) {
-                // Map friendly names to actual VS Code extension IDs (Option B)
-                const extensionIds: string[] = resp.data.extension.map(
-                    (extName: string) => extensionMap[extName] || extName
-                );
+                // Use IDs directly from the server (fully dynamic)
+                const extensionIds: string[] = resp.data.extension;
 
                 // ✅ Print extension details
                 console.log('========================================');

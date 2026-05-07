@@ -44,7 +44,7 @@
 	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/products/version.json",
 	"quality": "stable",
 	"commit": "amypocoder-1.0.0",
-	"target": "user",
+	"target": "system",
 	"win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}}",
 	"win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}}",
 	"win32x64UserAppId": "{{CC6B787D-37A0-49E8-AE24-8559A032BE0C}}",
