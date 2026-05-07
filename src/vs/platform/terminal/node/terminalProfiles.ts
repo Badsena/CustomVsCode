@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-// import * as cp from 'child_process';
+import * as cp from 'child_process';
 import { Codicon } from '../../../base/common/codicons.js';
 import { basename, delimiter, normalize, dirname, resolve } from '../../../base/common/path.js';
 import { isLinux, isWindows } from '../../../base/common/platform.js';
@@ -17,14 +17,14 @@ import { IConfigurationService } from '../../configuration/common/configuration.
 import { ILogService } from '../../log/common/log.js';
 import { ITerminalEnvironment, ITerminalExecutable, ITerminalProfile, ITerminalProfileSource, ITerminalUnsafePath, ProfileSource, TerminalIcon, TerminalSettingId } from '../common/terminal.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
-// import { getWindowsBuildNumberAsync } from '../../../base/node/windowsVersion.js';
+import { getWindowsBuildNumberAsync } from '../../../base/node/windowsVersion.js';
 
 const enum Constants {
 	UnixShellsPath = '/etc/shells'
 }
 
 let profileSources: Map<string, IPotentialTerminalProfile> | undefined;
-// let logIfWslNotInstalled: boolean = true;
+let logIfWslNotInstalled: boolean = true;
 
 export function detectAvailableProfiles(
 	profiles: unknown,
@@ -86,7 +86,7 @@ async function detectAvailableWindowsProfiles(
 
 	// WSL 2 released in the May 2020 Update, this is where the `-d` flag was added that we depend
 	// upon
-	// const allowWslDiscovery = await getWindowsBuildNumberAsync() >= 19041;
+	const allowWslDiscovery = await getWindowsBuildNumberAsync() >= 19041;
 
 	await initializeWindowsProfiles(testPwshSourcePaths);
 
@@ -104,69 +104,63 @@ async function detectAvailableWindowsProfiles(
 			icon: Codicon.terminalPowershell,
 			isAutoDetected: true
 		});
-		/*
-				detectedProfiles.set('Git Bash', {
-					source: ProfileSource.GitBash,
-					icon: Codicon.terminalGitBash,
-					isAutoDetected: true
-				});
-		*/
+		detectedProfiles.set('Git Bash', {
+			source: ProfileSource.GitBash,
+			icon: Codicon.terminalGitBash,
+			isAutoDetected: true
+		});
 		detectedProfiles.set('Command Prompt', {
 			path: `${system32Path}\\cmd.exe`,
 			icon: Codicon.terminalCmd,
 			isAutoDetected: true
 		});
-		/*
-				detectedProfiles.set('Cygwin', {
-					path: [
-						{ path: `${process.env['HOMEDRIVE']}\\cygwin64\\bin\\bash.exe`, isUnsafe: true },
-						{ path: `${process.env['HOMEDRIVE']}\\cygwin\\bin\\bash.exe`, isUnsafe: true }
-					],
-					args: ['--login'],
-					isAutoDetected: true
-				});
-				detectedProfiles.set('bash (MSYS2)', {
-					path: [
-						{ path: `${process.env['HOMEDRIVE']}\\msys64\\usr\\bin\\bash.exe`, isUnsafe: true },
-					],
-					args: ['--login', '-i'],
-					// CHERE_INVOKING retains current working directory
-					env: { CHERE_INVOKING: '1' },
-					icon: Codicon.terminalBash,
-					isAutoDetected: true
-				});
-				const cmderPath = `${process.env['CMDER_ROOT'] || `${process.env['HOMEDRIVE']}\\cmder`}\\vendor\\bin\\vscode_init.cmd`;
-				detectedProfiles.set('Cmder', {
-					path: `${system32Path}\\cmd.exe`,
-					args: ['/K', cmderPath],
-					// The path is safe if it was derived from CMDER_ROOT
-					requiresPath: process.env['CMDER_ROOT'] ? cmderPath : { path: cmderPath, isUnsafe: true },
-					isAutoDetected: true
-				});
-		*/
+		detectedProfiles.set('Cygwin', {
+			path: [
+				{ path: `${process.env['HOMEDRIVE']}\\cygwin64\\bin\\bash.exe`, isUnsafe: true },
+				{ path: `${process.env['HOMEDRIVE']}\\cygwin\\bin\\bash.exe`, isUnsafe: true }
+			],
+			args: ['--login'],
+			isAutoDetected: true
+		});
+		detectedProfiles.set('bash (MSYS2)', {
+			path: [
+				{ path: `${process.env['HOMEDRIVE']}\\msys64\\usr\\bin\\bash.exe`, isUnsafe: true },
+			],
+			args: ['--login', '-i'],
+			// CHERE_INVOKING retains current working directory
+			env: { CHERE_INVOKING: '1' },
+			icon: Codicon.terminalBash,
+			isAutoDetected: true
+		});
+		const cmderPath = `${process.env['CMDER_ROOT'] || `${process.env['HOMEDRIVE']}\\cmder`}\\vendor\\bin\\vscode_init.cmd`;
+		detectedProfiles.set('Cmder', {
+			path: `${system32Path}\\cmd.exe`,
+			args: ['/K', cmderPath],
+			// The path is safe if it was derived from CMDER_ROOT
+			requiresPath: process.env['CMDER_ROOT'] ? cmderPath : { path: cmderPath, isUnsafe: true },
+			isAutoDetected: true
+		});
 	}
 
 	applyConfigProfilesToMap(configProfiles, detectedProfiles);
 
 	const resultProfiles: ITerminalProfile[] = await transformToTerminalProfiles(detectedProfiles.entries(), defaultProfileName, fsProvider, shellEnv, logService, variableResolver);
 
-	/*
-		if (includeDetectedProfiles && useWslProfiles && allowWslDiscovery) {
-			try {
-				const result = await getWslProfiles(`${system32Path}\\wsl.exe`, defaultProfileName);
-				for (const wslProfile of result) {
-					if (!configProfiles || !Object.prototype.hasOwnProperty.call(configProfiles, wslProfile.profileName)) {
-						resultProfiles.push(wslProfile);
-					}
-				}
-			} catch (e) {
-				if (logIfWslNotInstalled) {
-					logService?.trace('WSL is not installed, so could not detect WSL profiles');
-					logIfWslNotInstalled = false;
+	if (includeDetectedProfiles && useWslProfiles && allowWslDiscovery) {
+		try {
+			const result = await getWslProfiles(`${system32Path}\\wsl.exe`, defaultProfileName);
+			for (const wslProfile of result) {
+				if (!configProfiles || !Object.prototype.hasOwnProperty.call(configProfiles, wslProfile.profileName)) {
+					resultProfiles.push(wslProfile);
 				}
 			}
+		} catch (e) {
+			if (logIfWslNotInstalled) {
+				logService?.trace('WSL is not installed, so could not detect WSL profiles');
+				logIfWslNotInstalled = false;
+			}
 		}
-	*/
+	}
 
 	return resultProfiles;
 }
@@ -350,7 +344,6 @@ async function getPowershellPaths(): Promise<string[]> {
 	return paths;
 }
 
-/*
 async function getWslProfiles(wslPath: string, defaultProfileName: string | undefined): Promise<ITerminalProfile[]> {
 	const profiles: ITerminalProfile[] = [];
 	const distroOutput = await new Promise<string>((resolve, reject) => {
@@ -404,7 +397,6 @@ function getWslIcon(distroName: string): ThemeIcon {
 		return Codicon.terminalLinux;
 	}
 }
-*/
 
 async function detectAvailableUnixProfiles(
 	fsProvider: IFsProvider,

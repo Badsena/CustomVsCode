@@ -114,11 +114,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const osNodeRelease = release();
 		this.telemetryService.publicLog2<WindowsUpdateInitEvent, WindowsUpdateInitClassification>('windowsUpdateInit', { osRelease, osNodeRelease });
 
-		if (this.productService.target === 'user' && await this.nativeHostMainService.isAdmin(undefined)) {
-			this.setState(State.Disabled(DisablementReason.RunningAsAdmin));
-			this.logService.info('update#ctor - updates are disabled due to running as Admin in user setup');
-			return;
-		}
+		// ✅ Amypo: System setup only — user-setup admin check is disabled
+		// if (this.productService.target === 'user' && await this.nativeHostMainService.isAdmin(undefined)) {
+		// 	this.setState(State.Disabled(DisablementReason.RunningAsAdmin));
+		// 	this.logService.info('update#ctor - updates are disabled due to running as Admin in user setup');
+		// 	return;
+		// }
 
 		await super.initialize();
 	}
@@ -143,19 +144,20 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				this.logService.error(`update#doCheckForUpdates - could not read ${updatingVersionPath}`, e);
 			}
 		} else {
-			const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
-			if (fastUpdatesEnabled && this.productService.target === 'user' && this.productService.commit) {
-				const versionedResourcesFolder = this.productService.commit.substring(0, 10);
-				const innoUpdater = path.join(exeDir, versionedResourcesFolder, 'tools', 'inno_updater.exe');
-				await new Promise<void>(resolve => {
-					const child = spawn(innoUpdater, ['--gc', exePath, versionedResourcesFolder], {
-						stdio: ['ignore', 'ignore', 'ignore'],
-						windowsHide: true,
-						timeout: 2 * 60 * 1000
-					});
-					child.once('exit', () => resolve());
-				});
-			}
+			// ✅ Amypo: System setup only — user-setup inno_updater background GC is disabled
+			// const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+			// if (fastUpdatesEnabled && this.productService.target === 'user' && this.productService.commit) {
+			// 	const versionedResourcesFolder = this.productService.commit.substring(0, 10);
+			// 	const innoUpdater = path.join(exeDir, versionedResourcesFolder, 'tools', 'inno_updater.exe');
+			// 	await new Promise<void>(resolve => {
+			// 		const child = spawn(innoUpdater, ['--gc', exePath, versionedResourcesFolder], {
+			// 			stdio: ['ignore', 'ignore', 'ignore'],
+			// 			windowsHide: true,
+			// 			timeout: 2 * 60 * 1000
+			// 		});
+			// 		child.once('exit', () => resolve());
+			// 	});
+			// }
 		}
 	}
 
@@ -163,9 +165,11 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		let platform = `win32-${process.arch}`;
 		if (getUpdateType() === UpdateType.Archive) {
 			platform += '-archive';
-		} else if (this.productService.target === 'user') {
-			platform += '-user';
 		}
+		// ✅ Amypo: System setup only — user platform suffix is disabled
+		// else if (this.productService.target === 'user') {
+		// 	platform += '-user';
+		// }
 		return createUpdateURL(this.productService.updateUrl!, platform, quality, commit, options);
 	}
 
@@ -384,11 +388,12 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		this.availableUpdate = { packagePath };
 		this.setState(State.Downloaded(update, true, false));
 
-		if (fastUpdatesEnabled && this.productService.target === 'user') {
-			this.doApplyUpdate();
-		} else {
-			this.setState(State.Ready(update, true, false));
-		}
+		// ✅ Amypo: System setup only — always go to Ready state (shows "Restart to Update" badge)
+		// if (fastUpdatesEnabled && this.productService.target === 'user') {
+		// 	this.doApplyUpdate();
+		// } else {
+		this.setState(State.Ready(update, true, false));
+		// }
 	}
 
 	private async unlink(path: string | undefined): Promise<void> {

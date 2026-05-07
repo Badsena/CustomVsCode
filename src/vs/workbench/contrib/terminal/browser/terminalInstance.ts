@@ -38,7 +38,6 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ResultKind } from '../../../../platform/keybinding/common/keybindingResolver.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
@@ -132,7 +131,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private static _instanceIdCounter = 1;
 
 	private readonly _scopedInstantiationService: IInstantiationService;
-	private readonly _productService: IProductService;
 
 	private readonly _processManager: ITerminalProcessManager;
 	private readonly _contributions: Map<string, ITerminalContribution> = new Map();
@@ -172,20 +170,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _fixedRows: number | undefined;
 	private _cwd: string | undefined = undefined;
 	private _initialCwd: string | undefined = undefined;
-
-	private _amypoRedactPath(path: string | undefined): string | undefined {
-		if (!path) {
-			return path;
-		}
-		// Replace Amypo workspace paths with Z:\ for security/redaction
-		// This handles both the production "amypo" path and the dev "CustomVsCode" path
-		const amypoWorkspaceMatch = path.match(/.*[\\/](amypo|CustomVsCode)[\\/]workspace[\\/]([^\\/]+)(.*)/i);
-		if (amypoWorkspaceMatch) {
-			const subPath = amypoWorkspaceMatch[3].replace(/^[\\\/]/, '').replace(/\//g, '\\');
-			return `Z:\\${subPath}`;
-		}
-		return path;
-	}
 
 	private _injectedArgs: string[] | undefined = undefined;
 	private _layoutSettingsChanged: boolean = true;
@@ -305,8 +289,8 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	get staticTitle(): string | undefined { return this._staticTitle; }
 	get progressState(): IProgressState | undefined { return this.xterm?.progressState; }
 	get workspaceFolder(): IWorkspaceFolder | undefined { return this._workspaceFolder; }
-	get cwd(): string | undefined { return this._amypoRedactPath(this._cwd); }
-	get initialCwd(): string | undefined { return this._amypoRedactPath(this._initialCwd); }
+	get cwd(): string | undefined { return this._cwd; }
+	get initialCwd(): string | undefined { return this._initialCwd; }
 	get description(): string | undefined {
 		if (this._description) {
 			return this._description;
@@ -399,7 +383,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		@ITerminalLogService private readonly _logService: ITerminalLogService,
 		@IStorageService _storageService: IStorageService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IProductService productService: IProductService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IWorkbenchEnvironmentService private readonly _workbenchEnvironmentService: IWorkbenchEnvironmentService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -417,7 +400,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this._wrapperElement = document.createElement('div');
 		this._wrapperElement.classList.add('terminal-wrapper');
 
-		this._productService = productService;
 		this._widgetManager = this._register(instantiationService.createInstance(TerminalWidgetManager));
 
 		this._skipTerminalCommands = [];
@@ -1589,126 +1571,6 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		if (this._container && this._cols === 0 && this._rows === 0) {
 			this._initDimensions();
 			this.xterm?.resize(this._cols || Constants.DefaultCols, this._rows || Constants.DefaultRows);
-		}
-
-		// Inject GITHUB_TOKEN and redaction flag into the terminal environment
-		if (this._shellLaunchConfig.env) {
-			const githubToken = (this._productService as any).amypoGithubToken;
-			if (githubToken) {
-				this._shellLaunchConfig.env['GITHUB_TOKEN'] = githubToken;
-			}
-			this._shellLaunchConfig.env['AMYPO_REDACT_PATH'] = 'true';
-		} else {
-			const githubToken = (this._productService as any).amypoGithubToken;
-			this._shellLaunchConfig.env = {
-				'AMYPO_REDACT_PATH': 'true'
-			};
-			if (githubToken) {
-				this._shellLaunchConfig.env['GITHUB_TOKEN'] = githubToken;
-			}
-		}
-
-		// Shell-specific prompt redaction:
-		if (this._shellLaunchConfig.env) {
-			// CMD: Use $P$G to show the current path (which will be Z:\...) and the > character
-			this._shellLaunchConfig.env['PROMPT'] = '$P$G';
-
-			// Redirect Home to virtual drive to prevent navigation leaks
-			this._shellLaunchConfig.env['HOME'] = 'Z:\\';
-			this._shellLaunchConfig.env['USERPROFILE'] = 'Z:\\';
-
-			// Git Bash: Prevent it from changing directory to real HOME on startup
-			this._shellLaunchConfig.env['CHERE_INVOKING'] = '1';
-		}
-
-		// Force the initial CWD for all shells (CMD, Git Bash, PowerShell) to use the Z:\ drive
-		// IMPORTANT: We need the REAL filesystem path (not Z:\ or [Virtual Workspace]) for the
-		// subst command. We check all CWD sources and skip any that are already on Z:\.
-		let realWorkspacePath: string | undefined = undefined;
-
-		// Collect all possible CWD sources
-		const cwdSources: string[] = [];
-		if (typeof this._shellLaunchConfig.cwd === 'string') {
-			cwdSources.push(this._shellLaunchConfig.cwd);
-		} else if (this._shellLaunchConfig.cwd && typeof this._shellLaunchConfig.cwd !== 'string' && (this._shellLaunchConfig.cwd as any).fsPath) {
-			cwdSources.push((this._shellLaunchConfig.cwd as any).fsPath);
-		}
-		if (this._cwd) {
-			cwdSources.push(this._cwd);
-		}
-		if (this._workspaceFolder) {
-			cwdSources.push(this._workspaceFolder.uri.fsPath);
-		}
-
-		// Find the first source that is a REAL amypo workspace path (not Z:\)
-		for (const src of cwdSources) {
-			if (src.toLowerCase().startsWith('z:\\') || src.toLowerCase().startsWith('z:/')) {
-				continue; // Skip — this is already a virtual drive path, can't use for subst
-			}
-			const match = src.match(/.*[\\/](amypo|CustomVsCode)[\\/]workspace[\\/]([^\\/]+)(.*)/i);
-			if (match) {
-				realWorkspacePath = src;
-				break;
-			}
-		}
-
-		this._logService.info('[Amypo Terminal] realWorkspacePath resolved:', realWorkspacePath);
-
-		// Store the real workspace path for shell integration scripts (Git Bash)
-		if (realWorkspacePath && this._shellLaunchConfig.env) {
-			this._shellLaunchConfig.env['AMYPO_WORKSPACE_PATH'] = realWorkspacePath;
-		}
-
-		if (realWorkspacePath) {
-			const redactedString = this._amypoRedactPath(realWorkspacePath);
-			if (redactedString && redactedString.startsWith('Z:\\')) {
-				try {
-					// Verify the virtual drive exists before forcing it
-					await this._fileService.stat(URI.file('Z:\\'));
-					this._shellLaunchConfig.cwd = redactedString;
-					this._logService.info('[Amypo Terminal] Z: drive verified, setting CWD to:', redactedString);
-				} catch {
-					// Z:\ drive not mapped yet. Use the real path as CWD but inject
-					// a startup command for CMD to map the drive and switch to it.
-					this._shellLaunchConfig.cwd = realWorkspacePath;
-					this._logService.warn('[Amypo Terminal] Z: drive not found, injecting subst command for:', realWorkspacePath);
-
-					// For CMD: inject /k with subst + cd command using the REAL path
-					const exe = this._shellLaunchConfig.executable?.toLowerCase() ?? '';
-					if (exe.includes('cmd.exe') || exe.includes('cmd')) {
-						// Sanitize the path: remove any leading/trailing slashes that might have been added
-						let sanitizedPath = realWorkspacePath.replace(/"/g, '').trim();
-						if (sanitizedPath.startsWith('\\') && sanitizedPath.match(/^\\[a-zA-Z]:/)) {
-							sanitizedPath = sanitizedPath.substring(1); // Remove leading \ in front of C:
-						}
-						
-						this._logService.info('[Amypo Terminal] Injecting CMD args with sanitized path:', sanitizedPath);
-						this._shellLaunchConfig.args = ['/k', `subst Z: "${sanitizedPath}" && cd /d Z:\\`];
-					} else if (exe.includes('powershell') || exe.includes('pwsh')) {
-						// Sanitize the path for PowerShell
-						let sanitizedPath = realWorkspacePath.replace(/"/g, '').trim();
-						if (sanitizedPath.startsWith('\\') && sanitizedPath.match(/^\\[a-zA-Z]:/)) {
-							sanitizedPath = sanitizedPath.substring(1);
-						}
-						
-						this._logService.info('[Amypo Terminal] Injecting PowerShell args with sanitized path:', sanitizedPath);
-						// For PowerShell: use -NoExit -Command to map drive, switch location, and prevent 'Microsoft' folder creation
-						this._shellLaunchConfig.args = ['-NoExit', '-Command', `subst Z: "${sanitizedPath}"; Set-Location Z:\\; if (Get-Module -ListAvailable PSReadLine) { Set-PSReadLineOption -HistorySavePath "$env:TEMP\\ps_history.txt" }`];
-					}
-				}
-			}
-		} else {
-			// No real workspace path found — workspace is already on Z:\
-			// Just verify Z:\ exists and use it
-			const zCwd = cwdSources.find(s => s.toLowerCase().startsWith('z:\\') || s.toLowerCase().startsWith('z:/'));
-			if (zCwd) {
-				try {
-					await this._fileService.stat(URI.file('Z:\\'));
-					this._shellLaunchConfig.cwd = zCwd;
-				} catch {
-					// Z:\ not ready — leave cwd as-is
-				}
-			}
 		}
 
 		const originalIcon = this.shellLaunchConfig.icon;

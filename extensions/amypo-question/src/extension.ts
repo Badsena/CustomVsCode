@@ -16,58 +16,6 @@ import { submitData, jsonsubmitData, fetchData } from './services/axios/submissi
 import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
-const DRIVE_LETTER = 'Z:';
-
-async function mapVirtualDrive(sourcePath: string): Promise<string> {
-	const drive = DRIVE_LETTER;
-	console.log(`[Amypo Security] Attempting to map ${sourcePath} to ${drive}`);
-
-	let attempts = 0;
-	while (attempts < 3) {
-		try {
-			// 1. Force unmap first (robustness)
-			try { await execAsync(`subst ${drive} /d`); } catch { }
-
-			// 2. Map the drive (sanitize path: remove leading \ if it exists)
-			let sanitizedSource = sourcePath.trim();
-			if (sanitizedSource.startsWith('\\') && sanitizedSource.match(/^\\[a-zA-Z]:/)) {
-				sanitizedSource = sanitizedSource.substring(1);
-			}
-			await execAsync(`subst ${drive} "${sanitizedSource}"`);
-
-			// 3. Verify it works
-			if (fs.existsSync(`${drive}\\`)) {
-				console.log(`[Amypo Security] Virtual Drive ${drive} successfully mapped and verified.`);
-				return drive;
-			} else {
-				throw new Error('Drive mapped but not accessible');
-			}
-		} catch (err: any) {
-			attempts++;
-			console.error(`[Amypo Security] Mapping attempt ${attempts} failed for ${sourcePath}:`, err.stderr ?? err.message);
-			if (attempts < 3) {
-				await new Promise(resolve => setTimeout(resolve, 1000));
-			}
-		}
-	}
-
-	console.error(`[Amypo Security] FATAL: All mapping attempts failed for ${sourcePath}. Falling back to original path.`);
-	return sourcePath;
-}
-
-/**
- * unmapVirtualDrive - Unmaps the virtual drive letter
- */
-async function unmapVirtualDrive(): Promise<void> {
-	if (process.platform !== 'win32') return;
-	try {
-		await execAsync(`subst ${DRIVE_LETTER} /d`);
-		console.log(`[Amypo Security] Virtual Drive ${DRIVE_LETTER} unmapped.`);
-	} catch (err) {
-		// Ignore if already unmapped or drive not found
-	}
-}
-
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 // const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
@@ -252,15 +200,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.warn('[Amypo Update] Blocking update check error:', err);
 	}
 
-	//  Recovery Logic: Re-map Z: drive on startup if workspace is already open on Z:
-	const currentWorkspace = vscode.workspace.workspaceFolders?.[0];
-	if (currentWorkspace?.uri.fsPath.toLowerCase().startsWith('z:')) {
-		const cachedProjectPath = context.globalState.get<string>('amypo.projectPath');
-		if (cachedProjectPath && fs.existsSync(cachedProjectPath)) {
-			console.log('[Amypo] Workspace on Z: detected. Re-mapping virtual drive to:', cachedProjectPath);
-			await mapVirtualDrive(cachedProjectPath);
-		}
-	}
+	// No Recovery Logic needed for virtual drives anymore
 
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
@@ -344,15 +284,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Get total number of existing folders to replace them all
 		const currentFoldersCount = vscode.workspace.workspaceFolders?.length ?? 0;
 
-		// Replace the entire workspace with just the virtual drive
-		// This forces the terminal and breadcrumbs to use the Z:\ path
+		// Replace the entire workspace with the current project folder
 		vscode.workspace.updateWorkspaceFolders(
 			0,
 			currentFoldersCount,
 			{ uri: folderUri, name: "Amypo Project" }
 		);
 
-		console.log('[Amypo] Workspace replaced with virtual drive:', projectPath);
+		console.log('[Amypo] Workspace folder updated:', projectPath);
 	};
 
 	// Inject a token into a GitHub HTTPS URL
@@ -655,11 +594,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.token', activeToken);
 			console.log('[Amypo] State saved to globalState before workspace change.');
 
-			// Map the virtual drive to hide the real AppData path
-			const finalOpenPath = await mapVirtualDrive(projectPath);
-
-			console.log(`[Amypo] Final Path to Open: ${finalOpenPath}`);
-			openFolderWithoutReload(finalOpenPath);
+			openFolderWithoutReload(projectPath);
 
 		} catch (err: any) {
 			console.error('[Amypo] Initialisation error:', err.stderr ?? err.message);
@@ -1012,10 +947,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.log('[Amypo] questionDatas:', questionDatas);
 
 				if (qData?.l_id) {
-					console.log('[Amypo] Saving lang_id:', qData.l_id);
+					console.log('[Amypo Extension State] UPDATING STORAGE:', { langId: qData.l_id, hasToken: !!activeToken });
 					// ✅ Save lang_id to globalState
 					await context.globalState.update('amypo.langId', qData.l_id);
 					await context.globalState.update('amypo.token', activeToken);
+				} else {
+					console.warn('[Amypo Extension State] ❌ No l_id found in qData!', qData);
 				}
 
 				const repo_name = `${user_details?.id}_${allocation_id}_${test_type}_${firstQuestionId}`;
@@ -1420,7 +1357,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const normalizedCurrent = currentFolder?.replace(/\\/g, '/').toLowerCase() ?? '';
 	const normalizedAmypo = amypoWorkspace.replace(/\\/g, '/').toLowerCase();
-	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo) || normalizedCurrent.startsWith(DRIVE_LETTER.toLowerCase());
+	const isInsideAmypoProject = normalizedCurrent.startsWith(normalizedAmypo);
 
 	console.log('[Amypo] Guard check:', { currentFolder: normalizedCurrent, amypoWorkspace: normalizedAmypo, isInsideAmypoProject });
 
@@ -1432,11 +1369,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (shouldRestore) {
 		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
 
-		// Ensure Virtual Drive is mapped during restoration
+		// Ensure project exists during restoration
 		const savedPath = context.globalState.get<string>('amypo.projectPath');
-		if (savedPath) {
-			await mapVirtualDrive(savedPath);
-		}
 
 		// Restore saved data from globalState
 		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
@@ -1452,6 +1386,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.langId', langId);
 			console.log('[Amypo] LangId restored to storage:', langId);
 		}
+		await context.globalState.update('amypo.testStarted', true); // Re-confirm test is active
 		await context.globalState.update('amypo.token', activeToken);
 		const lastTest = context.globalState.get<any>('amypo.lastTest');
 		if (lastTest) {
@@ -1629,7 +1564,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('enter test details');
 
 		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
-	} 
+	}
 
 	const doExitAndSave = async () => {
 		await vscode.window.withProgress({
@@ -1702,6 +1637,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				// Clear persistent state
 				await context.globalState.update('amypo.testStarted', false);
+				await context.globalState.update('amypo.langId', undefined);
+				await context.globalState.update('amypo.token', undefined);
 				await context.globalState.update('amypo.allocationData', undefined);
 				await context.globalState.update('amypo.testDetails', undefined);
 				await context.globalState.update('amypo.testData', undefined);
@@ -1709,8 +1646,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				await context.globalState.update('amypo.courseInfo', undefined);
 				await context.globalState.update('amypo.cachedQuestion', undefined);
 
-				// Unmap the virtual drive on exit
-				await unmapVirtualDrive();
+				// Virtual drive unmapping removed as it's no longer used
+				// await unmapVirtualDrive();
 
 				// Final exit
 				vscode.commands.executeCommand('workbench.action.closeWindow');
