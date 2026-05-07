@@ -417,12 +417,12 @@ export async function verifyReact(request: VerificationRequest) {
 export async function verifyFullStack(request: VerificationRequest) {
 	let token = 'AmypoToken'
 	const { project_path, question_id, qb_name, backend_url } = request;
-	const springDeletePath = path.join(project_path, 'demo', 'src', 'test');
-	const reactDeletePath = path.join(project_path, 'reactapp', 'src', 'testcase');
+	const springDeletePath = path.join(project_path, 'backend', 'src', 'test');
+	const reactDeletePath = path.join(project_path, 'frontend', 'src', 'testcase');
 
 	try {
-		await hideTestFolder(project_path, '**/src/test', 'demo/src/test');
-		await hideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
+		await hideTestFolder(project_path, '**/src/test', 'backend/src/test');
+		await hideTestFolder(project_path, '**/src/testcase', 'frontend/src/testcase');
 
 		console.log('Fetching fullstack testcases from:', backend_url);
 		const payload = {
@@ -464,24 +464,49 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 			// Move Backend tests to demo/src/test
 			let springSrc = path.join(tempExtractPath, 'src', 'test');
+			if (!fs.existsSync(springSrc)) springSrc = path.join(tempExtractPath, 'backend', 'src', 'test');
 			if (!fs.existsSync(springSrc)) springSrc = path.join(tempExtractPath, 'demo', 'src', 'test');
+			console.log(`Checking springSrc: ${springSrc} - Exists: ${fs.existsSync(springSrc)}`);
 
 			if (fs.existsSync(springSrc)) {
 				if (fs.existsSync(springDeletePath)) fs.rmSync(springDeletePath, { recursive: true, force: true });
 				fs.mkdirSync(path.dirname(springDeletePath), { recursive: true });
 				fs.renameSync(springSrc, springDeletePath);
 				console.log('✓ Backend tests moved to demo directory');
+			} else {
+				console.warn('⚠️ No backend tests found in any of the expected paths.');
 			}
 
 			// Move Frontend tests to reactapp/src/testcase
 			let reactSrc = path.join(tempExtractPath, 'src', 'testcase');
+			if (!fs.existsSync(reactSrc)) reactSrc = path.join(tempExtractPath, 'frontend', 'src', 'testcase');
 			if (!fs.existsSync(reactSrc)) reactSrc = path.join(tempExtractPath, 'reactapp', 'src', 'testcase');
+			console.log(`Checking reactSrc: ${reactSrc} - Exists: ${fs.existsSync(reactSrc)}`);
 
 			if (fs.existsSync(reactSrc)) {
 				if (fs.existsSync(reactDeletePath)) fs.rmSync(reactDeletePath, { recursive: true, force: true });
 				fs.mkdirSync(path.dirname(reactDeletePath), { recursive: true });
 				fs.renameSync(reactSrc, reactDeletePath);
 				console.log('✓ Frontend tests moved to reactapp directory');
+			} else {
+				console.warn('⚠️ No frontend tests found in any of the expected paths. Listing files in tempExtractPath:');
+				try {
+					// Recursively list all files to see the structure
+					const listFiles = (dir: string, base = ''): string[] => {
+						const entries = fs.readdirSync(dir, { withFileTypes: true });
+						return entries.flatMap(entry => {
+							const relPath = path.join(base, entry.name);
+							if (entry.isDirectory()) {
+								return [relPath + '/', ...listFiles(path.join(dir, entry.name), relPath)];
+							}
+							return [relPath];
+						});
+					};
+					const allFiles = listFiles(tempExtractPath);
+					console.log('Extracted structure:\n' + allFiles.join('\n'));
+				} catch (e) {
+					console.error('Failed to list files:', e);
+				}
 			}
 		} catch (extractErr) {
 			console.error('Failed to extract fullstack zip:', extractErr);
@@ -495,12 +520,12 @@ export async function verifyFullStack(request: VerificationRequest) {
 		const testStartTime = Date.now();
 
 		// 1. SPRING BOOT
-		const springRoot = path.join(project_path, 'demo');
+		const springRoot = path.join(project_path, 'backend');
 		const springExec = await execAllowFail(`mvn clean test`, { cwd: springRoot, maxBuffer: 50 * 1024 * 1024, timeout: 480000 });
 		const springResults = parseTestResults(springExec.stdout);
 
 		// 2. REACT
-		const reactRoot = path.join(project_path, 'reactapp');
+		const reactRoot = path.join(project_path, 'frontend');
 		let reactExec = { stdout: '', stderr: '', exitCode: 0 };
 		let reactResults = parseReactTestResults('');
 
@@ -516,10 +541,19 @@ export async function verifyFullStack(request: VerificationRequest) {
 		console.log(`✓ Fullstack Tests completed in ${testDuration} seconds`);
 
 		let total = springResults.total + reactResults.total;
+		if (request.testcase_count && request.testcase_count > 0) {
+			total = request.testcase_count;
+		}
 		let passed = springResults.passed + reactResults.passed;
-		let failed = (springResults.passed > 0 ? springResults.failed + springResults.skipped + springResults.errors : springResults.total) + (reactResults.passed > 0 ? reactResults.failed : reactResults.total);;
+		let failed = (springResults.passed > 0 ? springResults.failed + springResults.skipped + springResults.errors : springResults.total > 0 ? springResults.total : total - reactResults.total) + (reactResults.passed > 0 ? reactResults.failed : reactResults.total > 0 ? reactResults.total : total - springResults.total);
 		const skipped = springResults.skipped + reactResults.skipped;
 		const errors = springResults.errors + reactResults.errors;
+
+		console.log('failed', failed, 'reactResults', reactResults);
+		console.log('failed', failed, 'springResults', springResults);
+		console.log('request', request);
+
+
 
 		const passedTests = [...springResults.passedTests, ...reactResults.passedTests];
 		const failedTests = [...springResults.failedTests, ...reactResults.failedTests];
@@ -568,8 +602,19 @@ export async function verifyFullStack(request: VerificationRequest) {
 
 		throw new Error(details ? `${error.message}: ${details} ` : error.message);
 	} finally {
-		await unhideTestFolder(project_path, '**/src/test', 'demo/src/test');
-		await unhideTestFolder(project_path, '**/src/testcase', 'reactapp/src/testcase');
+		await unhideTestFolder(project_path, '**/src/test', 'backend/src/test');
+		await unhideTestFolder(project_path, '**/src/testcase', 'frontend/src/testcase');
+		const zipFilePath = path.join(project_path, 'testcases_fullstack.zip');
+		const tempExtractPath = path.join(project_path, 'temp_testcases');
+
+		try {
+			if (fs.existsSync(zipFilePath)) fs.unlinkSync(zipFilePath);
+			if (fs.existsSync(tempExtractPath)) fs.rmSync(tempExtractPath, { recursive: true, force: true });
+			if (fs.existsSync(springDeletePath)) fs.rmSync(springDeletePath, { recursive: true, force: true });
+			if (fs.existsSync(reactDeletePath)) fs.rmSync(reactDeletePath, { recursive: true, force: true });
+		} catch (cleanupErr) {
+			console.warn('Failed to cleanup temporary test files:', cleanupErr);
+		}
 	}
 }
 
