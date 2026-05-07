@@ -658,29 +658,47 @@ export async function verifySelenium(request: VerificationRequest) {
 
 		for (const tc of testCaseConfig.testcase) {
 			let passed = true;
-			for (const pattern of tc.patterns) {
-				// FIX: Use single backslash escapes so the regex receives the correct sequences.
-				let cleanPattern = pattern
-					.split('[').join('\\[')
-					.split(']').join('\\]')
-					.split('(').join('\\(')
-					.split(')').join('\\)');
+			if (tc.patterns && tc.patterns.length > 0) {
+				for (const pattern of tc.patterns) {
+					// FIX: Use single backslash escapes so the regex receives the correct sequences.
+					let cleanPattern = pattern
+						.split('[').join('\\[')
+						.split(']').join('\\]')
+						.split('(').join('\\(')
+						.split(')').join('\\)');
 
-				cleanPattern = cleanPattern
-					.split(' :').join('\\s*:\\s*')
-					.split(': ').join('\\s*:\\s*');
+					cleanPattern = cleanPattern
+						.split(' :').join('\\s*:\\s*')
+						.split(': ').join('\\s*:\\s*');
 
-				try {
-					const regex = new RegExp(cleanPattern);
-					if (!regex.test(fullLogData)) {
-						passed = false;
-						break;
+					try {
+						const regex = new RegExp(cleanPattern);
+						if (!regex.test(fullLogData)) {
+							passed = false;
+							break;
+						}
+					} catch (e) {
+						// Fallback to exact literal match if regex creation fails
+						if (!fullLogData.includes(pattern)) {
+							passed = false;
+							break;
+						}
 					}
-				} catch (e) {
-					// Fallback to exact literal match if regex creation fails
-					if (!fullLogData.includes(pattern)) {
+				}
+			}
+
+			if (passed && tc.file_check) {
+				const checkPath = path.join(projectRoot, tc.file_check.path);
+				if (!fs.existsSync(checkPath)) {
+					passed = false;
+				} else if (tc.file_check.contains) {
+					try {
+						const fileContent = fs.readFileSync(checkPath, 'utf8');
+						if (!fileContent.includes(tc.file_check.contains)) {
+							passed = false;
+						}
+					} catch (e) {
 						passed = false;
-						break;
 					}
 				}
 			}
