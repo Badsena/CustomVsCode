@@ -254,7 +254,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4165;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '285881|JPVibXICnj72YrYqZT7F9EpArcRg6zFiqM4JK4fc5db82792';
+	const STATIC_TOKEN = '286063|IAtX29qLtDDmTDTXxm9dTrS513NIexwBpDc1Hyd3eff7b02f';
 	const STATIC_MODULE_ID = 1020;
 	//  State
 	let currentAllocationData: any = null;
@@ -1563,7 +1563,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		console.log('enter test details');
 
-		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {

@@ -26,11 +26,10 @@ import { IFileService } from '../../files/common/files.js';
 import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
 import { IMeteredConnectionService } from '../../meteredConnection/common/meteredConnection.js';
-import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+import { AvailableForDownload, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, IUpdateURLOptions } from './abstractUpdateService.js';
 import { INodeProcess } from '../../../base/common/platform.js';
 
@@ -70,7 +69,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IFileService private readonly fileService: IFileService,
-		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
 		@IProductService productService: IProductService,
 		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
 	) {
@@ -381,7 +379,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		if (this.state.type !== StateType.Idle) {
 			return;
 		}
-		const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
 		const update: IUpdate = await this.loadUpdateMetadata() ?? { version: 'unknown', productVersion: 'unknown' };
 
 		this.setState(State.Downloading(update, true, false));
