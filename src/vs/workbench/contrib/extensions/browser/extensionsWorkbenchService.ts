@@ -1388,34 +1388,20 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 		options.text = options.text ? this.resolveQueryText(options.text) : options.text;
 		options.includePreRelease = isUndefined(options.includePreRelease) ? this.extensionManagementService.preferPreReleases : options.includePreRelease;
 
-		const curatedIDs = [
-			'dsznajder.es7-react-js-snippets',
-			'esbenp.prettier-vscode',
-			'dbaeumer.vscode-eslint',
-			'msjsdiag.debugger-for-chrome',
-			'rangav.vscode-thunder-client',
-			'vscjava.vscode-java-pack',
-			'redhat.java',
-			'vscjava.vscode-java-debug',
-			'vscjava.vscode-maven'
-		];
-
-		const searchText = (options.text || '').toLowerCase();
-		const matchingIDs = curatedIDs.filter(id => id.toLowerCase().includes(searchText));
-
-		if (matchingIDs.length === 0) {
-			return singlePagePager([]);
-		}
-
 		const extensionsControlManifest = await this.extensionManagementService.getExtensionsControlManifest();
-		const galleryExtensions = await this.galleryService.getExtensions(matchingIDs.map(id => ({ id })), token);
-		
-		if (this.syncInstalledExtensionsWithGallery) {
-			this.syncInstalledExtensionsWithGallery(galleryExtensions);
-		}
-		
-		const extensions = galleryExtensions.map(gallery => this.fromGallery(gallery, extensionsControlManifest));
-		return singlePagePager(extensions);
+		const pager = await this.galleryService.query(options, token);
+		this.syncInstalledExtensionsWithGallery(pager.firstPage);
+
+		return {
+			firstPage: pager.firstPage.map(gallery => this.fromGallery(gallery, extensionsControlManifest)),
+			total: pager.total,
+			pageSize: pager.pageSize,
+			getPage: async (pageIndex, token) => {
+				const page = await pager.getPage(pageIndex, token);
+				this.syncInstalledExtensionsWithGallery(page);
+				return page.map(gallery => this.fromGallery(gallery, extensionsControlManifest));
+			}
+		};
 	}
 
 	getExtensions(extensionInfos: IExtensionInfo[], token: CancellationToken): Promise<IExtension[]>;

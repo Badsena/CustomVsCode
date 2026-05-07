@@ -78,7 +78,7 @@ export class AmypoExtensionService {
 
             if (resp && resp.data && Array.isArray(resp.data.extension)) {
                 // Use IDs directly from the server (fully dynamic)
-                const extensionIds: string[] = resp.data.extension;
+                const extensionIds: string[] = resp.data.extension.map((id: string) => id.trim());
 
                 // ✅ Print extension details
                 console.log('========================================');

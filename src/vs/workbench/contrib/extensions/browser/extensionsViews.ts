@@ -15,6 +15,7 @@ import { areSameExtensions, getExtensionDependencies } from '../../../../platfor
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { append, $ } from '../../../../base/browser/dom.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ExtensionResultsListFocused, ExtensionState, IExtension, IExtensionsViewState, IExtensionsWorkbenchService, IWorkspaceRecommendedExtensionsView } from '../common/extensions.js';
 import { Query } from '../common/extensionQuery.js';
@@ -930,27 +931,54 @@ export class ExtensionsListView extends AbstractExtensionsListView<IExtension> {
 			}
 			if (galleryExtensions.length) {
 				try {
-					const extensions = await this.extensionsWorkbenchService.getExtensions(galleryExtensions.map(id => ({ id })), { source: options.source }, token);
-					console.log('[Amypo Debug] Gallery returned extensions:', extensions.map(e => e.identifier.id));
+					console.log('[Amypo Debug] Requesting gallery IDs (chunked):', galleryExtensions.join(', '));
+					
+					// ✅ Split into chunks of 2 to avoid gallery batch limit or silent drops
+					const CHUNK_SIZE = 2;
+					const allExtensions: IExtension[] = [];
 
-					for (const extension of extensions) {
-						const canInstall = extension.gallery ? await this.extensionManagementService.canInstall(extension.gallery) === true : false;
-						console.log(`[Amypo Debug] Checking ${extension.identifier.id}: Gallery=${!!extension.gallery}, Deprecated=${!!extension.deprecationInfo}, CanInstall=${canInstall}`);
-
-						// If it's in the gallery and not deprecated, we want to show it for now
-						if (extension.gallery && !extension.deprecationInfo) {
-							if (!canInstall) {
-								console.warn(`[Amypo Debug] Force including ${extension.identifier.id} even though CanInstall=false`);
-							}
-							result.push(extension);
+					for (let i = 0; i < galleryExtensions.length; i += CHUNK_SIZE) {
+						const chunk = galleryExtensions.slice(i, i + CHUNK_SIZE);
+						console.log(`[Amypo Debug] Querying chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, chunk.join(', '));
+						
+						try {
+							const chunkResult = await this.extensionsWorkbenchService.getExtensions(
+								chunk.map(id => ({ id })),
+								{ source: options.source },
+								token
+							);
+							console.log(`[Amypo Debug] Chunk returned ${chunkResult.length} extensions`);
+							allExtensions.push(...chunkResult);
+						} catch (chunkError) {
+							console.error(`[Amypo Debug] Chunk failed for ${chunk.join(', ')}:`, chunkError);
 						}
 					}
+
+					console.log('[Amypo Debug] Total gallery extensions returned across all chunks:', allExtensions.length);
+					
+					// ✅ Process all returned extensions — FILTER OUT INSTALLED
+					for (const requestedId of galleryExtensions) {
+						const found = allExtensions.find(e => areSameExtensions(e.identifier, { id: requestedId }));
+						if (!found) {
+							console.warn(`[Amypo Debug] Extension NOT found in gallery even after chunked query: ${requestedId}`);
+						} else {
+							// ✅ Only add to recommendations if it's NOT already installed
+							if (found.state === ExtensionState.Uninstalled && found.gallery && !found.deprecationInfo) {
+								console.log(`[Amypo Debug] Found and adding recommendation: ${found.identifier.id}`);
+								result.push(found);
+							} else {
+								console.log(`[Amypo Debug] Skipping ${found.identifier.id} (State: ${found.state})`);
+							}
+						}
+					}
+
 				} catch (error) {
 					if (!resourceExtensions.length || !this.isOfflineError(error)) {
 						throw error;
 					}
 				}
 			}
+
 			if (resourceExtensions.length) {
 				const extensions = await this.extensionsWorkbenchService.getResourceExtensions(resourceExtensions, true);
 				for (const extension of extensions) {
@@ -1310,21 +1338,68 @@ export class DefaultRecommendedExtensionsView extends ExtensionsListView {
 			}
 		}));
 
-		// ✅ NEW: Listen for storage changes (triggered when Start Test or Continue is clicked)
+		// ✅ NEW: Listen for ALL storage changes (finding the exact key used by amypo-question)
 		this._register(this.storageService.onDidChangeValue(StorageScope.PROFILE, undefined, this._register(new DisposableStore()))(e => {
-			if (e.key === 'AMYPO.amypo-question' || e.key === 'amypo.amypo-question' || e.key.includes('extension.globalState.amypo')) {
-				console.log('[Amypo] Storage change detected for key:', e.key);
+			console.log('[Amypo] Storage key changed:', e.key);
+			if (e.key.toLowerCase().includes('amypo')) {
+				console.log('[Amypo] Matched Amypo key — triggering refresh:', e.key);
 				clearAmypoExtensionCache();
 				this.show('', true); // Trigger refresh
 			}
 		}));
+
+		// ✅ NEW: Poll every 3 seconds as fallback if the storage event is missed
+		let pollCount = 0;
+		let hasRefreshed = false; // 🛡️ Prevent infinite refresh loops
+		const maxPolls = 20; // poll for max 60 seconds (20 * 3s)
+
+		const pollInterval = mainWindow.setInterval(async () => {
+			pollCount++;
+
+			if (pollCount > maxPolls || hasRefreshed) {
+				mainWindow.clearInterval(pollInterval);
+				console.log('[Amypo] Stopping fallback polling (limit reached or already refreshed)');
+				return;
+			}
+
+			if (this.isRefreshing) { return; }
+
+			// Check if test started
+			const extensionId = 'AMYPO.amypo-question';
+			const extensionIdLower = 'amypo.amypo-question';
+			const rawExtState =
+				this.storageService.get(extensionId, StorageScope.PROFILE) ||
+				this.storageService.get(extensionIdLower, StorageScope.PROFILE) ||
+				this.storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
+				this.storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
+
+			if (!rawExtState) { return; }
+
+			try {
+				const state = JSON.parse(rawExtState);
+				const testStarted = state['amypo.testStarted'] === true || state['amypo.testStarted'] === 'true';
+
+				// If test started, force a refresh once
+				if (testStarted) {
+					console.log('[Amypo] Polling detected testStarted=true — triggering one-time refresh');
+					hasRefreshed = true; // Mark as refreshed so we don't loop
+					clearAmypoExtensionCache();
+					await this.show('', true);
+					mainWindow.clearInterval(pollInterval);
+					console.log('[Amypo] Polling success — refresh triggered, stopping poll');
+				}
+			} catch (e) {
+				// ignore parse error
+			}
+		}, 3000); // every 3 seconds
+
+		// ✅ Clean up interval when view is disposed
+		this._register({
+			dispose: () => mainWindow.clearInterval(pollInterval)
+		});
 	}
 
 	override async show(query: string, refresh?: boolean): Promise<IPagedModel<IExtension>> {
-		if (query && query.trim() !== '' && !query.startsWith('@id:')) {
-			return this.showEmptyModel();
-		}
-
 		if (query.startsWith('@id:')) {
 			return super.show(query);
 		}
@@ -1379,9 +1454,17 @@ export class DefaultRecommendedExtensionsView extends ExtensionsListView {
 
 			// ✅ Get installable objects from the gallery
 			const amypoModel = await this.getInstallableRecommendations(amypoRecommendedExtensions, { source: 'recommendations-amypo' }, CancellationToken.None);
-			console.log('[Amypo Debug] Final installable model count:', amypoModel.length);
-
-			return new PagedModel(amypoModel);
+			const pagedModel = new PagedModel(amypoModel);
+			
+			// ✅ Sync internal state so badge count and list are correct
+			const oldQueryResult = (this as any).queryResult;
+			if (oldQueryResult?.disposables) {
+				oldQueryResult.disposables.dispose();
+			}
+			(this as any).queryResult = { model: pagedModel, disposables: new DisposableStore() };
+			
+			this.setModel(pagedModel);
+			return pagedModel;
 
 		} catch (error) {
 			if (isCancellationError(error)) {
@@ -1554,10 +1637,107 @@ export class DeprecatedExtensionsView extends ExtensionsListView {
 export class SearchMarketplaceExtensionsView extends ExtensionsListView {
 
 	override async show(query: string): Promise<IPagedModel<IExtension>> {
-		// ✅ Amypo: Block all public marketplace searches to prevent unauthorized extension installation
-		const emptyModel = new PagedModel([]);
-		this.setModel(emptyModel, { text: localize('amypo.marketplaceDisabled', "Marketplace search is disabled in Amypo Coder."), severity: Severity.Warning });
-		return emptyModel;
+		const extensionId = 'AMYPO.amypo-question';
+		const extensionIdLower = 'amypo.amypo-question';
+
+		const rawExtState = this.storageService.get(extensionId, StorageScope.PROFILE) ||
+			this.storageService.get(extensionIdLower, StorageScope.PROFILE) ||
+			this.storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
+			this.storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
+
+		let testStarted = false;
+		let langId = 0;
+		let token = '';
+
+		if (rawExtState) {
+			try {
+				const state = JSON.parse(rawExtState);
+				testStarted = state['amypo.testStarted'] === true || state['amypo.testStarted'] === 'true';
+				langId = state['amypo.langId'] || 0;
+				token = state['amypo.token'] || '';
+			} catch (e) {
+				// ignore
+			}
+		}
+
+		if (!testStarted) {
+			const emptyModel = new PagedModel([]);
+			this.setModel(emptyModel, { text: localize('amypo.marketplaceDisabled', "Marketplace search is disabled until a test starts."), severity: Severity.Warning });
+			return emptyModel;
+		}
+
+		try {
+			// ✅ Fetch recommended IDs from API
+			let recommendedIds = await getAmypoRecommendedExtensions(langId, token, this.notificationService);
+
+			// ✅ Fix renamed extension IDs
+			recommendedIds = recommendedIds.map(id => {
+				if (id.toLowerCase() === 'cweijan.vscode-excel') {
+					return 'cweijan.vscode-office';
+				}
+				return id;
+			});
+
+			const recommendedExtensions = await this.getInstallableRecommendations(
+				recommendedIds,
+				{ source: 'search-amypo-recommended' },
+				CancellationToken.None
+			);
+
+			// ✅ Get local extensions — FILTER OUT BUILTINS
+			const allLocalExtensions = await this.extensionsWorkbenchService.queryLocal(
+				this.options.server
+			);
+
+			const installedExtensions = allLocalExtensions.filter(e =>
+				!e.isBuiltin ||
+				e.identifier.id.toLowerCase() === 'amypo.amypo-question' ||
+				e.identifier.id.toLowerCase() === 'amypo.amypo-browser'
+			);
+
+			// ✅ Combine recommended + filtered locals (no duplicates)
+			const allAvailable: IExtension[] = [];
+			const seen = new Set<string>();
+
+			for (const ext of [...recommendedExtensions, ...installedExtensions]) {
+				const id = ext.identifier.id.toLowerCase();
+				if (!seen.has(id)) {
+					seen.add(id);
+					allAvailable.push(ext);
+				}
+			}
+
+			// ✅ Filter by search text
+			const searchText = query.trim().toLowerCase();
+			const filtered = searchText
+				? allAvailable.filter(e =>
+					e.name.toLowerCase().includes(searchText) ||
+					e.displayName.toLowerCase().includes(searchText) ||
+					e.description.toLowerCase().includes(searchText)
+				)
+				: allAvailable;
+
+			const pagedModel = new PagedModel(filtered);
+			
+			// ✅ FIX: Dispose old disposables before creating new ones to prevent memory leaks
+			const oldQueryResult = (this as any).queryResult;
+			if (oldQueryResult?.disposables) {
+				oldQueryResult.disposables.dispose();
+			}
+			
+			(this as any).queryResult = { model: pagedModel, disposables: new DisposableStore() };
+			this.setModel(pagedModel);
+			return pagedModel;
+
+		} catch (error) {
+			console.error('[Amypo] Error in SearchMarketplaceExtensionsView:', error);
+			const emptyModel = new PagedModel([]);
+			this.setModel(emptyModel, {
+				text: localize('amypo.searchError', "Error searching extensions."),
+				severity: Severity.Error
+			});
+			return emptyModel;
+		}
 	}
 }
 
@@ -1575,6 +1755,23 @@ export class RecommendedExtensionsView extends ExtensionsListView {
 	}
 
 	override async show(query: string): Promise<IPagedModel<IExtension>> {
+		const extensionId = 'AMYPO.amypo-question';
+		const rawExtState = this.storageService.get(extensionId, StorageScope.PROFILE) ||
+			this.storageService.get('amypo.amypo-question', StorageScope.PROFILE) ||
+			this.storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE);
+
+		let testStarted = false;
+		if (rawExtState) {
+			try {
+				const state = JSON.parse(rawExtState);
+				testStarted = state['amypo.testStarted'] === true || state['amypo.testStarted'] === 'true';
+			} catch (e) { }
+		}
+
+		if (!testStarted) {
+			return this.showEmptyModel();
+		}
+
 		return (query && query.trim() !== this.recommendedExtensionsQuery) ? this.showEmptyModel() : super.show(this.recommendedExtensionsQuery);
 	}
 }
@@ -1590,6 +1787,23 @@ export class WorkspaceRecommendedExtensionsView extends ExtensionsListView imple
 	}
 
 	override async show(query: string): Promise<IPagedModel<IExtension>> {
+		const extensionId = 'AMYPO.amypo-question';
+		const rawExtState = this.storageService.get(extensionId, StorageScope.PROFILE) ||
+			this.storageService.get('amypo.amypo-question', StorageScope.PROFILE) ||
+			this.storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE);
+
+		let testStarted = false;
+		if (rawExtState) {
+			try {
+				const state = JSON.parse(rawExtState);
+				testStarted = state['amypo.testStarted'] === true || state['amypo.testStarted'] === 'true';
+			} catch (e) { }
+		}
+
+		if (!testStarted) {
+			return this.showEmptyModel();
+		}
+
 		const shouldShowEmptyView = query && query.trim() !== '@recommended' && query.trim() !== '@recommended:workspace';
 		const model = await (shouldShowEmptyView ? this.showEmptyModel() : super.show(this.recommendedExtensionsQuery));
 		this.setExpanded(model.length > 0);

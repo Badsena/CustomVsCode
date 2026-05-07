@@ -9,7 +9,8 @@
 			]
 		}
 	},
-	"applicationName": "amypocoder",
+	"applicationName": "code",
+	"quality": "stable",
 	"debugExtensionId": "ms-vscode.js-debug",
 	"enabledApiProposals": [
 		"portAutoForward"
@@ -42,8 +43,7 @@
 	"updateUrl": "https://1102amy21.amypo.ai/",
 	"amypoAppVersion": "1.1.0",
 	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/products/version.json",
-	"quality": "stable",
-	"commit": "amypocoder-1.0.0",
+	"commit": "f1e16e1e6214d7c44d078b1f0607b23dd351efad",
 	"target": "user",
 	"win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}}",
 	"win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}}",
@@ -70,43 +70,9 @@
 		}
 	],
 	"webBuiltInExtensions": [],
-	"extensionTips": {
-		"AMYPO.amypo-question": "Amypo Question Panel",
-		"rangav.vscode-thunder-client": "Thunder Client",
-		"dsznajder.es7-react-js-snippets": "ES7+ React/Redux/React-Native snippets",
-		"esbenp.prettier-vscode": "Code formatter using prettier",
-		"dbaeumer.vscode-eslint": "Integrates ESLint JavaScript into VS Code.",
-		"humao.rest-client": "REST Client for VS Code",
-		"vscjava.vscode-java-pack": "Extension Pack for Java",
-		"redhat.java": "Language Support for Java(TM) by Red Hat",
-		"vscjava.vscode-java-debug": "Debugger for Java",
-		"vscjava.vscode-maven": "Maven for Java"
-	},
-	"extensionImportantTips": {
-		"AMYPO.amypo-question": {
-			"name": "Amypo Question Panel",
-			"pattern": "**/*"
-		},
-		"dsznajder.es7-react-js-snippets": {
-			"name": "ES7+ React Snippets",
-			"pattern": "**/*.{js,jsx,ts,tsx}"
-		},
-		"redhat.java": {
-			"name": "Java Support",
-			"pattern": "**/*.java"
-		}
-	},
-	"configBasedExtensionTips": {
-		"prettier": {
-			"configPath": ".prettierrc",
-			"recommendations": {
-				"esbenp.prettier-vscode": {
-					"name": "Prettier",
-					"isDefault": true
-				}
-			}
-		}
-	},
+	"extensionTips": {},
+	"extensionImportantTips": {},
+	"configBasedExtensionTips": {},
 	"extensionsGallery": {
 		"serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
 		"cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",

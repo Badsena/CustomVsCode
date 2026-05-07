@@ -38,16 +38,6 @@ const ACTIVITY_HEADER_NAME = 'Activityid';
 const SERVER_HEADER_NAME = 'Server';
 const END_END_ID_HEADER_NAME = 'X-Vss-E2eid';
 
-const EXTENSION_WHITELIST = [
-	'dsznajder.es7-react-js-snippets',
-	'esbenp.prettier-vscode',
-	'dbaeumer.vscode-eslint',
-	'rangav.vscode-thunder-client',
-	'vscjava.vscode-java-pack',
-	'redhat.java',
-	'vscjava.vscode-maven'
-];
-
 interface IRawGalleryExtensionFile {
 	readonly assetType: string;
 	readonly source: string;
@@ -852,7 +842,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			result.push(...extensions);
 		}
 
-		return result.filter(e => EXTENSION_WHITELIST.includes(e.identifier.id.toLowerCase()));
+		return result;
 	}
 
 	private async getLatestGalleryExtension(extensionInfo: IExtensionInfo, options: IExtensionQueryOptions, resourceApi: { uri: string; fallback?: string }, extensionGalleryManifest: IExtensionGalleryManifest, token: CancellationToken): Promise<IGalleryExtension | string> {
@@ -1460,10 +1450,7 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 			const result = await asJson<IRawGalleryQueryResult>(context);
 			if (result) {
  				const r = result.results[0];
- 				const galleryExtensions = r.extensions.filter(raw => {
- 					const id = getGalleryExtensionId(raw.publisher.publisherName, raw.extensionName).toLowerCase();
- 					return EXTENSION_WHITELIST.includes(id);
- 				});
+ 				const galleryExtensions = r.extensions;
  				const resultCount = r.resultMetadata && r.resultMetadata.filter(m => m.metadataType === 'ResultCount')[0];
  				total = resultCount && resultCount.metadataItems.filter(i => i.name === 'TotalCount')[0].count || 0;
 
