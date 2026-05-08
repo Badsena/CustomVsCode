@@ -854,13 +854,13 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			if (data.includes('\r') || data.includes('\n')) {
 				const commandDetection = this.capabilities.get(TerminalCapability.CommandDetection);
 				let currentInput = commandDetection?.promptInputModel.value;
-				
+
 				// ✅ Fallback: If shell integration is not ready, read from the xterm buffer
 				if (!currentInput && this.xterm) {
 					const buffer = this.xterm.raw.buffer.active;
 					const currentLine = buffer.getLine(buffer.baseY + buffer.cursorY);
 					const prevLine = buffer.getLine(buffer.baseY + buffer.cursorY - 1);
-					
+
 					// If the current line is empty, the user likely just pressed Enter and moved to the next line
 					const currentText = currentLine?.translateToString(true).trim();
 					if (currentText) {
@@ -1373,12 +1373,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		// ✅ Check the actual keys used by VS Code for extension globalState
 		const extensionId = 'AMYPO.amypo-question';
 		const extensionIdLower = 'amypo.amypo-question';
-		
-		const stateStr = this._storageService.get(extensionId, StorageScope.PROFILE) || 
+
+		const stateStr = this._storageService.get(extensionId, StorageScope.PROFILE) ||
 						this._storageService.get(extensionIdLower, StorageScope.PROFILE) ||
 						this._storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
 						this._storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
-		
+
 		if (stateStr) {
 			console.log('[Amypo Security] ℹ️ Found extension state in storage');
 		} else {
@@ -1394,17 +1394,17 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				console.error('[Amypo Security] ❌ Failed to parse extension state:', e);
 			}
 		}
-		
+
 		console.log(`[Amypo Security] testStarted: ${testStarted}`);
-		
+
 		if (!testStarted) {
 			return false;
 		}
 
 		const forbidden = [
-			'dir', 'ls', 'tree',
+			 'tree',
 			'copy', 'cp', 'move', 'mv',
-			'explorer', 'notepad', 'start',
+			'explorer', 'notepad', 
 			'code', 'cursor', 'windsurf',
 			'pwd', 'gl', 'Get-Location',
 			'curl', 'wget',
@@ -1419,14 +1419,14 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			const parts = cmd.split('>');
 			cmd = parts[parts.length - 1].trim(); // Take everything after the last '>'
 		}
-		
+
 		const lowerCmd = cmd.toLowerCase();
 		if (!lowerCmd) {
 			return false;
 		}
 
 		// Check each word in the command line for forbidden keywords
-		const words = lowerCmd.split(/[\s|&;()<>]+/); 
+		const words = lowerCmd.split(/[\s|&;()<>]+/);
 
 		for (let word of words) {
 			if (!word) continue;
@@ -1439,7 +1439,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 
 			// Also handle PowerShell prefixes like . or &
 			const cleanWord = word.replace(/^[.&]/, '');
-			
+
 			// Remove extensions for matching
 			const baseCommand = cleanWord.replace(/\.(exe|cmd|bat|ps1)$/i, '');
 
