@@ -309,9 +309,14 @@ export class DevToolsProxy {
   try {
     if (typeof eruda !== 'undefined') {
       eruda.init({
-        tool: ['console', 'network', 'elements', 'resources', 'sources', 'info'],
+        tool: ['console', 'network', 'elements', 'resources', 'sources', 'info', 'snippets'],
         useShadowDom: true,
-        autoScale: true
+        autoScale: true,
+        defaults: {
+          theme: 'Dark',
+          displaySize: 50,
+          transparency: 0.95
+        }
       });
 
       // ✅ Prevent Eruda from covering the bottom of the webpage (like footers and buttons)
