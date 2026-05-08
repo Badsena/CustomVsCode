@@ -39,7 +39,7 @@ import { ResultKind } from '../../../../platform/keybinding/common/keybindingRes
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IQuickInputService, IQuickPickItem, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IMarkProperties, TerminalCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
 import { TerminalCapabilityStoreMultiplexer } from '../../../../platform/terminal/common/capabilities/terminalCapabilityStore.js';
@@ -381,7 +381,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		@IThemeService private readonly _themeService: IThemeService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ITerminalLogService private readonly _logService: ITerminalLogService,
-		@IStorageService _storageService: IStorageService,
+		@IStorageService private readonly _storageService: IStorageService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IWorkbenchEnvironmentService private readonly _workbenchEnvironmentService: IWorkbenchEnvironmentService,
@@ -850,6 +850,36 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 
 		this._register(this._processManager.onProcessData(e => this._onProcessData(e)));
 		this._register(xterm.raw.onData(async data => {
+			// ✅ Catch Enter (\r) or any data containing Enter (like paste)
+			if (data.includes('\r') || data.includes('\n')) {
+				const commandDetection = this.capabilities.get(TerminalCapability.CommandDetection);
+				let currentInput = commandDetection?.promptInputModel.value;
+				
+				// ✅ Fallback: If shell integration is not ready, read from the xterm buffer
+				if (!currentInput && this.xterm) {
+					const buffer = this.xterm.raw.buffer.active;
+					const currentLine = buffer.getLine(buffer.baseY + buffer.cursorY);
+					const prevLine = buffer.getLine(buffer.baseY + buffer.cursorY - 1);
+					
+					// If the current line is empty, the user likely just pressed Enter and moved to the next line
+					const currentText = currentLine?.translateToString(true).trim();
+					if (currentText) {
+						currentInput = currentLine!.translateToString(true);
+					} else if (prevLine) {
+						currentInput = prevLine.translateToString(true);
+					}
+				}
+
+				if (currentInput && this._isCommandForbidden(currentInput)) {
+					// 1. Abort with Ctrl+C
+					await this._processManager.write('\x03');
+					// 2. Show a notification toast
+					this._notificationService.error(`[Amypo Security] The command "${currentInput.trim()}" is restricted.`);
+					// 3. Block the execution
+					return;
+				}
+			}
+
 			await this._processManager.write(data);
 			this._onDidInputData.fire(data);
 		}));
@@ -1339,7 +1369,101 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		this.focus(force);
 	}
 
+	private _isCommandForbidden(commandLine: string): boolean {
+		// ✅ Check the actual keys used by VS Code for extension globalState
+		const extensionId = 'AMYPO.amypo-question';
+		const extensionIdLower = 'amypo.amypo-question';
+		
+		const stateStr = this._storageService.get(extensionId, StorageScope.PROFILE) || 
+						this._storageService.get(extensionIdLower, StorageScope.PROFILE) ||
+						this._storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
+						this._storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
+		
+		if (stateStr) {
+			console.log('[Amypo Security] ℹ️ Found extension state in storage');
+		} else {
+			console.log('[Amypo Security] ⚠️ No extension state found in storage');
+		}
+
+		let testStarted = false;
+		if (stateStr) {
+			try {
+				const state = JSON.parse(stateStr);
+				testStarted = state['amypo.testStarted'] === true || state['amypo.testStarted'] === 'true';
+			} catch (e) {
+				console.error('[Amypo Security] ❌ Failed to parse extension state:', e);
+			}
+		}
+		
+		console.log(`[Amypo Security] testStarted: ${testStarted}`);
+		
+		if (!testStarted) {
+			return false;
+		}
+
+		const forbidden = [
+			'dir', 'ls', 'tree',
+			'copy', 'cp', 'move', 'mv',
+			'explorer', 'notepad', 'start',
+			'code', 'cursor', 'windsurf',
+			'pwd', 'gl', 'Get-Location',
+			'curl', 'wget',
+			'powershell', 'pwsh', 'cmd', 'wsl', 'Remove-Item', 'Get-ChildItem',
+			'Copy-Item', 'Move-Item'
+		];
+
+		// ✅ Improve CMD/PowerShell prompt handling
+		// Lines often look like "C:\Users\Admin>dir" or "PS C:\Users\Admin> dir"
+		let cmd = commandLine.trim();
+		if (cmd.includes('>')) {
+			const parts = cmd.split('>');
+			cmd = parts[parts.length - 1].trim(); // Take everything after the last '>'
+		}
+		
+		const lowerCmd = cmd.toLowerCase();
+		if (!lowerCmd) {
+			return false;
+		}
+
+		// Check each word in the command line for forbidden keywords
+		const words = lowerCmd.split(/[\s|&;()<>]+/); 
+
+		for (let word of words) {
+			if (!word) continue;
+
+			// Handle absolute paths by taking only the filename
+			if (word.includes('/') || word.includes('\\')) {
+				const parts = word.split(/[\\\/]/);
+				word = parts[parts.length - 1];
+			}
+
+			// Also handle PowerShell prefixes like . or &
+			const cleanWord = word.replace(/^[.&]/, '');
+			
+			// Remove extensions for matching
+			const baseCommand = cleanWord.replace(/\.(exe|cmd|bat|ps1)$/i, '');
+
+			if (forbidden.some(k => {
+				const lowerK = k.toLowerCase();
+				if (baseCommand === lowerK || cleanWord === lowerK) {
+					console.log(`[Amypo Security] ❌ BLOCKED: "${lowerK}" found in "${lowerCmd}"`);
+					return true;
+				}
+				return false;
+			})) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	async sendText(text: string, shouldExecute: boolean, bracketedPasteMode?: boolean): Promise<void> {
+		if (shouldExecute && this._isCommandForbidden(text)) {
+			this._notificationService.error(`[Amypo Security] The command "${text.trim()}" is restricted.`);
+			return;
+		}
+
 		// Apply bracketed paste sequences if the terminal has the mode enabled, this will prevent
 		// the text from triggering keybindings and ensure new lines are handled properly
 		if (bracketedPasteMode && this.xterm?.raw.modes.bracketedPasteMode) {
