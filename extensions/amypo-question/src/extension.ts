@@ -1551,7 +1551,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				eduViewProvider.updateView({
 					course_name: 'Amypo coder',
 					module_name: 'Data Not Received',
-					errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
+					errorMessage: 'Couldn\'t fetch test details. Please close the editor and relaunch the test.'
 				}, () => { });
 			}
 		}, 5000);
