@@ -1544,15 +1544,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 	} else {
-		// Fresh launch — we expect the UriHandler to fire shortly after activate().
-		// We comment this out so it doesn't show a false alarm before the URL is processed.
-
-		// vscode.window.showErrorMessage('Amypo: Test details not received from URL.');
-		// eduViewProvider.updateView({
-		// 	course_name: 'Amypo coder',
-		// 	module_name: 'Datas Not Received',
-		// 	errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
-		// }, () => { });
+		// Fresh launch — wait for deep link or show error after timeout
+		setTimeout(() => {
+			if (!activeToken) {
+				console.log('[Amypo] No deep link received. Showing error view.');
+				eduViewProvider.updateView({
+					course_name: 'Amypo coder',
+					module_name: 'Data Not Received',
+					errorMessage: 'Test details were not received from the URL. Please launch the test from your student portal.'
+				}, () => { });
+			}
+		}, 5000);
 
 
 		// Clear session-specific caches on fresh start (e.g. VS Code opened without a folder)
@@ -1561,9 +1563,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
 
-		console.log('enter test details');
-
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		// For development: you can uncomment the line below to test with static details
+		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {
