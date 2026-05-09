@@ -254,7 +254,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4165;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '286061|Ye1bK9mru8xBmTQSsacjSZDpvtRbmPCvK8JHkoS935125549';
+	const STATIC_TOKEN = '286085|qWlmDTT8oSyG3VljCDVFxeCKEOqlzRV12UoQyoYc82cd5ab9';
 	const STATIC_MODULE_ID = 1020;
 	//  State
 	let currentAllocationData: any = null;
@@ -1575,9 +1575,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			try {
 				const projectPathToDelete = currentProjectPath;
 
-				progress.report({ message: 'Syncing Git and Server state...' });
-				// syncGit('save') handles both Git push and Amypo state sync
-				await syncGit('save');
+				if (activeQuestionDatas && activeQuestionDatas.length > 0) {
+					progress.report({ message: 'Syncing Git and Server state...' });
+					// syncGit('save') handles both Git push and Amypo state sync
+					await syncGit('save');
+				}
 
 				// Delete the local project folder after saving
 				if (projectPathToDelete && fs.existsSync(projectPathToDelete)) {
@@ -1662,9 +1664,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		response => response,
 		async error => {
 			if (error.response?.status === 401) {
-				const saveExitItem: vscode.MessageItem = { title: 'Save & Exit', isCloseAffordance: true };
+				const isQuestionLoaded = activeQuestionDatas && activeQuestionDatas.length > 0;
+				const exitTitle = isQuestionLoaded ? 'Save & Exit' : 'Exit';
+				const saveExitItem: vscode.MessageItem = { title: exitTitle, isCloseAffordance: true };
 				const choice = await vscode.window.showWarningMessage(
-					'Session Expired (401)! Please save your progress and exit to sync to the cloud.',
+					isQuestionLoaded
+						? 'Session Expired (401)! Please save your progress and exit to sync to the cloud.'
+						: 'Session Expired (401)! Please exit.',
 					{ modal: true },
 					saveExitItem
 				);
@@ -1690,13 +1696,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(vscode.commands.registerCommand('amypo.exit', async () => {
+		const isQuestionLoaded = activeQuestionDatas && activeQuestionDatas.length > 0;
+		const exitButton = isQuestionLoaded ? 'Save & Exit' : 'Exit';
+		const message = isQuestionLoaded
+			? 'Are you sure you want to finish and exit? Your current progress will be synced to the cloud.'
+			: 'Are you sure you want to exit?';
+
 		const choice = await vscode.window.showWarningMessage(
-			'Are you sure you want to finish and exit? Your current progress will be synced to the cloud.',
+			message,
 			{ modal: true },
-			'Save & Exit'
+			exitButton
 		);
 
-		if (choice !== 'Save & Exit') {
+		if (choice !== exitButton) {
 			return;
 		}
 
