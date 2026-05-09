@@ -192,14 +192,22 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 			const data = await asJson<any>(context);
 
-			if (!data || !data.app) {
-				this.logService.info('[AmypoUpdate] No app section found — up to date');
+			if (!data || !data.app || !Array.isArray(data.app)) {
+				this.logService.info('[AmypoUpdate] No valid app section found — up to date');
 				this.setState(State.Idle(getUpdateType(), undefined, explicit || undefined));
 				return;
 			}
 
-			const serverVersion = data.app.version;
-			const downloadUrl = data.app.url;
+			// Find the windows entry in the app array
+			const winApp = data.app.find((a: any) => a.id === 'windows');
+			if (!winApp) {
+				this.logService.info('[AmypoUpdate] No Windows update section found.');
+				this.setState(State.Idle(getUpdateType(), undefined, explicit || undefined));
+				return;
+			}
+
+			const serverVersion = winApp.version;
+			const downloadUrl = winApp.url;
 
 			this.logService.info(`[AmypoUpdate] Server: ${serverVersion} | Current: ${currentVersion}`);
 
@@ -351,6 +359,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		// Launch the setup.exe with silent flags
 		spawn(this.availableUpdate.packagePath, [
 			'/verysilent',
+			'/update',
+			'/forcecloseapplications',
 			'/log',
 			'/mergetasks=runcode,!desktopicon,!quicklaunchicon'
 		], spawnOptions);
