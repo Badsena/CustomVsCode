@@ -5,22 +5,23 @@
 
 import * as vscode from 'vscode';
 export interface ICourseInfo {
-	course_name: string;
-	topic_name?: string;
-	module_name: string;
-	course_type?: number;
-	test_type?: string;
-	languages?: string[];
-	errorMessage?: string | null;
-	version?: string;
-	shouldRestore?: boolean;
-	user_name?: string;
-	user_email?: string;
-	user_roll_no?: string;
-	user_college?: string;
-	user_department?: string;
-	user_batch?: string;
-	user_section?: string;
+    course_name: string;
+    topic_name?: string;
+    module_name: string;
+    course_type?: number;
+    test_type?: string;
+    languages?: string[];
+    errorMessage?: string | null;
+    version?: string;
+    shouldRestore?: boolean;
+    user_name?: string;
+    user_email?: string;
+    user_roll_no?: string;
+    user_college?: string;
+    user_department?: string;
+    user_batch?: string;
+    user_section?: string;
+    storageUrl?: string;
 }
 
 export class EduViewProvider implements vscode.WebviewViewProvider {
@@ -174,7 +175,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; frame-src https://1102amy21.amypo.ai https://endpoint.amypo.ai https://docs.google.com; object-src 'none';">
             <style>
                 html, body {
                     margin: 0;
@@ -327,12 +328,28 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     display: flex;
                 }
                 .content-area { flex: 1; background: var(--vscode-editorWidget-background, white); margin: 12px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #dfe4ea); display: flex; flex-direction: column; overflow: hidden; }
-                .content-header { padding: 12px 24px; border-bottom: 1px solid var(--vscode-widget-border, #f1f2f6); display: flex; justify-content: space-between; align-items: center; background: var(--vscode-editorWidget-background, #fbfbfb); border-radius: 8px 8px 0 0; }
-                .tab-title { color: #00b894; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+                .content-header { padding: 0 12px; border-bottom: 1px solid var(--vscode-widget-border, #f1f2f6); display: flex; justify-content: space-between; align-items: center; background: var(--vscode-editorWidget-background, #fbfbfb); border-radius: 8px 8px 0 0; }
+                .tab-container { display: flex; gap: 4px; height: 100%; align-items: stretch; }
+                .tab-btn {
+                    padding: 12px 16px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--vscode-foreground, #636e72);
+                    border-bottom: 2px solid transparent;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .tab-btn:hover { color: #00b894; background: rgba(0, 184, 148, 0.05); }
+                .tab-btn.active { color: #00b894; border-bottom-color: #00b894; background: rgba(0, 184, 148, 0.1); }
                 .report-btn { color: #ff7675; border: 1px solid #fab1a0; border-radius: 6px; padding: 6px 16px; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
                 .report-btn:hover { background-color: var(--vscode-list-hoverBackground, #ffeaa7); }
 
                 .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-foreground, #2d3436); user-select: none; -webkit-user-select: none; }
+                #src-view { flex: 1; display: none; overflow: hidden; background: #fff; position: relative; user-select: none; -webkit-user-select: none; }
+                #src-iframe { width: 100%; height: 100%; border: none; }
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
                 .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; overflow-wrap: break-word; }
                 .q-description img { max-width: 100%; height: auto; margin: 20px 0 32px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block !important; float: none !important; }
@@ -571,31 +588,41 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 <div class="main-layout">
                     <div class="content-area">
                         <div class="content-header">
-                            <div class="tab-title"><span style="color: #636e72;">📋</span> Question</div>
+                            <div class="tab-container">
+                                <div class="tab-btn active" id="tab-q">
+                                    <span>📋</span> Question
+                                </div>
+                                <div class="tab-btn" id="tab-src" style="display: none;">
+                                    <span>📄</span> SRC
+                                </div>
+                            </div>
                         </div>
 
-                        <div id="content-container" class="question-body">
+                        <div id="content-container" class="question-body" style="display: flex; flex-direction: column; padding: 0;">
                             <!-- Loader -->
-                            <div class="loader-container" id="loader">
+                            <div class="loader-container" id="loader" style="padding: 24px;">
                                 <div class="spinner"></div>
                                 <div style="font-weight: 500;">Loading test environment...</div>
                             </div>
 
                             <!-- Error -->
-                            <div id="error-view" style="display: none; color: #e17055; text-align: center; margin-top: 40px;">
+                            <div id="error-view" style="display: none; color: #e17055; text-align: center; margin-top: 40px; padding: 24px;">
                                 <h2 id="error-msg">Failed to load test.</h2>
                             </div>
 
                             <!-- Content -->
                             <div id="data-view" style="display: none; height: 100%; flex-direction: column;">
-                                <div id="q-content" style="flex: 1; overflow-y: auto;">
+                                <div id="q-content" style="flex: 1; overflow-y: auto; padding: 24px;">
                                     <div class="q-title" id="q-title"></div>
                                     <div class="q-description" id="q-desc"></div>
                                 </div>
 
                                 <div id="status-bar" class="status-msg"></div>
+                            </div>
 
-
+                            <!-- SRC View -->
+                            <div id="src-view" style="height: 100%; display: none; flex-direction: column; position: relative;" oncontextmenu="return false;">
+                                <iframe id="src-iframe" title="PDF Viewer" style="flex: 1; border: none; width: 100%; height: 100%;"></iframe>
                             </div>
                         </div>
                     </div>
@@ -732,7 +759,66 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 let vInterval = null;
                 let expectedTestCount = 0;
                 let totalQuestionMark = 0;
+                let currentQData = null;
+                const storageUrl = "${courseInfo.storageUrl || ''}";
                 const vscode = acquireVsCodeApi();
+
+                function switchTab(tab) {
+                    const tabQ = document.getElementById('tab-q');
+                    const tabSrc = document.getElementById('tab-src');
+                    const viewQ = document.getElementById('data-view');
+                    const viewSrc = document.getElementById('src-view');
+                    const iframe = document.getElementById('src-iframe');
+
+                    if (tab === 'Q') {
+                        tabQ.classList.add('active');
+                        tabSrc.classList.remove('active');
+                        viewQ.style.display = 'flex';
+                        viewSrc.style.display = 'none';
+                    } else if (tab === 'SRC') {
+                        tabQ.classList.remove('active');
+                        tabSrc.classList.add('active');
+                        viewQ.style.display = 'none';
+                        viewSrc.style.display = 'block';
+
+                        if (currentQData && currentQData.testcases) {
+                            try {
+                                const tc = typeof currentQData.testcases === 'string'
+                                    ? JSON.parse(currentQData.testcases)
+                                    : currentQData.testcases;
+
+                                if (tc.src && tc.src.length > 0 && tc.path) {
+                                    const pdfFile = tc.src[0];
+                                    let pdfPath = tc.path;
+
+                                    const baseUrl = storageUrl.endsWith('/') ? storageUrl.slice(0, -1) : storageUrl;
+                                    const cleanPath = pdfPath.startsWith('/') ? pdfPath : '/' + pdfPath;
+                                    const fullUrl = baseUrl + cleanPath + pdfFile;
+
+                                    console.log('[Amypo] Loading PDF:', fullUrl);
+
+                                    // Set external link
+                                    const link = document.getElementById('pdf-link');
+                                    if (link) link.href = fullUrl;
+
+                                    // Use Google Docs Viewer as a proxy to avoid "sandboxed plugin" errors
+                                    const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(fullUrl) + '&embedded=true';
+
+                                    if (iframe.src !== viewerUrl) {
+                                        iframe.src = viewerUrl;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[Amypo] Error parsing testcases for PDF:', e);
+                            }
+                        }
+                    }
+                }
+
+                const tqBtn = document.getElementById('tab-q');
+                if (tqBtn) tqBtn.onclick = () => switchTab('Q');
+                const tsBtn = document.getElementById('tab-src');
+                if (tsBtn) tsBtn.onclick = () => switchTab('SRC');
 
                 const resOverlay = document.getElementById('result-overlay');
                 const resClose = document.getElementById('result-close');
@@ -889,9 +975,24 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             errorView.style.display = 'none';
                             dataView.style.display = 'block';
 
+
                             const payload = message.payload;
                             const qdata = Array.isArray(payload) ? payload[0] : payload;
+                            currentQData = qdata;
+
                             if (qdata) {
+                                // Show/Hide SRC tab based on testcases availability
+                                const tabSrc = document.getElementById('tab-src');
+                                if (qdata.testcases) {
+                                    tabSrc.style.display = 'flex';
+                                } else {
+                                    tabSrc.style.display = 'none';
+                                }
+
+                                // Always reset to Question tab on load
+                                switchTab('Q');
+                                document.getElementById('src-iframe').src = '';
+
                                 document.getElementById('q-title').innerText = qdata?.question_name || qdata?.title || 'Question 1';
                                 document.getElementById('q-desc').innerHTML = qdata?.description || qdata?.question || 'Empty Question Description';
 

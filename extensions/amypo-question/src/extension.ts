@@ -18,6 +18,7 @@ import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from '
 const execAsync = promisify(exec);
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
+const STORAGE_URL = API_URL.replace('/api', '/storage');
 // const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
 // static details removed to use URL params only
 
@@ -254,7 +255,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4165;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '286133|lwV8wfvb1FsnH0C7p3kEOYBfWTalrUw1t2MmoWET06453385';
+	const STATIC_TOKEN = '286186|kLUCKVafMxSb7rvCxsG6fJ5r9UDyPikqjeuci3VOf09f6109';
 	const STATIC_MODULE_ID = 1020;
 	//  State
 	let currentAllocationData: any = null;
@@ -1017,6 +1018,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				user_batch: user_details?.batch_name ?? 'N/A',
 				user_section: user_details?.section_name ?? 'N/A',
 				version: extVersion,
+				storageUrl: STORAGE_URL,
 			};
 
 			// Date validation
@@ -1757,7 +1759,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		// For development: you can uncomment the line below to test with static details
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {
