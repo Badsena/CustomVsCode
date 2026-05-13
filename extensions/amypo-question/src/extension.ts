@@ -27,22 +27,23 @@ let GITHUB_TOKEN = '';
 let GIT_URL = '';
 
 // check App name
-function checkAppName(): boolean {
-	const appName = vscode.env.appName;
-	const appRoot = vscode.env.appRoot;
+// function checkAppName(): boolean {
+// 	const appName = vscode.env.appName;
+// 	const appRoot = vscode.env.appRoot;
 
-	const isAmypoCoder =
-		appName.includes('Amypo') ||
-		appRoot.toLowerCase().includes('amypo') ||
-		appRoot.includes('CustomVsCode'); // ← dev mode path
+// 	const isAmypoCoder =
+// 		appName.includes('Amypo') ||
+// 		appName.includes('AmypoCoder') ||
+// 		appRoot.toLowerCase().includes('amypo') ||
+// 		appRoot.includes('CustomVsCode'); // ← dev mode path
 
-	if (!isAmypoCoder) {
-		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
-		return false;
-	}
-	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
-	return true;
-}
+// 	if (!isAmypoCoder) {
+// 		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
+// 		return false;
+// 	}
+// 	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
+// 	return true;
+// }
 
 // Layer 2 — Secret Key from product.json
 function readSecretKey(): string | null {
@@ -178,10 +179,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
 
 	//  Security Layer 1 — App Name Check
-	if (!checkAppName()) {
-		vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
-		return;
-	}
+	// if (!checkAppName()) {
+	// 	vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
+	// 	return;
+	// }
 
 	//  Security Layer 2 — Secret Key
 	const secretKey = readSecretKey();

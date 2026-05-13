@@ -593,7 +593,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                     <span>📋</span> Question
                                 </div>
                                 <div class="tab-btn" id="tab-src" style="display: none;">
-                                    <span>📄</span> SRC
+                                    <span>📄</span> SRS
                                 </div>
                             </div>
                         </div>
