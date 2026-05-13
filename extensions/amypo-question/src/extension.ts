@@ -18,7 +18,6 @@ import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from '
 const execAsync = promisify(exec);
 const server_type = 'dev';
 const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
-const STORAGE_URL = API_URL.replace('/api', '/storage');
 // const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
 // static details removed to use URL params only
 
@@ -27,23 +26,22 @@ let GITHUB_TOKEN = '';
 let GIT_URL = '';
 
 // check App name
-// function checkAppName(): boolean {
-// 	const appName = vscode.env.appName;
-// 	const appRoot = vscode.env.appRoot;
+function checkAppName(): boolean {
+	const appName = vscode.env.appName;
+	const appRoot = vscode.env.appRoot;
 
-// 	const isAmypoCoder =
-// 		appName.includes('Amypo') ||
-// 		appName.includes('AmypoCoder') ||
-// 		appRoot.toLowerCase().includes('amypo') ||
-// 		appRoot.includes('CustomVsCode'); // ← dev mode path
+	const isAmypoCoder =
+		appName.includes('Amypo') ||
+		appRoot.toLowerCase().includes('amypo') ||
+		appRoot.includes('CustomVsCode'); // ← dev mode path
 
-// 	if (!isAmypoCoder) {
-// 		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
-// 		return false;
-// 	}
-// 	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
-// 	return true;
-// }
+	if (!isAmypoCoder) {
+		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
+		return false;
+	}
+	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
+	return true;
+}
 
 // Layer 2 — Secret Key from product.json
 function readSecretKey(): string | null {
@@ -179,10 +177,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
 
 	//  Security Layer 1 — App Name Check
-	// if (!checkAppName()) {
-	// 	vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
-	// 	return;
-	// }
+	if (!checkAppName()) {
+		vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
+		return;
+	}
 
 	//  Security Layer 2 — Secret Key
 	const secretKey = readSecretKey();
@@ -671,7 +669,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			'    if ($proc.Id -eq $SelfPid) { continue }',
 			'    $title = $proc.MainWindowTitle',
 			'    if (-not $title) { continue }',
-			'    if ($title -like "*Amypo*") { continue }',
+			'    if ($title.ToLower() -like "*amypocoder*") { continue }',
 			'    if ($title.ToLower() -like "*$fn*") {',
 			'      $violations.Add("$($proc.Name)|$($proc.Id)|$title")',
 			'    }',
@@ -733,33 +731,42 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.warn(`[Amypo Security] Assessment folder exposed in: ${offenderNames}`);
 
 				_warningActive = true;
-				const action = await vscode.window.showWarningMessage(
-					`Security Violation: The assessment folder is currently open in "${offenderNames}". ` +
-					`This is not allowed during the assessment. Please close it immediately.`,
-					{ modal: true },
-					'Force Close Application'
-				);
-				_warningActive = false;
 
-				if (action === 'Force Close Application') {
-					for (const offender of offenders) {
-						try {
-							if (offender.name === 'FILE_EXPLORER') {
-								await execAsync(
-									`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "` +
-									`$s=New-Object -ComObject Shell.Application; ` +
-									`foreach($w in $s.Windows()){try{if($w.LocationURL -like '*amypo*'){$w.Quit()}}catch{}}"`,
-									{ timeout: 5000 }
-								);
-							} else {
-								await execAsync(
-									`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Stop-Process -Id ${offender.pid} -Force -ErrorAction SilentlyContinue"`,
-									{ timeout: 5000 }
-								);
-							}
-						} catch { /* best effort */ }
+				// 1. Start a live-updating Notification that shows the 10, 9, 8... countdown
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: `Security Violation!`,
+					cancellable: false
+				}, async (progress) => {
+					for (let i = 10; i > 0; i--) {
+						progress.report({ message: `Auto-exiting in ${i} seconds...` });
+						await new Promise(resolve => setTimeout(resolve, 1000));
 					}
+					progress.report({ message: 'Saving and exiting now...' });
+				});
+
+				// 2. Show the large Modal Popup (Blocks the screen)
+				const modalPromise = vscode.window.showErrorMessage(
+					`Security Violation! Unauthorized application "${offenderNames}" accessed the folder.\n\nYour code is being saved. Please watch the countdown notification in the corner.`,
+					{ modal: true },
+					'Save & Exit Now'
+				);
+
+				// Wait 10 seconds OR until the user interacts with the modal
+				await Promise.race([
+					modalPromise,
+					new Promise(resolve => setTimeout(resolve, 10000))
+				]);
+
+				// Trigger the exact same functionality as the Exit button
+				try {
+					await doExitAndSave();
+				} catch (err) {
+					console.error('[Amypo Security] Error during auto-exit:', err);
 				}
+
+				// Ensure the application quits
+				await vscode.commands.executeCommand('workbench.action.quit');
 
 			} catch (err: any) {
 				console.warn('[Amypo Security] Monitor tick error:', err?.message?.substring(0, 100));
@@ -1019,7 +1026,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				user_batch: user_details?.batch_name ?? 'N/A',
 				user_section: user_details?.section_name ?? 'N/A',
 				version: extVersion,
-				storageUrl: STORAGE_URL,
 			};
 
 			// Date validation
@@ -1763,7 +1769,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
-	const doExitAndSave = async () => {
+	async function doExitAndSave() {
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Amypo: Performing final save...',
