@@ -25,24 +25,6 @@ const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'http
 let GITHUB_TOKEN = '';
 let GIT_URL = '';
 
-// check App name
-function checkAppName(): boolean {
-	const appName = vscode.env.appName;
-	const appRoot = vscode.env.appRoot;
-
-	const isAmypoCoder =
-		appName.includes('Amypo') ||
-		appRoot.toLowerCase().includes('amypo') ||
-		appRoot.includes('CustomVsCode'); // ← dev mode path
-
-	if (!isAmypoCoder) {
-		console.error('[Amypo Security] Layer 1 FAILED: Unauthorized host application:', appName, 'root:', appRoot);
-		return false;
-	}
-	console.log('[Amypo Security] Layer 1 PASSED: App name verified.');
-	return true;
-}
-
 // Layer 2 — Secret Key from product.json
 function readSecretKey(): string | null {
 	try {
@@ -175,12 +157,6 @@ function compareVersions(versionA: string, versionB: string): boolean {
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
-
-	//  Security Layer 1 — App Name Check
-	if (!checkAppName()) {
-		vscode.window.showErrorMessage('Amypo Question: This extension only works inside Amypo Coder.');
-		return;
-	}
 
 	//  Security Layer 2 — Secret Key
 	const secretKey = readSecretKey();
@@ -603,27 +579,61 @@ export async function activate(context: vscode.ExtensionContext) {
 	};
 
 	// 🔒 Security: Lock workspace folder — hide it and restrict NTFS permissions
+	// 🔒 Security: Lock workspace folder — hide it and restrict NTFS/Posix permissions
 	const lockWorkspaceFolder = async (projectPath: string, parentPath: string): Promise<void> => {
-		if (process.platform !== 'win32') { return; }
 		try {
-			// Layer 1: Mark parent workspace dir as Hidden + System (invisible in File Explorer)
-			await execAsync(`attrib +h +s "${parentPath}"`);
+			if (process.platform === 'win32') {
+				// Layer 1: Mark parent workspace dir as Hidden + System (invisible in File Explorer)
+				await execAsync(`attrib +h +s "${parentPath}"`);
 
-			// Layer 2: Mark the project folder as Hidden + System
-			await execAsync(`attrib +h +s "${projectPath}"`);
+				// Layer 2: Mark the project folder as Hidden + System
+				await execAsync(`attrib +h +s "${projectPath}"`);
 
-			// Layer 3: Restrict NTFS permissions
-			// Disable inherited permissions, then grant only the current user + SYSTEM full control
-			// This prevents other Windows accounts on the same machine from accessing it
-			const username = process.env.USERDOMAIN
-				? `${process.env.USERDOMAIN}\\${process.env.USERNAME}`
-				: (process.env.USERNAME || '');
+				// Layer 3: Restrict NTFS permissions
+				// Disable inherited permissions, then grant only the current user + SYSTEM full control
+				// This prevents other Windows accounts on the same machine from accessing it
+				const username = process.env.USERDOMAIN
+					? `${process.env.USERDOMAIN}\\${process.env.USERNAME}`
+					: (process.env.USERNAME || '');
 
-			if (username) {
-				await execAsync(`icacls "${projectPath}" /inheritance:d /Q`);
-				await execAsync(`icacls "${projectPath}" /remove "Users" /Q`);
-				await execAsync(`icacls "${projectPath}" /grant:r "${username}:(OI)(CI)F" /Q`);
-				await execAsync(`icacls "${projectPath}" /grant:r "NT AUTHORITY\\SYSTEM:(OI)(CI)F" /Q`);
+				if (username) {
+					await execAsync(`icacls "${projectPath}" /inheritance:d /Q`);
+					await execAsync(`icacls "${projectPath}" /remove "Users" /Q`);
+					await execAsync(`icacls "${projectPath}" /grant:r "${username}:(OI)(CI)F" /Q`);
+					await execAsync(`icacls "${projectPath}" /grant:r "NT AUTHORITY\\SYSTEM:(OI)(CI)F" /Q`);
+				}
+			} else {
+				// Layer 1: Hide parent directory (e.g. ~/amypo) via .hidden
+				const amypoRoot = path.join(os.homedir(), 'amypo');
+				const homeHiddenFile = path.join(os.homedir(), '.hidden');
+				if (fs.existsSync(amypoRoot)) {
+					let hiddenContent = '';
+					if (fs.existsSync(homeHiddenFile)) {
+						hiddenContent = fs.readFileSync(homeHiddenFile, 'utf8');
+					}
+					if (!hiddenContent.includes('amypo')) {
+						fs.appendFileSync(homeHiddenFile, 'amypo\n');
+					}
+				}
+
+				// Layer 2: Hide project folder via .hidden in parentPath
+				const parentHiddenFile = path.join(parentPath, '.hidden');
+				const projectFolderName = path.basename(projectPath);
+
+				let parentHiddenContent = '';
+				if (fs.existsSync(parentHiddenFile)) {
+					parentHiddenContent = fs.readFileSync(parentHiddenFile, 'utf8');
+				}
+				if (!parentHiddenContent.includes(projectFolderName)) {
+					fs.appendFileSync(parentHiddenFile, projectFolderName + '\n');
+				}
+
+				// Layer 3: Restrict permissions to owner only (rwx------)
+				await execAsync(`chmod 700 "${projectPath}"`);
+				await execAsync(`chmod 700 "${parentPath}"`);
+				if (fs.existsSync(amypoRoot)) {
+					await execAsync(`chmod 700 "${amypoRoot}"`);
+				}
 			}
 
 			console.log('[Amypo Security] Workspace folder locked and hidden.');
