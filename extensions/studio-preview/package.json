@@ -104,6 +104,9 @@
     "watch": "node esbuild.js --watch",
     "package": "npm run compile && npx @vscode/vsce package --no-dependencies"
   },
+  "dependencies": {
+    "chii": "^1.15.5"
+  },
   "devDependencies": {
     "@types/node": "22.x",
     "esbuild": "^0.28.0"

@@ -254,10 +254,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4165;
+	const STATIC_ALLOCATION_ID = 4164;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '286186|kLUCKVafMxSb7rvCxsG6fJ5r9UDyPikqjeuci3VOf09f6109';
-	const STATIC_MODULE_ID = 1020;
+	const STATIC_TOKEN = '286196|vLTHjYXjrxfN0LeZEg2MUmJ4W41oHNAOW6rVlaVM8e998730';
+	const STATIC_MODULE_ID = 1019;
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -1760,7 +1760,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		// For development: you can uncomment the line below to test with static details
-		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	const doExitAndSave = async () => {

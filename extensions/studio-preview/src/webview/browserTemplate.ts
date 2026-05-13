@@ -26,7 +26,7 @@ export function getBrowserTemplate(
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:;" />
+    content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src 'unsafe-inline'; img-src ${webview.cspSource} https: data:; connect-src *;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amypo Browser</title>
   <style>
@@ -100,8 +100,9 @@ export function getBrowserTemplate(
     #progress-bar.loading { width: 90%; }
     #progress-bar.complete { width: 100%; opacity: 0; }
 
-    #browser-wrapper { position: relative; flex: 1; background: #fff; }
-    #browser-frame { position: absolute; inset: 0; border: none; width: 100%; height: 100%; display: block; }
+    #browser-wrapper { position: relative; flex: 1; background: #fff; display: flex; flex-direction: column; }
+    #browser-frame { flex: 1; border: none; width: 100%; display: block; }
+    #devtools-frame { flex: 1; border: none; width: 100%; display: none; border-top: 1px solid var(--vscode-panel-border, #333); }
     #loading-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--vscode-editor-background); opacity: 1; transition: opacity 0.3s; pointer-events: none; }
     #loading-overlay.hidden { opacity: 0; }
 
@@ -161,7 +162,7 @@ export function getBrowserTemplate(
 
     <!-- <div id="status-indicator">⚪ Initializing</div> -->
 
-    <button id="btn-devtools" title="Toggle Student DevTools (eruda)">
+    <button id="btn-devtools" title="Toggle Student DevTools">
       Dev Tools
       <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
         <path d="M10.707 11.293l3.293-3.293-3.293-3.293-.707.707 2.586 2.586-2.586 2.586.707.707zM5.293 4.707L2 8l3.293 3.293.707-.707L3.414 8l2.586-2.586-.707-.707z"/>
@@ -191,12 +192,16 @@ export function getBrowserTemplate(
       sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads"
       allow="clipboard-read; clipboard-write; autoplay;"
     ></iframe>
+    <iframe id="devtools-frame" src="about:blank"
+      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+    ></iframe>
     <div id="loading-overlay"></div>
   </div>
 
   <script nonce="${nonce}">
     const vscode    = acquireVsCodeApi();
     const frame     = document.getElementById('browser-frame');
+    const devtoolsFrame = document.getElementById('devtools-frame');
     const urlBar    = document.getElementById('url-bar');
     const progress  = document.getElementById('progress-bar');
     const chipBox   = document.getElementById('port-chips');
@@ -275,7 +280,7 @@ export function getBrowserTemplate(
         if (devToolsActive) {
           devToolsActive = false;
           devToolsBtn.classList.remove('active');
-          devToolsBtn.title = 'Toggle Student DevTools (eruda)';
+          devToolsBtn.title = 'Toggle Student DevTools';
           vscode.postMessage({ type: 'toggleDevTools', currentUrl: frame.src }); // Tell backend to stop proxy
         }
         navigateTo(urlBar.value.trim()); 
@@ -289,6 +294,11 @@ export function getBrowserTemplate(
         tab.classList.add('active');
         currentMode = tab.dataset.mode;
 
+        // ✅ Only show DevTools button for Frontend
+        if (devToolsBtn) {
+            devToolsBtn.style.display = (currentMode === 'frontend') ? 'flex' : 'none';
+        }
+
         urlBar.placeholder = 'localhost:3000...';
         const relevant = localProjects.filter(p => p.category === currentMode);
         
@@ -300,14 +310,10 @@ export function getBrowserTemplate(
 
         if (relevant.length > 0) {
           navigateTo('http://localhost:' + relevant[0].port);
-          // statusInd.className = 'running';
-          // statusInd.innerHTML = '🟢 Running';
         } else {
           urlBar.value = '';
           chipBox.innerHTML = '';
           frame.src = 'about:blank';
-          // statusInd.className = 'stopped';
-          // statusInd.innerHTML = '🔴 Not Detected';
         }
       });
     });
@@ -354,6 +360,10 @@ export function getBrowserTemplate(
         
         // Change iframe but keep original URL in the bar!
         frame.src = msg.url;
+        // Use our proxy for Chii so we can inject the window.open fix!
+        const pUrl = new URL(msg.url);
+        devtoolsFrame.src = pUrl.origin + '/__amypo_chii__/';
+        devtoolsFrame.style.display = 'block';
         progress.className = 'loading';
         overlay.classList.remove('hidden');
       }
@@ -362,19 +372,34 @@ export function getBrowserTemplate(
       if (msg.type === 'disableDevTools') {
         devToolsActive = false;
         devToolsBtn.classList.remove('active');
-        devToolsBtn.title = 'Toggle Student DevTools (eruda)';
+        devToolsBtn.title = 'Toggle Student DevTools';
         
         // Revert iframe to whatever is in the URL bar
         frame.src = urlBar.value || originalUrl;
+        devtoolsFrame.src = 'about:blank';
+        devtoolsFrame.style.display = 'none';
         progress.className = 'loading';
         overlay.classList.remove('hidden');
         originalUrl = '';
+      }
+
+      // ✅ Sync URL bar when iframe navigates internally
+      if (msg.type === 'urlChanged') {
+        const currentUrl = (urlBar.value || '').trim();
+        // Only update if it's actually different to avoid cursor jumps
+        if (currentUrl !== msg.url && currentUrl !== msg.url + '/') {
+          urlBar.value = msg.url;
+          updateChips(msg.url);
+        }
       }
     });
 
     updateChips(frame.src);
     initStatus();
     updateTabVisibility(); // ✅ Apply on load
+    if (devToolsBtn) {
+        devToolsBtn.style.display = (currentMode === 'frontend') ? 'flex' : 'none';
+    }
   </script>
 </body>
 </html>`;

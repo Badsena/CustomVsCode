@@ -25,7 +25,6 @@ export class PreviewManager {
     private _terminalCloseListener: vscode.Disposable | undefined;
     private _devToolsProxy = new DevToolsProxy();
     private _devToolsActive = false;
-    private _erudaFilePath: string = '';
 
     private constructor(extensionUri: vscode.Uri) {
         if (!extensionUri) {
@@ -176,8 +175,7 @@ export class PreviewManager {
         );
         console.log('[Amypo] Browser opened with projects:', this._currentProjects.length);
 
-        // ✅ Store absolute path for the proxy to serve directly
-        this._erudaFilePath = vscode.Uri.joinPath(this._extensionUri, 'src', 'assets', 'eruda.js').fsPath;
+
 
         // ✅ Smart initial URL
         const firstProject = this._currentProjects.find(p => p.port > 0);
@@ -266,9 +264,17 @@ export class PreviewManager {
 
             const targetPort = parseInt(portMatch[1], 10);
             try {
+                // ✅ Hook into proxy navigation events
+                this._devToolsProxy.onNavigate = (path) => {
+                    this._panel?.webview.postMessage({
+                        type: 'urlChanged',
+                        path: path,
+                        url: `http://localhost:${targetPort}${path}`
+                    });
+                };
+
                 const proxyPort = await this._devToolsProxy.start(
-                    targetPort,
-                    this._erudaFilePath  // ✅ Pass local file path
+                    targetPort
                 );
                 this._devToolsActive = true;
 

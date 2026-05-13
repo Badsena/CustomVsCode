@@ -14,7 +14,7 @@ const buildOptions = {
 	entryPoints: ['./src/extension.ts'],
 	bundle: true,
 	outfile: './out/extension.js',
-	external: ['vscode'],
+	external: ['vscode', 'chii'],  // ✅ chii must be external
 	platform: 'node',
 	target: 'es2020',
 	format: 'cjs',
@@ -23,18 +23,14 @@ const buildOptions = {
 };
 
 async function build() {
-	// ── Copy eruda.js asset to out/assets/ ──
 	const srcAssets = path.join(__dirname, 'src', 'assets');
 	const outAssets = path.join(__dirname, 'out', 'assets');
-	if (!fs.existsSync(outAssets)) {
-		fs.mkdirSync(outAssets, { recursive: true });
+
+	// ✅ Clean before copy
+	if (fs.existsSync(outAssets)) {
+		fs.rmSync(outAssets, { recursive: true });
 	}
-	const erudaSrc = path.join(srcAssets, 'eruda.js');
-	const erudaDest = path.join(outAssets, 'eruda.js');
-	if (fs.existsSync(erudaSrc)) {
-		fs.copyFileSync(erudaSrc, erudaDest);
-		console.log('[esbuild] Copied eruda.js to out/assets/');
-	}
+	fs.mkdirSync(outAssets, { recursive: true });
 
 	if (isWatch) {
 		const ctx = await esbuild.context(buildOptions);
