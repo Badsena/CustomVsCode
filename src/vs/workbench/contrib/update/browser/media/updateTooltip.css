@@ -122,6 +122,12 @@
 	align-items: flex-start;
 	font-size: var(--vscode-bodyFontSize);
 	gap: 4px;
+	background-color: #2ea043;
+	color: #ffffff;
+	padding: 8px 12px;
+	border-radius: var(--vscode-cornerRadius-large);
+	font-weight: 600;
+	margin-top: 8px;
 }
 
 .update-tooltip .state-message-icon.codicon[class*='codicon-'] {

@@ -374,18 +374,24 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 	}
 
 	private onUpdateNotAvailable(): void {
+		// ✅ Amypo: Always show the "No updates available" dialog
+		/*
 		if (this.titleBarEnabled) {
 			return;
 		}
+		*/
 
 		this.dialogService.info(nls.localize('noUpdatesAvailable', "There are currently no updates available."));
 	}
 
 	// linux
 	private onUpdateAvailable(update: IUpdate): void {
+		// ✅ Amypo: Always show the "Update Available" notification
+		/*
 		if (this.titleBarEnabled) {
 			return;
 		}
+		*/
 
 		if (!this.shouldShowNotification()) {
 			return;
@@ -417,9 +423,12 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 	// windows fast updates
 	private onUpdateDownloaded(update: IUpdate): void {
+		// ✅ Amypo: Always show the "Update Downloaded" notification
+		/*
 		if (this.titleBarEnabled) {
 			return;
 		}
+		*/
 
 		if (isMacintosh) {
 			return;
@@ -552,10 +561,8 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			this.storageService.store('update/updateNotificationTime', currentMillis, StorageScope.APPLICATION, StorageTarget.MACHINE);
 		}
 
-		const updateNotificationMillis = this.storageService.getNumber('update/updateNotificationTime', StorageScope.APPLICATION, currentMillis);
-		const diffDays = (currentMillis - updateNotificationMillis) / (1000 * 60 * 60 * 24);
-
-		return diffDays > 5;
+		// ✅ Amypo: Always show update notifications immediately
+		return true;
 	}
 
 	private registerGlobalActivityActions(): void {
