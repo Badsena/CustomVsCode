@@ -229,7 +229,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 4164;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '286196|vLTHjYXjrxfN0LeZEg2MUmJ4W41oHNAOW6rVlaVM8e998730';
+	const STATIC_TOKEN = '286211|ofbk4eOnD949ua3MeNVZeUhb1yaTnxFuEZqk1j6ha80aa975';
 	const STATIC_MODULE_ID = 1019;
 	//  State
 	let currentAllocationData: any = null;
@@ -684,7 +684,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			'    }',
 			'  } catch {}',
 			'}',
-			'$editorNames = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","nano","micro","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far","chrome","msedge","firefox","brave","opera","spyder","python","anaconda")',
+			'$editorNames = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far")',
+			'$browsers = @("chrome","msedge","firefox","brave","opera")',
 			'try {',
 			'  foreach ($wp in (Get-WmiObject Win32_Process -ErrorAction SilentlyContinue)) {',
 			'    try {',
@@ -693,7 +694,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			'      if (-not $cmd) { continue }',
 			'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
 			'      if ($cmd.ToLower() -like "*$ar*") { continue }',
-			'      # 🚨 HARDENED CHECK: If ANY process has the workspace path in its command line, flag it!',
+			'      ',
+			'      # ✅ EXCEPTION: Allow java/node for student backends',
+			'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node") { continue }',
+			'',
+			'      # 🚨 ACCESS CHECK: Check if the application is touching the workspace or subfolders',
 			'      if ($cmd.ToLower() -like "*amypo*workspace*" -or $cmd.ToLower() -like "*$fn*") {',
 			'          $violations.Add("$($wp.Name)|$($wp.ProcessId)|Access Violation")',
 			'      }',
@@ -752,6 +757,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 					progress.report({ message: 'Saving and exiting now...' });
 				});
+
+				// 🚀 Small delay to ensure the notification "pops up" in the corner before the modal blocks the screen
+				await new Promise(resolve => setTimeout(resolve, 500));
 
 				// 2. Show the large Modal Popup (Blocks the screen)
 				const modalPromise = vscode.window.showErrorMessage(
