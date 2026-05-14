@@ -64,7 +64,7 @@ async function checkForExtensionUpdate(context: vscode.ExtensionContext): Promis
 		const currentVersion = context.extension.packageJSON?.version ?? '0.0.0';
 		console.log(`[Amypo Browser Update] Current version: ${currentVersion}`);
 
-		const versionData = await httpsGetJson('https://1102amy21.amypo.ai/storage/products/version.json');
+		const versionData = await httpsGetJson('https://endpoint.amypo.ai/storage/products/version.json');
 		statusBarItem.dispose();
 
 		const extensionData = versionData.extensions

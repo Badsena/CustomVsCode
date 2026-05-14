@@ -7,13 +7,13 @@ import axios from 'axios'
 // Default API endpoint if environment variable is missing
 let BASE_URL = 'https://1102amy21.amypo.ai/api';
 
-export function setBaseUrl(url: string) {
-    BASE_URL = url;
-}
-
 // to store 500 errors
 async function storeError(url: string, error: any): Promise<void> {
     try {
+        let currentBaseUrl = BASE_URL;
+        if (url.includes('endpoint.amypo.ai')) {
+            currentBaseUrl = 'https://endpoint.amypo.ai/api';
+        }
         const payload: Record<string, any> = {
             url,
             error:
@@ -23,7 +23,7 @@ async function storeError(url: string, error: any): Promise<void> {
         }
 
         await axios.post(
-            `${BASE_URL}/store_errors`,
+            `${currentBaseUrl}/store_errors`,
             payload,
             { headers: { 'Content-Type': 'application/json' } },
         );

@@ -40,9 +40,9 @@
 		"amypo-coder",
 		"amypo"
 	],
-	"updateUrl": "https://1102amy21.amypo.ai/",
+	"updateUrl": "https://endpoint.amypo.ai/",
 	"amypoAppVersion": "1.1.0",
-	"amypoUpdateUrl": "https://1102amy21.amypo.ai/storage/products/version.json",
+	"amypoUpdateUrl": "https://endpoint.amypo.ai/storage/products/version.json",
 	"commit": "f1e16e1e6214d7c44d078b1f0607b23dd351efad",
 	"target": "user",
 	"win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}}",

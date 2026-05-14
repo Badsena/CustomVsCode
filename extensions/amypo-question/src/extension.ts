@@ -16,11 +16,8 @@ import { submitData, jsonsubmitData, fetchData } from './services/axios/submissi
 import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
-const server_type = 'dev';
-const API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
-// const EXTENSION_UPDATE_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage/version.json' : 'https://endpoint.amypo.ai/storage/version.json';
-// static details removed to use URL params only
-
+let server_type = 'dev';
+let API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 
 let GITHUB_TOKEN = '';
 let GIT_URL = '';
@@ -60,7 +57,7 @@ async function checkForExtensionUpdate(secretKey: string, context: vscode.Extens
 
 		// ── Fetch version.json from private server
 		const versionResp = await axios.get(
-			'https://1102amy21.amypo.ai/storage/products/version.json',
+			'https://endpoint.amypo.ai/storage/products/version.json',
 			{
 				timeout: 5000,
 				validateStatus: (status) => status === 200
@@ -195,7 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				const test_type = parseInt(params.get('test_type') ?? '0');
 				const module_id = parseInt(params.get('module_id') ?? '0');
 				const token = params.get('token') ?? '';
-				const server_type = params.get('server_type') ?? 'prod';
+				server_type = params.get('server_type') ?? 'prod';
 
 				console.log('[Amypo] Parsed Params:');
 				console.log('  allocation_id :', allocation_id);
@@ -215,6 +212,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					vscode.window.showErrorMessage('Amypo: Invalid deep link — missing parameters.');
 					return;
 				}
+
+				API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 
 				console.log('[Amypo] All params valid — starting test...');
 

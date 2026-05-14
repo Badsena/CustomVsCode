@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const API_URL = 'https://1102amy21.amypo.ai/api';
+const API_URL = 'https://endpoint.amypo.ai/api';
 
 let cachedExtensions: string[] | null = null;
 let cacheTimestamp: number = 0;
