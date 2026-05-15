@@ -16,7 +16,7 @@ import { submitData, jsonsubmitData, fetchData } from './services/axios/submissi
 import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
-let server_type = 'dev';
+let server_type = 'prod';
 let API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 
 let GITHUB_TOKEN = '';
@@ -230,14 +230,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '371527|JDv9T4GWE5o4lXTnZn3PNyrciMxtaMJHqaNBbOeU1522cf15';
+	const STATIC_TOKEN = '371590|ZJxu4Ziy7RW0d7cqHpLFUhEN6rXdlFJrqpaa0Qfjb1fb2d15';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
 	let currentRepoUrl: string | null = null;
 	let currentProjectType: 'react' | 'fullstack' | 'spring' | 'selenium' = 'spring';
-
 	// Test state for API synchronization
 	let activeTestType: number = 0;
 	let activeModuleId: number = 0;
@@ -1106,6 +1105,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				user_batch: user_details?.batch_name ?? 'N/A',
 				user_section: user_details?.section_name ?? 'N/A',
 				version: extVersion,
+				storageUrl: server_type === 'dev' ? 'https://1102amy21.amypo.ai/storage' : 'https://endpoint.amypo.ai/storage',
 			};
 
 			// Date validation
@@ -1846,6 +1846,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.cachedQuestion', undefined);
 			await context.globalState.update('amypo.courseInfo', undefined);
 		}
+
+		console.log('Get test details called');
 
 		// For development: you can uncomment the line below to test with static details
 		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);

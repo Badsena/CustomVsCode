@@ -90,8 +90,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     if (this._onConfirm) {
                         this._onConfirm();
                     }
-                    break;
-            }
+                    break;}
         });
 
         // ✅ Always set HTML immediately
@@ -175,7 +174,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; frame-src https://1102amy21.amypo.ai https://endpoint.amypo.ai https://docs.google.com; object-src 'none';">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; frame-src https://1102amy21.amypo.ai https://endpoint.amypo.ai https://docs.google.com https://drive.google.com https://mozilla.github.io; object-src 'none';">
             <style>
                 html, body {
                     margin: 0;
@@ -797,13 +796,9 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                                     console.log('[Amypo] Loading PDF:', fullUrl);
 
-                                    // Set external link
-                                    const link = document.getElementById('pdf-link');
-                                    if (link) link.href = fullUrl;
-
-                                    // Use Google Docs Viewer as a proxy to avoid "sandboxed plugin" errors
-                                    const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(fullUrl) + '&embedded=true';
-
+                                    // Use Google's older gview endpoint, which bypasses CORS and avoids viewerng 401 errors
+                                    const viewerUrl = 'https://docs.google.com/gview?embedded=true&url=' + encodeURIComponent(fullUrl);
+                                
                                     if (iframe.src !== viewerUrl) {
                                         iframe.src = viewerUrl;
                                     }
