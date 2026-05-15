@@ -326,7 +326,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     overflow: hidden;
                     display: flex;
                 }
-                .content-area { flex: 1; background: var(--vscode-editorWidget-background, white); margin: 12px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #dfe4ea); display: flex; flex-direction: column; overflow: hidden; }
+                .content-area { flex: 1; background: var(--vscode-editor-background); margin: 12px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #dfe4ea); display: flex; flex-direction: column; overflow: hidden; }
                 .content-header { padding: 0 12px; border-bottom: 1px solid var(--vscode-widget-border, #f1f2f6); display: flex; justify-content: space-between; align-items: center; background: var(--vscode-editorWidget-background, #fbfbfb); border-radius: 8px 8px 0 0; }
                 .tab-container { display: flex; gap: 4px; height: 100%; align-items: stretch; }
                 .tab-btn {
@@ -346,11 +346,12 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .report-btn { color: #ff7675; border: 1px solid #fab1a0; border-radius: 6px; padding: 6px 16px; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
                 .report-btn:hover { background-color: var(--vscode-list-hoverBackground, #ffeaa7); }
 
-                .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-foreground, #2d3436); user-select: none; -webkit-user-select: none; }
+                .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-editor-foreground); user-select: none; -webkit-user-select: none; }
                 #src-view { flex: 1; display: none; overflow: hidden; background: #fff; position: relative; user-select: none; -webkit-user-select: none; }
                 #src-iframe { width: 100%; height: 100%; border: none; }
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
                 .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; overflow-wrap: break-word; }
+                .q-description *, .q-title * { color: var(--vscode-editor-foreground) !important; }
                 .q-description img { max-width: 100%; height: auto; margin: 20px 0 32px 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block !important; float: none !important; }
                 .q-description ul, .q-description ol { padding-left: 24px; margin-bottom: 16px; overflow: hidden; }
                 .q-description li { margin-bottom: 8px; }
