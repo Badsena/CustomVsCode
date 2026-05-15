@@ -341,7 +341,7 @@
 }
 
 .monaco-workbench:not(.web).mac .part.titlebar .window-controls-container {
-	width: 70px;
+	width: auto;
 }
 
 /* Window Control Icons */

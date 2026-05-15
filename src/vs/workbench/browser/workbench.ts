@@ -158,6 +158,9 @@ export class Workbench extends Layout {
 					configurationService.updateValue('workbench.startupEditor', 'welcomePage');
 				}
 
+				// ✅ Amypo Coder: Never ask to save untitled workspaces on shutdown
+				configurationService.updateValue('window.confirmSaveUntitledWorkspace', false);
+
 				// Set code block renderer for markdown rendering
 				markdownRendererService.setDefaultCodeBlockRenderer(instantiationService.createInstance(EditorMarkdownCodeBlockRenderer));
 

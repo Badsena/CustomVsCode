@@ -230,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '371590|ZJxu4Ziy7RW0d7cqHpLFUhEN6rXdlFJrqpaa0Qfjb1fb2d15';
+	const STATIC_TOKEN = '371768|XX8ZzRXAC8FWKm2o5v99Pwihp8wSbAyNRp1EC6Oo3d32f937';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;

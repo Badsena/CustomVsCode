@@ -174,12 +174,19 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 			})));
 		}
 
-		// Custom Window Controls (Native Windows/Linux)
+		// Custom Window Controls (Native Windows/Linux/Mac)
 		if (
 			!hasNativeTitlebar(this.configurationService) &&		// not for native title bars
-			!useWindowControlsOverlay(this.configurationService) &&	// not when controls are natively drawn
-			this.windowControlsContainer
+			!useWindowControlsOverlay(this.configurationService)	// not when controls are natively drawn
 		) {
+			if (!this.windowControlsContainer && isMacintosh) {
+				const rightContent = parent.querySelector('.titlebar-right');
+				if (rightContent) {
+					this.windowControlsContainer = append(rightContent as HTMLElement, $('div.window-controls-container'));
+				}
+			}
+
+			if (this.windowControlsContainer) {
 			// Ensure the container is visible and aligned
 			this.windowControlsContainer.style.width = 'auto';
 			this.windowControlsContainer.style.display = 'flex';
@@ -242,6 +249,7 @@ export class NativeTitlebarPart extends BrowserTitlebarPart {
 				}
 			}, { windowId: targetWindowId, maximized: this.layoutService.isWindowMaximized(targetWindow) }));
 		}
+	}
 
 		// Window System Context Menu
 		// See https://github.com/electron/electron/issues/24893
