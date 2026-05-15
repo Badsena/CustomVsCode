@@ -214,6 +214,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 				API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
+				context.globalState.update('amypo.serverType', server_type);
 
 				console.log('[Amypo] All params valid — starting test...');
 
@@ -227,10 +228,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 4164;
+	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '286211|ofbk4eOnD949ua3MeNVZeUhb1yaTnxFuEZqk1j6ha80aa975';
-	const STATIC_MODULE_ID = 1019;
+	const STATIC_TOKEN = '371527|JDv9T4GWE5o4lXTnZn3PNyrciMxtaMJHqaNBbOeU1522cf15';
+	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -552,6 +553,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await context.globalState.update('amypo.repoUrl', currentRepoUrl);
 			await context.globalState.update('amypo.projectType', currentProjectType);
 			await context.globalState.update('amypo.token', activeToken);
+			await context.globalState.update('amypo.serverType', server_type);
 			await context.globalState.update('amypo.lastTest', {
 				allocation_id: activeAllocation?.id,
 				test_type: activeTestType,
@@ -652,54 +654,116 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (_monitorInterval) { clearInterval(_monitorInterval); }
 
 		const folderName = path.basename(projectPath);
+		const parentPath = path.dirname(projectPath); // amypo/workspace
 		const currentPid = process.pid;
-		const appRootNorm = vscode.env.appRoot.toLowerCase().replace(/\\/g, '/');
+		const parentPid = process.ppid;
+		const appRootNorm = vscode.env.appRoot.toLowerCase();
+
+		// Get a few filenames from the project to use as keywords for title matching
+		let projectFiles = '';
+		try {
+			const files = fs.readdirSync(projectPath);
+			projectFiles = files.filter(f => {
+				try { return fs.statSync(path.join(projectPath, f)).isFile(); } catch { return false; }
+			}).slice(0, 15).join('|');
+		} catch (e) {
+			console.warn('[Amypo Security] Could not read project files for monitor:', e);
+		}
 
 		// Write the PS script to a temp file — avoids ALL quoting/newline bugs
 		// that occur when passing multi-line scripts inline via -Command.
 		const psScript = [
-			'param([string]$FolderName, [string]$AppRoot, [int]$SelfPid)',
+			'param([string]$ProjectPath, [string]$ParentPath, [string]$AppRoot, [int]$SelfPid, [int]$ParentPid, [string]$ProjectFiles)',
 			'$violations = [System.Collections.Generic.List[string]]::new()',
-			'$fn = $FolderName.ToLower()',
-			'$ar = $AppRoot.ToLower()',
+			'',
+			'# Normalize paths and keywords',
+			'$pp = $ProjectPath.ToLower().Replace("/", "\\")',
+			'$pp_alt = $ProjectPath.ToLower().Replace("\\", "/")',
+			'$wp = $ParentPath.ToLower().Replace("/", "\\")',
+			'$wp_alt = $ParentPath.ToLower().Replace("\\", "/")',
+			'$ar = $AppRoot.ToLower().Replace("/", "\\")',
+			'$ar_alt = $AppRoot.ToLower().Replace("\\", "/")',
+			'$fn = (Split-Path $pp -Leaf).ToLower()',
+			'$keywords = if ($ProjectFiles) { $ProjectFiles.ToLower().Split("|") } else { @() }',
+			'',
+			'# Suspect process names (editors, browsers, etc.)',
+			'$suspects = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far","chrome","msedge","firefox","brave","opera")',
+			'',
+			'# PIDs to ignore (our own process tree)',
+			'$ignorePids = [System.Collections.Generic.HashSet[int]]::new()',
+			'$ignorePids.Add($SelfPid) | Out-Null',
+			'$ignorePids.Add($ParentPid) | Out-Null',
+			'',
+			'# Helper to check for violations',
+			'function Test-Violation($val, $procName) {',
+			'  if (-not $val) { return $false }',
+			'  $v = $val.ToLower()',
+			'  # 1. Direct path match',
+			'  if ($v -like "*$pp*" -or $v -like "*$pp_alt*" -or $v -like "*$wp*" -or $v -like "*$wp_alt*" -or $v -like "*$fn*") { return $true }',
+			'  ',
+			'  # 2. Filename match in suspect applications',
+			'  if ($suspects -contains $procName) {',
+			'    foreach ($k in $keywords) {',
+			'      if ($k.Length -gt 3 -and $v -like "*$k*") { return $true }',
+			'    }',
+			'  }',
+			'  return $false',
+			'}',
+			'',
 			'try {',
 			'  $shell = New-Object -ComObject Shell.Application -ErrorAction Stop',
 			'  foreach ($win in $shell.Windows()) {',
 			'    try {',
 			'      $loc = $win.LocationURL',
-			'      if ($loc -and ($loc.ToLower() -like "*amypo*workspace*" -or $loc.ToLower() -like "*$fn*")) {',
-			'        $violations.Add("FILE_EXPLORER|0|File Explorer")',
+			'      if ($loc) {',
+			'        $decodedLoc = [Uri]::UnescapeDataString($loc)',
+			'        if (Test-Violation $decodedLoc "explorer") {',
+			'          $violations.Add("FILE_EXPLORER|0|File Explorer ($($win.LocationName))")',
+			'        }',
 			'      }',
 			'    } catch {}',
 			'  }',
 			'} catch {}',
+			'',
 			'foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {',
 			'  try {',
-			'    if ($proc.Id -eq $SelfPid) { continue }',
+			'    if ($ignorePids.Contains($proc.Id)) { continue }',
+			'    $pName = $proc.Name.ToLower()',
+			'    # 🐚 EXCEPTION: Allow common terminals',
+			'    if ($pName -eq "powershell" -or $pName -eq "pwsh" -or $pName -eq "cmd" -or $pName -eq "conhost") { continue }',
+			'    ',
 			'    $title = $proc.MainWindowTitle',
-			'    if (-not $title) { continue }',
-			'    if ($title.ToLower() -like "*amypocoder*") { continue }',
-			'    if ($title.ToLower() -like "*$fn*") {',
+			'    if ($title -and (Test-Violation $title $pName)) {',
 			'      $violations.Add("$($proc.Name)|$($proc.Id)|$title")',
 			'    }',
 			'  } catch {}',
 			'}',
-			'$editorNames = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far")',
-			'$browsers = @("chrome","msedge","firefox","brave","opera")',
+			'',
 			'try {',
 			'  foreach ($wp in (Get-WmiObject Win32_Process -ErrorAction SilentlyContinue)) {',
 			'    try {',
-			'      if ($wp.ProcessId -eq $SelfPid) { continue }',
+			'      if ($ignorePids.Contains($wp.ProcessId)) { continue }',
+			'      # Also skip processes whose parent is ignored (to catch VS Code renderer/tasks)',
+			'      if ($ignorePids.Contains($wp.ParentProcessId)) { continue }',
+			'      ',
 			'      $cmd = $wp.CommandLine',
 			'      if (-not $cmd) { continue }',
-			'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
-			'      if ($cmd.ToLower() -like "*$ar*") { continue }',
+			'      $cmdL = $cmd.ToLower()',
 			'      ',
-			'      # ✅ EXCEPTION: Allow java/node for student backends',
-			'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node") { continue }',
+			'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
+			'      # 🐚 EXCEPTION: Allow common terminals',
+			'      if ($nameKey -eq "powershell" -or $nameKey -eq "pwsh" -or $nameKey -eq "cmd" -or $nameKey -eq "conhost") { continue }',
 			'',
-			'      # 🚨 ACCESS CHECK: Check if the application is touching the workspace or subfolders',
-			'      if ($cmd.ToLower() -like "*amypo*workspace*" -or $cmd.ToLower() -like "*$fn*") {',
+			'      # 🛡️ PROTECT: Skip our own VS Code instance helper processes',
+			'      if ($cmdL -like "*$ar*" -or $cmdL -like "*$ar_alt*") {',
+			'          # We skip it if it is a known helper process of our own app instance',
+			'          if ($cmdL -like "*extensionhost*" -or $cmdL -like "*watcher*" -or $cmdL -like "*crashreporter*") { continue }',
+			'      }',
+			'      ',
+			'      # ✅ EXCEPTION: Allow java/node/compiler processes',
+			'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node" -or $nameKey -eq "mvn" -or $nameKey -eq "javac") { continue }',
+			'',
+			'      if (Test-Violation $cmd $nameKey) {',
 			'          $violations.Add("$($wp.Name)|$($wp.ProcessId)|Access Violation")',
 			'      }',
 			'    } catch {}',
@@ -722,7 +786,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		_monitorInterval = setInterval(async () => {
 			if (_warningActive) { return; }
 			try {
-				const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" -FolderName "${folderName}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid}`;
+				const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" -ProjectPath "${projectPath}" -ParentPath "${parentPath}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid} -ParentPid ${parentPid} -ProjectFiles "${projectFiles}"`;
 				const { stdout, stderr } = await execAsync(cmd, { timeout: 12000 });
 
 				if (stderr) { console.warn('[Amypo Security] Monitor stderr:', stderr.substring(0, 200)); }
@@ -1591,6 +1655,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
 		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring' | 'selenium'>('amypo.projectType') ?? 'spring';
 		activeToken = context.globalState.get<string>('amypo.token') ?? '';
+		server_type = context.globalState.get<string>('amypo.serverType') ?? 'prod';
+		API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 
 		// 🔒 Security: restart the folder access monitor now that we know the project path
 		if (currentProjectPath) {
