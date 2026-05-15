@@ -8,6 +8,7 @@ import { Command, CommandManager } from '../commands/commandManager';
 import { isSupportedLanguageMode } from '../configuration/languageIds';
 import { API } from '../tsServer/api';
 import * as typeConverters from '../typeConverters';
+import type * as Proto from '../tsServer/protocol/protocol';
 import { ITypeScriptServiceClient } from '../typescriptService';
 
 
@@ -56,7 +57,7 @@ class SourceDefinitionCommand implements Command {
 			const args = typeConverters.Position.toFileLocationRequestArgs(openedFiledPath, position);
 			const response = await this.client.execute('findSourceDefinition', args, token);
 			if (response.type === 'response' && response.body) {
-				const locations: vscode.Location[] = response.body.map(reference =>
+				const locations: vscode.Location[] = response.body.map((reference: Proto.DefinitionInfo) =>
 					typeConverters.Location.fromTextSpan(this.client.toResource(reference.file), reference));
 
 				if (locations.length) {

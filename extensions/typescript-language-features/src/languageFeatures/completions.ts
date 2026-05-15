@@ -350,10 +350,10 @@ class MyCompletionItem extends vscode.CompletionItem {
 			command = {
 				title: '',
 				command: ApplyCompletionCodeActionCommand.ID,
-				arguments: [filepath, detail.codeActions.map((x): Proto.CodeAction => ({
+				arguments: [filepath, detail.codeActions.map((x: Proto.CodeAction): Proto.CodeAction => ({
 					commands: x.commands,
 					description: x.description,
-					changes: x.changes.filter(x => x.fileName !== filepath)
+					changes: x.changes.filter((x: Proto.FileCodeEdits) => x.fileName !== filepath)
 				}))]
 			};
 		}

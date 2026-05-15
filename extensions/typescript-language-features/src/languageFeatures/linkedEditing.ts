@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { DocumentSelector } from '../configuration/documentSelector';
 import { API } from '../tsServer/api';
 import * as typeConverters from '../typeConverters';
+import type * as Proto from '../tsServer/protocol/protocol';
 import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService';
 import { conditionalRegistration, requireMinVersion, requireSomeCapability } from './util/dependentRegistration';
 
@@ -31,7 +32,7 @@ class LinkedEditingSupport implements vscode.LinkedEditingRangeProvider {
 		}
 
 		const wordPattern = response.body.wordPattern ? new RegExp(response.body.wordPattern) : undefined;
-		return new vscode.LinkedEditingRanges(response.body.ranges.map(range => typeConverters.Range.fromTextSpan(range)), wordPattern);
+		return new vscode.LinkedEditingRanges(response.body.ranges.map((range: Proto.TextSpan) => typeConverters.Range.fromTextSpan(range)), wordPattern);
 	}
 }
 

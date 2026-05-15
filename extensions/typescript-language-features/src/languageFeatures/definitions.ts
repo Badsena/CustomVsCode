@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { DocumentSelector } from '../configuration/documentSelector';
 import { API } from '../tsServer/api';
 import * as typeConverters from '../typeConverters';
+import type * as Proto from '../tsServer/protocol/protocol';
 import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService';
 import DefinitionProviderBase from './definitionProviderBase';
 import { readUnifiedConfig } from '../utils/configuration';
@@ -41,7 +42,7 @@ export default class TypeScriptDefinitionProvider extends DefinitionProviderBase
 		}
 
 		return definitions
-			.map((location): vscode.DefinitionLink => {
+			.map((location: Proto.DefinitionInfo): vscode.DefinitionLink => {
 				const target = typeConverters.Location.fromTextSpan(this.client.toResource(location.file), location);
 				if (location.contextStart && location.contextEnd) {
 					return {

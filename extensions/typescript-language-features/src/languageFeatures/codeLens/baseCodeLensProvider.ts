@@ -56,7 +56,7 @@ export abstract class TypeScriptBaseCodeLensProvider extends Disposable implemen
 		}
 
 		const referenceableSpans: vscode.Range[] = [];
-		response.body?.childItems?.forEach(item => this.walkNavTree(document, item, undefined, referenceableSpans));
+		response.body?.childItems?.forEach((item: Proto.NavigationTree) => this.walkNavTree(document, item, undefined, referenceableSpans));
 		return referenceableSpans.map(span => new ReferencesCodeLens(document.uri, filepath, span));
 	}
 
@@ -77,7 +77,7 @@ export abstract class TypeScriptBaseCodeLensProvider extends Disposable implemen
 			results.push(range);
 		}
 
-		item.childItems?.forEach(child => this.walkNavTree(document, child, item, results));
+		item.childItems?.forEach((child: Proto.NavigationTree) => this.walkNavTree(document, child, item, results));
 	}
 }
 

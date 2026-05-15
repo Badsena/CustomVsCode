@@ -66,7 +66,7 @@ class TypeScriptWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
 			return [];
 		}
 
-		return coalesce(response.body.map(item => this.toSymbolInformation(item)));
+		return coalesce(response.body.map((item: Proto.NavtoItem) => this.toSymbolInformation(item)));
 	}
 
 	private get searchAllOpenProjects() {

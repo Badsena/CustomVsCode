@@ -8,6 +8,7 @@ import { Command, CommandManager } from '../commands/commandManager';
 import { isSupportedLanguageMode } from '../configuration/languageIds';
 import { API } from '../tsServer/api';
 import * as typeConverters from '../typeConverters';
+import type * as Proto from '../tsServer/protocol/protocol';
 import { ITypeScriptServiceClient } from '../typescriptService';
 
 
@@ -58,7 +59,7 @@ class FileReferencesCommand implements Command {
 				return;
 			}
 
-			const locations: vscode.Location[] = response.body.refs.map(reference =>
+			const locations: vscode.Location[] = response.body.refs.map((reference: Proto.ReferencesResponseItem) =>
 				typeConverters.Location.fromTextSpan(this.client.toResource(reference.file), reference));
 
 			const config = vscode.workspace.getConfiguration('references');

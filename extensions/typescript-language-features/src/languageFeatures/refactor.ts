@@ -92,7 +92,7 @@ class SelectRefactorCommand implements Command {
 			return;
 		}
 
-		const selected = await vscode.window.showQuickPick(args.refactor.actions.map((action): vscode.QuickPickItem & { action: Proto.RefactorActionInfo } => ({
+		const selected = await vscode.window.showQuickPick(args.refactor.actions.map((action: Proto.RefactorActionInfo): vscode.QuickPickItem & { action: Proto.RefactorActionInfo } => ({
 			action,
 			label: action.name,
 			description: action.description,
@@ -493,7 +493,7 @@ class TypeScriptRefactorProvider implements vscode.CodeActionProvider<TsCodeActi
 		}
 
 		// Show if on the signature of any children
-		return node.childItems?.some(child => this.isOnSignatureName(child, range)) ?? false;
+		return node.childItems?.some((child: Proto.NavigationTree) => this.isOnSignatureName(child, range)) ?? false;
 	}
 
 	constructor(
@@ -515,7 +515,7 @@ class TypeScriptRefactorProvider implements vscode.CodeActionProvider<TsCodeActi
 	public static readonly metadata: vscode.CodeActionProviderMetadata = {
 		providedCodeActionKinds: [
 			vscode.CodeActionKind.Refactor,
-			...allKnownCodeActionKinds.map(x => x.kind),
+			...allKnownCodeActionKinds.map((x: CodeActionKind) => x.kind),
 		],
 		documentation: [
 			{
@@ -704,7 +704,7 @@ class TypeScriptRefactorProvider implements vscode.CodeActionProvider<TsCodeActi
 			return actions;
 		}
 
-		if (!actions.some(action => action.kind && Extract_Constant.kind.contains(action.kind))) {
+		if (!actions.some((action: vscode.CodeAction) => action.kind && Extract_Constant.kind.contains(action.kind))) {
 			const disabledAction = new vscode.CodeAction(
 				vscode.l10n.t("Extract to constant"),
 				Extract_Constant.kind);
@@ -717,7 +717,7 @@ class TypeScriptRefactorProvider implements vscode.CodeActionProvider<TsCodeActi
 			actions.push(disabledAction);
 		}
 
-		if (!actions.some(action => action.kind && Extract_Function.kind.contains(action.kind))) {
+		if (!actions.some((action: vscode.CodeAction) => action.kind && Extract_Function.kind.contains(action.kind))) {
 			const disabledAction = new vscode.CodeAction(
 				vscode.l10n.t("Extract to function"),
 				Extract_Function.kind);
@@ -758,7 +758,7 @@ class TypeScriptRefactorProvider implements vscode.CodeActionProvider<TsCodeActi
 		const prioritizedActions: vscode.CodeAction[] = [];
 		prioritizedActions.push(...invalidCommonActions);
 		prioritizedActions.push(...invalidUncommonActions);
-		const topNInvalid = prioritizedActions.filter(action => !only || (action.kind && only.contains(action.kind))).slice(0, numberOfInvalid);
+		const topNInvalid = prioritizedActions.filter((action: vscode.CodeAction) => !only || (action.kind && only.contains(action.kind))).slice(0, numberOfInvalid);
 		availableActions.push(...topNInvalid);
 		return availableActions;
 	}

@@ -76,7 +76,7 @@ class TypeScriptDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
 			const symbolInfo = TypeScriptDocumentSymbolProvider.convertSymbol(item, range);
 
 			for (const child of children) {
-				if (child.spans.some(span => !!range.intersection(typeConverters.Range.fromTextSpan(span)))) {
+				if (child.spans.some((span: Proto.TextSpan) => !!range.intersection(typeConverters.Range.fromTextSpan(span)))) {
 					const includedChild = TypeScriptDocumentSymbolProvider.convertNavTree(resource, symbolInfo.children, child);
 					shouldInclude = shouldInclude || includedChild;
 					children.delete(child);

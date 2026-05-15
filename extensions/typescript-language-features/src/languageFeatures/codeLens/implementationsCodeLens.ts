@@ -71,7 +71,7 @@ export default class TypeScriptImplementationsCodeLensProvider extends TypeScrip
 		}
 
 		const locations = response.body
-			.map(reference =>
+			.map((reference: Proto.FileSpanWithContext) =>
 				// Only take first line on implementation: https://github.com/microsoft/vscode/issues/23924
 				new vscode.Location(this.client.toResource(reference.file),
 					reference.start.line === reference.end.line
@@ -80,7 +80,7 @@ export default class TypeScriptImplementationsCodeLensProvider extends TypeScrip
 							typeConverters.Position.fromLocation(reference.start),
 							new vscode.Position(reference.start.line, 0))))
 			// Exclude original from implementations
-			.filter(location =>
+			.filter((location: vscode.Location) =>
 				!(location.uri.toString() === codeLens.document.toString() &&
 					location.range.start.line === codeLens.range.start.line &&
 					location.range.start.character === codeLens.range.start.character));

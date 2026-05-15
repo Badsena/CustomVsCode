@@ -256,7 +256,7 @@ export default class TypeScriptServiceClientHost extends Disposable {
 		}
 
 		this.findLanguage(this.client.toResource(body.configFile)).then(language => {
-			language?.configFileDiagnosticsReceived(this.client.toResource(body.configFile), body.diagnostics.map(tsDiag => {
+			language?.configFileDiagnosticsReceived(this.client.toResource(body.configFile), body.diagnostics.map((tsDiag: Proto.Diagnostic) => {
 				const range = tsDiag.start && tsDiag.end ? typeConverters.Range.fromTextSpan(tsDiag) : new vscode.Range(0, 0, 0, 1);
 				const diagnostic = new vscode.Diagnostic(range, tsDiag.text, this.getDiagnosticSeverity(tsDiag));
 				diagnostic.source = language.diagnosticSource;
@@ -269,7 +269,7 @@ export default class TypeScriptServiceClientHost extends Disposable {
 		diagnostics: Proto.Diagnostic[],
 		source: string
 	): (vscode.Diagnostic & { reportUnnecessary: any; reportDeprecated: any })[] {
-		return diagnostics.map(tsDiag => this.tsDiagnosticToVsDiagnostic(tsDiag, source));
+		return diagnostics.map((tsDiag: Proto.Diagnostic) => this.tsDiagnosticToVsDiagnostic(tsDiag, source));
 	}
 
 	private tsDiagnosticToVsDiagnostic(diagnostic: Proto.Diagnostic, source: string): vscode.Diagnostic & { reportUnnecessary: any; reportDeprecated: any } {

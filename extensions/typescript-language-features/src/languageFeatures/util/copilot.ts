@@ -60,13 +60,13 @@ export class EditorChatFollowUp implements Command {
 					? await findEditScope(
 						this.client,
 						document,
-						expand.refactor.edits.flatMap((e) => e.textChanges)
+						expand.refactor.edits.flatMap((e: Proto.FileCodeEdits) => e.textChanges)
 					)
 					: expand.kind === 'code-action'
 						? await findEditScope(
 							this.client,
 							document,
-							expand.action.changes.flatMap((c) => c.textChanges)
+							expand.action.changes.flatMap((c: Proto.FileCodeEdits) => c.textChanges)
 						)
 						: expand.range;
 		const initialSelection = initialRange ? new vscode.Selection(initialRange.start, initialRange.end) : undefined;

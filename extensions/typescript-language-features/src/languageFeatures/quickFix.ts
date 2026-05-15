@@ -250,7 +250,7 @@ class TypeScriptQuickFixProvider implements vscode.CodeActionProvider<VsCodeCode
 		let diagnostics = context.diagnostics;
 		if (this.client.bufferSyncSupport.hasPendingDiagnostics(document.uri)) {
 			// Delay for 500ms when there are pending diagnostics before recomputing up-to-date diagnostics.
-			await new Promise((resolve) => {
+			await new Promise((resolve: (value: void) => void) => {
 				setTimeout(resolve, 500);
 			});
 
@@ -396,7 +396,7 @@ class TypeScriptQuickFixProvider implements vscode.CodeActionProvider<VsCodeCode
 				actions.push(inferFromBody);
 			}
 			else if (action.fixName === fixNames.addNameToNamelessParameter) {
-				const newText = action.changes.map(change => change.textChanges.map(textChange => textChange.newText).join('')).join('');
+				const newText = action.changes.map((change: Proto.FileCodeEdits) => change.textChanges.map((textChange: Proto.CodeEdit) => textChange.newText).join('')).join('');
 				title = vscode.l10n.t('Add meaningful parameter name with AI');
 				message = vscode.l10n.t(`Rename the parameter {0} with a more meaningful name.`, newText);
 				expand = {
@@ -447,7 +447,7 @@ class TypeScriptQuickFixProvider implements vscode.CodeActionProvider<VsCodeCode
 		}
 
 		// Make sure there are multiple different diagnostics of the same type in the file
-		if (!this.diagnosticsManager.getDiagnostics(resource).some(x => {
+		if (!this.diagnosticsManager.getDiagnostics(resource).some((x: vscode.Diagnostic) => {
 			if (x === diagnostic) {
 				return false;
 			}

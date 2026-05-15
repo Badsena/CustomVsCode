@@ -1850,7 +1850,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('Get test details called');
 
 		// For development: you can uncomment the line below to test with static details
-		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	async function doExitAndSave() {

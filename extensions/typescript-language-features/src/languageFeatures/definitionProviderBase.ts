@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as typeConverters from '../typeConverters';
+import type * as Proto from '../tsServer/protocol/protocol';
 import { ITypeScriptServiceClient } from '../typescriptService';
 
 
@@ -30,7 +31,7 @@ export default class TypeScriptDefinitionProviderBase {
 			return undefined;
 		}
 
-		return response.body.map(location =>
+		return response.body.map((location: Proto.FileSpan) =>
 			typeConverters.Location.fromTextSpan(this.client.toResource(location.file), location));
 	}
 }

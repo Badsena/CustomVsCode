@@ -32,7 +32,7 @@ class TypeScriptFoldingProvider implements vscode.FoldingRangeProvider {
 			return;
 		}
 
-		return coalesce(response.body.map(span => this.convertOutliningSpan(span, document)));
+		return coalesce(response.body.map((span: Proto.OutliningSpan) => this.convertOutliningSpan(span, document)));
 	}
 
 	private convertOutliningSpan(

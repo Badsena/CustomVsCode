@@ -36,7 +36,7 @@ class TypeScriptDocumentHighlightProvider implements vscode.DocumentHighlightPro
 			return [];
 		}
 
-		const result = response.body.map(highlightItem =>
+		const result = response.body.map((highlightItem: Proto.DocumentHighlightsItem) =>
 			new vscode.MultiDocumentHighlight(
 				vscode.Uri.file(highlightItem.file),
 				[...convertDocumentHighlight(highlightItem)]
@@ -70,7 +70,7 @@ class TypeScriptDocumentHighlightProvider implements vscode.DocumentHighlightPro
 }
 
 function convertDocumentHighlight(highlight: Proto.DocumentHighlightsItem): ReadonlyArray<vscode.DocumentHighlight> {
-	return highlight.highlightSpans.map(span =>
+	return highlight.highlightSpans.map((span: Proto.HighlightSpan) =>
 		new vscode.DocumentHighlight(
 			typeConverters.Range.fromTextSpan(span),
 			span.kind === 'writtenReference' ? vscode.DocumentHighlightKind.Write : vscode.DocumentHighlightKind.Read));

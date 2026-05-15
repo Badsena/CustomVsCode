@@ -237,7 +237,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 		this.diagnosticsManager = this._register(new DiagnosticsManager('typescript', this._configuration, this.telemetryReporter, onCaseInsensitiveFileSystem));
 		this.typescriptServerSpawner = new TypeScriptServerSpawner(this.versionProvider, this._versionManager, this._nodeVersionManager, this.logDirectoryProvider, this.pluginPathsProvider, this.logger, this.telemetryReporter, this.tracer, this.processFactory);
 
-		this._register(this.pluginManager.onDidUpdateConfig(update => {
+		this._register(this.pluginManager.onDidUpdateConfig((update: { pluginId: string; config: any }) => {
 			this.configurePlugin(update.pluginId, update.config);
 		}));
 
@@ -706,7 +706,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				this._isPromptingAfterCrash = true;
 			}
 
-			prompt?.then(async item => {
+			prompt?.then(async (item: vscode.MessageItem | undefined) => {
 				this._isPromptingAfterCrash = false;
 
 				if (item === reportIssueItem) {
@@ -1009,7 +1009,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				this.loadingIndicator.reset();
 
 				const body = (event as Proto.ProjectsUpdatedInBackgroundEvent).body;
-				const resources = body.openFiles.map(file => this.toResource(file));
+				const resources = body.openFiles.map((file: string) => this.toResource(file));
 				this.bufferSyncSupport.getErr(resources);
 				return;
 			}
@@ -1076,7 +1076,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				const diagnosticsDuration = (event.body as Proto.RequestCompletedEventBody).performanceData?.diagnosticsDuration;
 				if (diagnosticsDuration) {
 					this.diagnosticsManager.logDiagnosticsPerformanceTelemetry(
-						diagnosticsDuration.map(fileData => {
+						diagnosticsDuration.map((fileData: Proto.FileDiagnosticPerformanceData) => {
 							const resource = this.toResource(fileData.file);
 							return {
 								...fileData,
@@ -1274,7 +1274,7 @@ class ServerInitializingIndicator extends Disposable {
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Window,
 			title: vscode.l10n.t("Initializing '{0}'", projectDisplayName),
-		}, () => new Promise<void>(resolve => {
+		}, () => new Promise<void>((resolve: (value: void) => void) => {
 			this._task = { project: projectName, resolve };
 		}));
 	}

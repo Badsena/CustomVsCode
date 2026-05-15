@@ -110,8 +110,8 @@ function getTagBody(tag: Proto.JSDocTagInfo, filePathConverter: IFilePathToResou
 	if (tag.name === 'template') {
 		const parts = tag.text;
 		if (parts && typeof (parts) !== 'string') {
-			const params = parts.filter(p => p.kind === 'typeParameterName').map(p => p.text).join(', ');
-			const docs = parts.filter(p => p.kind === 'text').map(p => convertLinkTags(p.text.replace(/^\s*-?\s*/, ''), filePathConverter)).join(' ');
+			const params = parts.filter((p: Proto.SymbolDisplayPart) => p.kind === 'typeParameterName').map((p: Proto.SymbolDisplayPart) => p.text).join(', ');
+			const docs = parts.filter((p: Proto.SymbolDisplayPart) => p.kind === 'text').map((p: Proto.SymbolDisplayPart) => convertLinkTags(p.text.replace(/^\s*-?\s*/, ''), filePathConverter)).join(' ');
 			return params ? ['', params, docs] : undefined;
 		}
 	}
@@ -122,7 +122,7 @@ function asPlainText(parts: readonly Proto.SymbolDisplayPart[] | string): string
 	if (typeof parts === 'string') {
 		return parts;
 	}
-	return parts.map(part => part.text).join('');
+	return parts.map((part: Proto.SymbolDisplayPart) => part.text).join('');
 }
 
 export function asPlainTextWithLinks(
@@ -217,7 +217,7 @@ export function tagsToMarkdown(
 	tags: readonly Proto.JSDocTagInfo[],
 	filePathConverter: IFilePathToResourceConverter,
 ): string {
-	return tags.map(tag => getTagDocumentation(tag, filePathConverter)).join('  \n\n');
+	return tags.map((tag: Proto.JSDocTagInfo) => getTagDocumentation(tag, filePathConverter)).join('  \n\n');
 }
 
 export function documentationToMarkdown(

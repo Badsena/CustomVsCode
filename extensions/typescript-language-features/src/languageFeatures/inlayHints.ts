@@ -37,7 +37,7 @@ class TypeScriptInlayHintsProvider extends Disposable implements vscode.InlayHin
 		super();
 
 		this._register(vscode.workspace.onDidChangeConfiguration(e => {
-			if (inlayHintSettingNames.some(settingName =>
+			if (inlayHintSettingNames.some((settingName: string) =>
 				e.affectsConfiguration(unifiedConfigSection + '.' + settingName) ||
 				e.affectsConfiguration(language.id + '.' + settingName)
 			)) {
@@ -90,7 +90,7 @@ class TypeScriptInlayHintsProvider extends Disposable implements vscode.InlayHin
 			return;
 		}
 
-		return response.body.map(hint => {
+		return response.body.map((hint: Proto.InlayHintItem) => {
 			const result = new vscode.InlayHint(
 				Position.fromLocation(hint.position),
 				this.convertInlayHintText(hint),
@@ -104,7 +104,7 @@ class TypeScriptInlayHintsProvider extends Disposable implements vscode.InlayHin
 
 	private convertInlayHintText(tsHint: Proto.InlayHintItem): string | vscode.InlayHintLabelPart[] {
 		if (tsHint.displayParts) {
-			return tsHint.displayParts.map((part): vscode.InlayHintLabelPart => {
+			return tsHint.displayParts.map((part: Proto.InlayHintItemDisplayPart): vscode.InlayHintLabelPart => {
 				const out = new vscode.InlayHintLabelPart(part.text);
 				if (part.span) {
 					out.location = Location.fromTextSpan(this.client.toResource(part.span.file), part.span);
