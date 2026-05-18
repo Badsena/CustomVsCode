@@ -230,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '371768|XX8ZzRXAC8FWKm2o5v99Pwihp8wSbAyNRp1EC6Oo3d32f937';
+	const STATIC_TOKEN = '371926|N2OpRFKjIDHDylr3w7fhr90SZUsJb8Dh1R2ZA5mB90e820e4';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
@@ -571,6 +571,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			// 🔒 Start monitoring for external access to the project folder
 			startFolderAccessMonitor(projectPath);
+			startExternalWatcher(projectPath);
 
 		} catch (err: any) {
 			console.error('[Amypo] Initialisation error:', err.stderr ?? err.message);
@@ -1268,6 +1269,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Webview Provider Setup
 	const eduViewProvider = new EduViewProvider(context.extensionUri);
+	// Amypo Security Log output channel removed. Logging to console instead.
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(
@@ -1289,6 +1291,131 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('workbench.action.files.revealActiveFileInWindows', blockExternalReveal),
 		vscode.commands.registerCommand('openInTerminal', blockExternalReveal),
 	);
+
+	// Helper to ignore library/build folders based on project type
+	const isIgnoredFile = (filePath: string): boolean => {
+		const normPath = filePath.replace(/\\/g, '/').toLowerCase();
+
+		if (normPath.includes('/.git/') || normPath.endsWith('/.git') || normPath.startsWith('.git/')) {
+			return true;
+		}
+
+		let ignoredFolders: string[] = [];
+		if (currentProjectType === 'react') {
+			ignoredFolders = ['node_modules', 'build', 'dist', '.next', '.cache'];
+		} else if (currentProjectType === 'spring') {
+			ignoredFolders = ['target', '.m2', 'bin', 'out', '.gradle'];
+		} else if (currentProjectType === 'fullstack') {
+			ignoredFolders = ['node_modules', 'build', 'dist', '.next', '.cache', 'target', '.m2', 'bin', 'out', '.gradle'];
+		} else if (currentProjectType === 'selenium') {
+			ignoredFolders = ['target', '.m2', 'bin', 'out', '.gradle', 'drivers', 'test-output', 'screenshots'];
+		}
+
+		for (const folder of ignoredFolders) {
+			if (normPath.includes(`/${folder}/`) || normPath.endsWith(`/${folder}`) || normPath.startsWith(`${folder}/`)) {
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	// 🛡️ Advanced Monitoring: Detect changes made outside of VS Code
+	const startExternalWatcher = (projectPath: string) => {
+		const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(projectPath, '**/*'));
+
+		watcher.onDidChange(async (uri) => {
+			const filePath = uri.fsPath;
+			// 🛡️ STRICT EXCLUSION: Ignore git noise and library folders
+			if (isIgnoredFile(filePath)) {
+				return;
+			}
+
+			const activeEditor = vscode.window.activeTextEditor;
+			if (!activeEditor || activeEditor.document.uri.fsPath !== filePath) {
+				const now = new Date();
+				const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+				const msg = `⚠️ [EXTERNAL] Modification: ${dateStr} | ${path.basename(filePath)}`;
+				console.log('[Amypo Security Log]', msg);
+			}
+		});
+
+		watcher.onDidCreate((uri) => {
+			const filePath = uri.fsPath;
+			if (isIgnoredFile(filePath)) {
+				return;
+			}
+			const msg = `⚠️ [EXTERNAL] New File: ${path.basename(filePath)}`;
+			console.log('[Amypo Security Log]', msg);
+		});
+
+		context.subscriptions.push(watcher);
+	};
+
+	const CodeLogAnalysis = async (workingDir: string): Promise<string | null> => {
+		try {
+			const now = new Date();
+			const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+			const { stdout: stat } = await execAsync('git diff --shortstat', { cwd: workingDir });
+			const { stdout: numstat } = await execAsync('git diff --numstat', { cwd: workingDir });
+			const { stdout: untracked } = await execAsync('git ls-files --others --exclude-standard', { cwd: workingDir });
+
+			const insMatch = stat.match(/(\d+) insertion/);
+			const delMatch = stat.match(/(\d+) deletion/);
+			const insTotal = parseInt(insMatch ? insMatch[1] : '0', 10);
+			const delTotal = parseInt(delMatch ? delMatch[1] : '0', 10);
+			const untrackedFiles = untracked.trim().split('\n').filter(f => f && !isIgnoredFile(f));
+
+			let isSuspicious = false;
+			let reason = '';
+
+			if (untrackedFiles.length >= 2) {
+				isSuspicious = true;
+				reason = '[BULK_IMPORT]';
+			}
+
+			const fileDetails = numstat.trim().split('\n').filter(f => {
+				if (!f) return false;
+				const parts = f.split(/\s+/);
+				const file = parts[2];
+				return file ? !isIgnoredFile(file) : true;
+			}).map(line => {
+				const parts = line.split(/\s+/);
+				const [ins, del, file] = parts;
+				const insCount = parseInt(ins, 10) || 0;
+				const delCount = parseInt(del, 10) || 0;
+
+				if (insCount > 20 && (insCount > delCount * 2)) {
+					isSuspicious = true;
+					reason = '[FULL_REPLACE]';
+				}
+
+				return `| ${path.basename(file)} +${ins}-${del}`;
+			}).join(' ');
+
+			if (insTotal > 500) {
+				isSuspicious = true;
+				reason = '[MASSIVE_CHANGE]';
+			}
+
+			if (insTotal === 0 && delTotal === 0 && untrackedFiles.length === 0) {
+				return null;
+			}
+
+			const flag = isSuspicious ? `🚨 ${reason} ` : '';
+			const fullAnalysis = `${flag}${dateStr} [+${insTotal}-${delTotal}] ${fileDetails}`;
+
+			if (isSuspicious) {
+				console.log('[Amypo Security Log]', fullAnalysis);
+				return fullAnalysis;
+			}
+
+			return null;
+		} catch (err) {
+			return null;
+		}
+	};
 
 	let isSyncing = false;
 	// Git Sync (save / pull)
@@ -1323,6 +1450,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				type: 'info',
 				text: action === 'save' ? 'Saving changes…' : 'Pulling changes…',
 			});
+
+			if (action === 'save') {
+				const analysis = await CodeLogAnalysis(workingDir);
+				if (analysis) {
+					console.log(`[Amypo Sync] Analysis: ${analysis}`);
+					// throw new Error('Integrity check failed. Save aborted due to abnormal modifications.');
+				}
+			}
 
 			const authenticatedUrl = injectToken(currentRepoUrl, GITHUB_TOKEN);
 
@@ -1661,6 +1796,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// 🔒 Security: restart the folder access monitor now that we know the project path
 		if (currentProjectPath) {
 			startFolderAccessMonitor(currentProjectPath);
+			startExternalWatcher(currentProjectPath);
 		}
 
 		// ✅ Restore langId and token to storage for extensions panel

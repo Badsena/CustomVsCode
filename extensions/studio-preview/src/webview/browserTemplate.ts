@@ -239,7 +239,14 @@ export function getBrowserTemplate(
         chip.className = 'port-chip' + (isActive ? ' active' : '');
         chip.textContent = ':' + p.port;
         chip.title = p.label;
-        chip.addEventListener('click', () => navigateTo('http://localhost:' + p.port));
+        chip.addEventListener('click', () => {
+          if (devToolsActive) {
+            devToolsActive = false;
+            devToolsBtn.classList.remove('active');
+            vscode.postMessage({ type: 'toggleDevTools', currentUrl: frame.src });
+          }
+          navigateTo('http://localhost:' + p.port);
+        });
         chipBox.appendChild(chip);
       });
     }
@@ -374,12 +381,19 @@ export function getBrowserTemplate(
         devToolsBtn.classList.remove('active');
         devToolsBtn.title = 'Toggle Student DevTools';
         
-        // Revert iframe to whatever is in the URL bar
-        frame.src = urlBar.value || originalUrl;
+        const targetUrl = urlBar.value || originalUrl;
+        const currentSrc = (frame.src && frame.src.endsWith('/')) ? frame.src.slice(0, -1) : (frame.src || '');
+        const targetClean = (targetUrl && targetUrl.endsWith('/')) ? targetUrl.slice(0, -1) : (targetUrl || '');
+
+        // Revert iframe only if it hasn't already been navigated
+        if (currentSrc !== targetClean && currentSrc !== 'about:blank') {
+          frame.src = targetUrl;
+          progress.className = 'loading';
+          overlay.classList.remove('hidden');
+        }
+
         devtoolsFrame.src = 'about:blank';
         devtoolsFrame.style.display = 'none';
-        progress.className = 'loading';
-        overlay.classList.remove('hidden');
         originalUrl = '';
       }
 
