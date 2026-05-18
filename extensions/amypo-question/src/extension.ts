@@ -230,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '371926|N2OpRFKjIDHDylr3w7fhr90SZUsJb8Dh1R2ZA5mB90e820e4';
+	const STATIC_TOKEN = '372147|eDZRj7LxfyN4lE0sbKXOjVrNXAESzb3ho1CK5WBO3186db68';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
@@ -650,11 +650,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	let _monitorScriptPath: string | null = null;
 
 	const startFolderAccessMonitor = (projectPath: string): void => {
-		if (process.platform !== 'win32') { return; }
+		if (process.platform !== 'win32' && process.platform !== 'linux') { return; }
 		if (_monitorInterval) { clearInterval(_monitorInterval); }
 
 		const folderName = path.basename(projectPath);
 		const parentPath = path.dirname(projectPath); // amypo/workspace
+		const grandparentPath = path.dirname(parentPath); // amypo
 		const currentPid = process.pid;
 		const parentPid = process.ppid;
 		const appRootNorm = vscode.env.appRoot.toLowerCase();
@@ -670,133 +671,282 @@ export async function activate(context: vscode.ExtensionContext) {
 			console.warn('[Amypo Security] Could not read project files for monitor:', e);
 		}
 
-		// Write the PS script to a temp file — avoids ALL quoting/newline bugs
-		// that occur when passing multi-line scripts inline via -Command.
-		const psScript = [
-			'param([string]$ProjectPath, [string]$ParentPath, [string]$AppRoot, [int]$SelfPid, [int]$ParentPid, [string]$ProjectFiles)',
-			'$violations = [System.Collections.Generic.List[string]]::new()',
-			'',
-			'# Normalize paths and keywords',
-			'$pp = $ProjectPath.ToLower().Replace("/", "\\")',
-			'$pp_alt = $ProjectPath.ToLower().Replace("\\", "/")',
-			'$wp = $ParentPath.ToLower().Replace("/", "\\")',
-			'$wp_alt = $ParentPath.ToLower().Replace("\\", "/")',
-			'$ar = $AppRoot.ToLower().Replace("/", "\\")',
-			'$ar_alt = $AppRoot.ToLower().Replace("\\", "/")',
-			'$fn = (Split-Path $pp -Leaf).ToLower()',
-			'$keywords = if ($ProjectFiles) { $ProjectFiles.ToLower().Split("|") } else { @() }',
-			'',
-			'# Suspect process names (editors, browsers, etc.)',
-			'$suspects = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far","chrome","msedge","firefox","brave","opera")',
-			'',
-			'# PIDs to ignore (our own process tree)',
-			'$ignorePids = [System.Collections.Generic.HashSet[int]]::new()',
-			'$ignorePids.Add($SelfPid) | Out-Null',
-			'$ignorePids.Add($ParentPid) | Out-Null',
-			'',
-			'# Helper to check for violations',
-			'function Test-Violation($val, $procName) {',
-			'  if (-not $val) { return $false }',
-			'  $v = $val.ToLower()',
-			'  # 1. Direct path match',
-			'  if ($v -like "*$pp*" -or $v -like "*$pp_alt*" -or $v -like "*$wp*" -or $v -like "*$wp_alt*" -or $v -like "*$fn*") { return $true }',
-			'  ',
-			'  # 2. Filename match in suspect applications',
-			'  if ($suspects -contains $procName) {',
-			'    foreach ($k in $keywords) {',
-			'      if ($k.Length -gt 3 -and $v -like "*$k*") { return $true }',
-			'    }',
-			'  }',
-			'  return $false',
-			'}',
-			'',
-			'try {',
-			'  $shell = New-Object -ComObject Shell.Application -ErrorAction Stop',
-			'  foreach ($win in $shell.Windows()) {',
-			'    try {',
-			'      $loc = $win.LocationURL',
-			'      if ($loc) {',
-			'        $decodedLoc = [Uri]::UnescapeDataString($loc)',
-			'        if (Test-Violation $decodedLoc "explorer") {',
-			'          $violations.Add("FILE_EXPLORER|0|File Explorer ($($win.LocationName))")',
-			'        }',
-			'      }',
-			'    } catch {}',
-			'  }',
-			'} catch {}',
-			'',
-			'foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {',
-			'  try {',
-			'    if ($ignorePids.Contains($proc.Id)) { continue }',
-			'    $pName = $proc.Name.ToLower()',
-			'    # 🐚 EXCEPTION: Allow common terminals and version control',
-			'    if ($pName -eq "powershell" -or $pName -eq "pwsh" -or $pName -eq "cmd" -or $pName -eq "conhost" -or $pName -eq "git" -or $pName -eq "git-remote-https") { continue }',
-			'    ',
-			'    $title = $proc.MainWindowTitle',
-			'    if ($title -and (Test-Violation $title $pName)) {',
-			'      $violations.Add("$($proc.Name)|$($proc.Id)|$title")',
-			'    }',
-			'  } catch {}',
-			'}',
-			'',
-			'try {',
-			'  foreach ($wp in (Get-WmiObject Win32_Process -ErrorAction SilentlyContinue)) {',
-			'    try {',
-			'      if ($ignorePids.Contains($wp.ProcessId)) { continue }',
-			'      # Also skip processes whose parent is ignored (to catch VS Code renderer/tasks)',
-			'      if ($ignorePids.Contains($wp.ParentProcessId)) { continue }',
-			'      ',
-			'      $cmd = $wp.CommandLine',
-			'      if (-not $cmd) { continue }',
-			'      $cmdL = $cmd.ToLower()',
-			'      ',
-			'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
-			'      # 🐚 EXCEPTION: Allow common terminals and version control',
-			'      if ($nameKey -eq "powershell" -or $nameKey -eq "pwsh" -or $nameKey -eq "cmd" -or $nameKey -eq "conhost" -or $nameKey -eq "git" -or $nameKey -eq "git-remote-https") { continue }',
-			'',
-			'      # 🛡️ PROTECT: Skip our own VS Code instance helper processes',
-			'      if ($cmdL -like "*$ar*" -or $cmdL -like "*$ar_alt*") {',
-			'          # We skip it if it is a known helper process of our own app instance',
-			'          if ($cmdL -like "*extensionhost*" -or $cmdL -like "*watcher*" -or $cmdL -like "*crashreporter*") { continue }',
-			'      }',
-			'      ',
-			'      # ✅ EXCEPTION: Allow java/node/compiler processes',
-			'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node" -or $nameKey -eq "mvn" -or $nameKey -eq "javac") { continue }',
-			'',
-			'      if (Test-Violation $cmd $nameKey) {',
-			'          $violations.Add("$($wp.Name)|$($wp.ProcessId)|Access Violation")',
-			'      }',
-			'    } catch {}',
-			'  }',
-			'} catch {}',
-			'if ($violations.Count -gt 0) { $violations | ConvertTo-Json -Compress }',
-		].join('\r\n');
+		if (process.platform === 'win32') {
+			// Write the PS script to a temp file — avoids ALL quoting/newline bugs
+			// that occur when passing multi-line scripts inline via -Command.
+			const psScript = [
+				'param([string]$ProjectPath, [string]$ParentPath, [string]$GrandparentPath, [string]$AppRoot, [int]$SelfPid, [int]$ParentPid, [string]$ProjectFiles)',
+				'$violations = [System.Collections.Generic.List[string]]::new()',
+				'',
+				'# Normalize paths and keywords',
+				'$pp = $ProjectPath.ToLower().Replace("/", "\\")',
+				'$pp_alt = $ProjectPath.ToLower().Replace("\\", "/")',
+				'$wp = $ParentPath.ToLower().Replace("/", "\\")',
+				'$wp_alt = $ParentPath.ToLower().Replace("\\", "/")',
+				'$gp = $GrandparentPath.ToLower().Replace("/", "\\")',
+				'$gp_alt = $GrandparentPath.ToLower().Replace("\\", "/")',
+				'$ar = $AppRoot.ToLower().Replace("/", "\\")',
+				'$ar_alt = $AppRoot.ToLower().Replace("\\", "/")',
+				'$fn = (Split-Path $pp -Leaf).ToLower()',
+				'$keywords = if ($ProjectFiles) { $ProjectFiles.ToLower().Split("|") } else { @() }',
+				'',
+				'# Suspect process names (editors, browsers, etc.)',
+				'$suspects = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far","chrome","msedge","firefox","brave","opera")',
+				'',
+				'# PIDs to ignore (our own process tree)',
+				'$ignorePids = [System.Collections.Generic.HashSet[int]]::new()',
+				'$ignorePids.Add($SelfPid) | Out-Null',
+				'$ignorePids.Add($ParentPid) | Out-Null',
+				'',
+				'# Helper to check for violations',
+				'function Test-Violation($val, $procName) {',
+				'  if (-not $val) { return $false }',
+				'  $v = $val.ToLower()',
+				'  # 1. Direct path match',
+				'  if ($v -like "*$pp*" -or $v -like "*$pp_alt*" -or $v -like "*$wp*" -or $v -like "*$wp_alt*" -or $v -like "*$gp*" -or $v -like "*$gp_alt*" -or $v -like "*$fn*") { return $true }',
+				'  ',
+				'  # 2. Filename match in suspect applications',
+				'  if ($suspects -contains $procName) {',
+				'    foreach ($k in $keywords) {',
+				'      if ($k.Length -gt 3 -and $v -like "*$k*") { return $true }',
+				'    }',
+				'  }',
+				'  return $false',
+				'}',
+				'',
+				'try {',
+				'  $shell = New-Object -ComObject Shell.Application -ErrorAction Stop',
+				'  foreach ($win in $shell.Windows()) {',
+				'    try {',
+				'      $loc = $win.LocationURL',
+				'      if ($loc) {',
+				'        $decodedLoc = [Uri]::UnescapeDataString($loc)',
+				'        if (Test-Violation $decodedLoc "explorer") {',
+				'          $violations.Add("FILE_EXPLORER|0|File Explorer ($($win.LocationName))")',
+				'        }',
+				'      }',
+				'    } catch {}',
+				'  }',
+				'} catch {}',
+				'',
+				'foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {',
+				'  try {',
+				'    if ($ignorePids.Contains($proc.Id)) { continue }',
+				'    $pName = $proc.Name.ToLower()',
+				'    # 🐚 EXCEPTION: Allow common terminals and version control',
+				'    if ($pName -eq "powershell" -or $pName -eq "pwsh" -or $pName -eq "cmd" -or $pName -eq "conhost" -or $pName -eq "git" -or $pName -eq "git-remote-https") { continue }',
+				'    ',
+				'    $title = $proc.MainWindowTitle',
+				'    if ($title -and (Test-Violation $title $pName)) {',
+				'      $violations.Add("$($proc.Name)|$($proc.Id)|$title")',
+				'    }',
+				'  } catch {}',
+				'}',
+				'',
+				'try {',
+				'  foreach ($wp in (Get-WmiObject Win32_Process -ErrorAction SilentlyContinue)) {',
+				'    try {',
+				'      if ($ignorePids.Contains($wp.ProcessId)) { continue }',
+				'      # Also skip processes whose parent is ignored (to catch VS Code renderer/tasks)',
+				'      if ($ignorePids.Contains($wp.ParentProcessId)) { continue }',
+				'      ',
+				'      $cmd = $wp.CommandLine',
+				'      if (-not $cmd) { continue }',
+				'      $cmdL = $cmd.ToLower()',
+				'      ',
+				'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
+				'      # 🐚 EXCEPTION: Allow common terminals and version control',
+				'      if ($nameKey -eq "powershell" -or $nameKey -eq "pwsh" -or $nameKey -eq "cmd" -or $nameKey -eq "conhost" -or $nameKey -eq "git" -or $nameKey -eq "git-remote-https") { continue }',
+				'',
+				'      # 🛡️ PROTECT: Skip our own VS Code instance helper processes',
+				'      if ($cmdL -like "*$ar*" -or $cmdL -like "*$ar_alt*") {',
+				'          # We skip it if it is a known helper process of our own app instance',
+				'          if ($cmdL -like "*extensionhost*" -or $cmdL -like "*watcher*" -or $cmdL -like "*crashreporter*") { continue }',
+				'      }',
+				'      ',
+				'      # ✅ EXCEPTION: Allow java/node/compiler processes',
+				'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node" -or $nameKey -eq "mvn" -or $nameKey -eq "javac") { continue }',
+				'',
+				'      if (Test-Violation $cmd $nameKey) {',
+				'          $violations.Add("$($wp.Name)|$($wp.ProcessId)|Access Violation")',
+				'      }',
+				'    } catch {}',
+				'  }',
+				'} catch {}',
+				'if ($violations.Count -gt 0) { $violations | ConvertTo-Json -Compress }',
+			].join('\r\n');
 
-		_monitorScriptPath = path.join(os.tmpdir(), `amypo-monitor-${Date.now()}.ps1`);
-		try {
-			fs.writeFileSync(_monitorScriptPath, psScript, 'utf8');
-			console.log('[Amypo Security] Monitor script written to:', _monitorScriptPath);
-		} catch (err) {
-			console.warn('[Amypo Security] Could not write monitor script:', err);
-			return;
+			_monitorScriptPath = path.join(os.tmpdir(), `amypo-monitor-${Date.now()}.ps1`);
+			try {
+				fs.writeFileSync(_monitorScriptPath, psScript, 'utf8');
+				console.log('[Amypo Security] Monitor script written to:', _monitorScriptPath);
+			} catch (err) {
+				console.warn('[Amypo Security] Could not write monitor script:', err);
+				return;
+			}
 		}
 
-		const scriptPath = _monitorScriptPath;
-
-		_monitorInterval = setInterval(async () => {
+		const runMonitorTick = async () => {
 			if (_warningActive) { return; }
 			try {
-				const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" -ProjectPath "${projectPath}" -ParentPath "${parentPath}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid} -ParentPid ${parentPid} -ProjectFiles "${projectFiles}"`;
-				const { stdout, stderr } = await execAsync(cmd, { timeout: 12000 });
-
-				if (stderr) { console.warn('[Amypo Security] Monitor stderr:', stderr.substring(0, 200)); }
-				if (!stdout || !stdout.trim()) { return; }
-
 				let violations: string[] = [];
-				try {
-					const parsed = JSON.parse(stdout.trim());
-					violations = Array.isArray(parsed) ? parsed : [String(parsed)];
-				} catch { return; }
+
+				if (process.platform === 'win32') {
+					if (!_monitorScriptPath) { return; }
+					const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${_monitorScriptPath}" -ProjectPath "${projectPath}" -ParentPath "${parentPath}" -GrandparentPath "${grandparentPath}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid} -ParentPid ${parentPid} -ProjectFiles "${projectFiles}"`;
+					const { stdout, stderr } = await execAsync(cmd, { timeout: 12000 });
+
+					if (stderr) { console.warn('[Amypo Security] Monitor stderr:', stderr.substring(0, 200)); }
+					if (stdout && stdout.trim()) {
+						try {
+							const parsed = JSON.parse(stdout.trim());
+							violations = Array.isArray(parsed) ? parsed : [String(parsed)];
+						} catch { }
+					}
+				} else if (process.platform === 'linux') {
+					// 🐧 Linux Native Scanner
+					const selfPid = process.pid;
+					const parentPid = process.ppid;
+					const projectPathLower = projectPath.toLowerCase();
+					const parentPathLower = parentPath.toLowerCase();
+					const grandparentPathLower = grandparentPath.toLowerCase();
+					const appRootLower = vscode.env.appRoot.toLowerCase();
+
+					const suspects = [
+						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider", 
+						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja", 
+						"thunar", "pcmanfm", "chrome", "firefox", "brave", "opera", "chromium", "antigravity", "customvscode", "exe"
+					];
+
+					const ignoredProcessNames = [
+						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang"
+					];
+
+					const pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
+					const ppidMap = new Map<number, number>();
+					const ancestors = new Set<number>([selfPid, parentPid]);
+
+					// Build parent-child relationships for all system processes
+					for (const pidStr of pids) {
+						const pid = parseInt(pidStr, 10);
+						try {
+							const statStr = fs.readFileSync(path.join('/proc', pidStr, 'stat'), 'utf8');
+							const lastParenIdx = statStr.lastIndexOf(')');
+							if (lastParenIdx !== -1) {
+								const fieldsAfterName = statStr.substring(lastParenIdx + 2).split(' ');
+								const ppid = parseInt(fieldsAfterName[1], 10);
+								if (!isNaN(ppid)) {
+									ppidMap.set(pid, ppid);
+								}
+							}
+						} catch {
+							// Process exited or permission denied
+						}
+					}
+
+					// Build complete descendants tree starting ONLY from our selfPid and parentPid
+					// This ensures we ONLY ignore helper processes of our OWN specific VS Code window,
+					// and will correctly flag any separate unauthorized VS Code windows (even if they
+					// use the same binary).
+					let addedAny = true;
+					while (addedAny) {
+						addedAny = false;
+						for (const pidStr of pids) {
+							const pid = parseInt(pidStr, 10);
+							if (ancestors.has(pid)) {
+								continue;
+							}
+							const ppid = ppidMap.get(pid);
+							if (ppid && ancestors.has(ppid)) {
+								ancestors.add(pid);
+								addedAny = true;
+							}
+						}
+					}
+
+					// Helper check to see if a process belongs to our specific VS Code window instance
+					const isVsCodeProcessTree = (pid: number): boolean => {
+						return ancestors.has(pid);
+					};
+
+					// Find violations
+					for (const pidStr of pids) {
+						const pid = parseInt(pidStr, 10);
+						if (isVsCodeProcessTree(pid)) {
+							continue;
+						}
+
+						let cmdline = '';
+						let processName = '';
+						try {
+							const cmdlineBuf = fs.readFileSync(path.join('/proc', pidStr, 'cmdline'));
+							cmdline = cmdlineBuf.toString().replace(/\0/g, ' ').trim();
+							const firstArg = cmdline.split(' ')[0] || '';
+							processName = path.basename(firstArg).toLowerCase();
+						} catch {
+							continue;
+						}
+
+						if (!cmdline) {
+							continue;
+						}
+
+						const cmdlineLower = cmdline.toLowerCase();
+
+						// Ignore shells and compilers/runtimes
+						if (ignoredProcessNames.some(name => processName.includes(name))) {
+							continue;
+						}
+
+						const isSuspect = suspects.some(suspect => processName.includes(suspect));
+
+						// 1. Direct command line match
+						const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
+						if (hasPathInCmd && isSuspect) {
+							violations.push(`${processName}|${pid}|Command line access`);
+							continue;
+						}
+
+						// 2. Current Working Directory (CWD) match
+						try {
+							const cwdLink = fs.readlinkSync(path.join('/proc', pidStr, 'cwd'));
+							const cwdLinkLower = cwdLink.toLowerCase();
+
+							const matchesProject = cwdLinkLower.startsWith(projectPathLower);
+							const matchesParent = cwdLinkLower === parentPathLower || cwdLinkLower.startsWith(parentPathLower + '/');
+							const matchesGrandparent = cwdLinkLower === grandparentPathLower || cwdLinkLower.startsWith(grandparentPathLower + '/');
+							if (matchesProject || matchesParent || matchesGrandparent) {
+								if (isSuspect || !ignoredProcessNames.some(name => processName.includes(name))) {
+									violations.push(`${processName}|${pid}|Access via current working directory`);
+									continue;
+								}
+							}
+						} catch { }
+
+						// 3. Open File Descriptor match
+						try {
+							const fdDir = path.join('/proc', pidStr, 'fd');
+							const fds = fs.readdirSync(fdDir);
+							for (const fd of fds) {
+								try {
+									const linkTarget = fs.readlinkSync(path.join(fdDir, fd));
+									const linkTargetLower = linkTarget.toLowerCase();
+
+									const matchesProject = linkTargetLower.startsWith(projectPathLower);
+									const matchesParent = linkTargetLower === parentPathLower || linkTargetLower.startsWith(parentPathLower + '/');
+									const matchesGrandparent = linkTargetLower === grandparentPathLower || linkTargetLower.startsWith(grandparentPathLower + '/');
+									if (matchesProject || matchesParent || matchesGrandparent) {
+										// Flag non-system suspect processes or generic unauthorized tools
+										if (isSuspect || !ignoredProcessNames.some(name => processName.includes(name))) {
+											violations.push(`${processName}|${pid}|Access via open file descriptor`);
+											break;
+										}
+									}
+								} catch { }
+							}
+						} catch { }
+					}
+				}
 
 				if (violations.length === 0) { return; }
 
@@ -851,7 +1001,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			} catch (err: any) {
 				console.warn('[Amypo Security] Monitor tick error:', err?.message?.substring(0, 100));
 			}
-		}, 10000);
+		};
+
+		// Run immediately, then every 10 seconds
+		runMonitorTick();
+		_monitorInterval = setInterval(runMonitorTick, 10000);
 
 		context.subscriptions.push({
 			dispose: () => {
