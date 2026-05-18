@@ -199,10 +199,6 @@ export class WindowTitle extends Disposable {
 				nativeTitle = this.productService.nameLong;
 			}
 
-			// ✅ AmypoCoder: Hide the macOS native window title completely 
-			// when the title bar drops down in full screen by using a zero-width space.
-			nativeTitle = '\u200B';
-
 			const window = getWindowById(this.windowId, true).window;
 			if (!window.document.title && isMacintosh && nativeTitle === this.productService.nameLong) {
 				// TODO@electron macOS: if we set a window title for
