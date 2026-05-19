@@ -151,6 +151,20 @@ function compareVersions(versionA: string, versionB: string): boolean {
 	return false;
 }
 
+// ✅ Add this ABOVE activate() function
+const killProcess = async (pid: number): Promise<void> => {
+	try {
+		if (process.platform === 'win32') {
+			await execAsync(`taskkill /F /PID ${pid}`);
+		} else if (process.platform === 'linux') {
+			await execAsync(`kill -9 ${pid}`);
+		}
+		console.log(`[Amypo Security] Killed unauthorized process PID: ${pid}`);
+	} catch (err) {
+		console.warn(`[Amypo Security] Could not kill PID ${pid}:`, err);
+	}
+};
+
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
@@ -230,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '372147|eDZRj7LxfyN4lE0sbKXOjVrNXAESzb3ho1CK5WBO3186db68';
+	const STATIC_TOKEN = '372133|FprhIL03S3TCBGNCmXb0vhZmllWfaCu3SeTYeS7P82c26a09';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
@@ -570,8 +584,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			await lockWorkspaceFolder(projectPath, parentPath);
 
 			// 🔒 Start monitoring for external access to the project folder
-			startFolderAccessMonitor(projectPath);
-			startExternalWatcher(projectPath);
+			await startAssessmentLockdown(projectPath);
 
 		} catch (err: any) {
 			console.error('[Amypo] Initialisation error:', err.stderr ?? err.message);
@@ -646,8 +659,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Security: Monitor for File Explorer or other editors accessing the project folder
 	let _monitorInterval: ReturnType<typeof setInterval> | null = null;
-	let _warningActive = false; // prevent stacking modal dialogs
+	let _lastWarningTime = 0;
+	const WARNING_COOLDOWN_MS = 30000; // warn max once per 30 seconds
 	let _monitorScriptPath: string | null = null;
+
 
 	const startFolderAccessMonitor = (projectPath: string): void => {
 		if (process.platform !== 'win32' && process.platform !== 'linux') { return; }
@@ -660,119 +675,74 @@ export async function activate(context: vscode.ExtensionContext) {
 		const parentPid = process.ppid;
 		const appRootNorm = vscode.env.appRoot.toLowerCase();
 
-		// Get a few filenames from the project to use as keywords for title matching
-		let projectFiles = '';
-		try {
-			const files = fs.readdirSync(projectPath);
-			projectFiles = files.filter(f => {
-				try { return fs.statSync(path.join(projectPath, f)).isFile(); } catch { return false; }
-			}).slice(0, 15).join('|');
-		} catch (e) {
-			console.warn('[Amypo Security] Could not read project files for monitor:', e);
-		}
-
 		if (process.platform === 'win32') {
 			// Write the PS script to a temp file — avoids ALL quoting/newline bugs
 			// that occur when passing multi-line scripts inline via -Command.
 			const psScript = [
-				'param([string]$ProjectPath, [string]$ParentPath, [string]$GrandparentPath, [string]$AppRoot, [int]$SelfPid, [int]$ParentPid, [string]$ProjectFiles)',
-				'$violations = [System.Collections.Generic.List[string]]::new()',
+				'param([string]$ProjectPath, [string]$AppRoot, [int]$SelfPid, [int]$ParentPid)',
 				'',
-				'# Normalize paths and keywords',
+				'# ✅ ONLY these editor process names are blocked',
+				'$blockedEditors = @(',
+				'  "notepad", "notepad++", "wordpad", "write", "textpad", "ultraedit",',
+				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
+				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
+				'  "winscp", "filezilla", "totalcmd", "spyder"',
+				')',
+				'',
+				'# Normalize project path',
 				'$pp = $ProjectPath.ToLower().Replace("/", "\\")',
 				'$pp_alt = $ProjectPath.ToLower().Replace("\\", "/")',
-				'$wp = $ParentPath.ToLower().Replace("/", "\\")',
-				'$wp_alt = $ParentPath.ToLower().Replace("\\", "/")',
-				'$gp = $GrandparentPath.ToLower().Replace("/", "\\")',
-				'$gp_alt = $GrandparentPath.ToLower().Replace("\\", "/")',
-				'$ar = $AppRoot.ToLower().Replace("/", "\\")',
-				'$ar_alt = $AppRoot.ToLower().Replace("\\", "/")',
-				'$fn = (Split-Path $pp -Leaf).ToLower()',
-				'$keywords = if ($ProjectFiles) { $ProjectFiles.ToLower().Split("|") } else { @() }',
+				'$ar = $AppRoot.ToLower()',
 				'',
-				'# Suspect process names (editors, browsers, etc.)',
-				'$suspects = @("code","cursor","notepad","notepad++","sublime_text","atom","idea64","webstorm64","pycharm64","rider64","gedit","kate","vim","nvim","wordpad","write","brackets","bluefish","emacs","textpad","ultraedit","winscp","filezilla","git-gui","sourcetree","fork","totalcmd","far","chrome","msedge","firefox","brave","opera")',
-				'',
-				'# PIDs to ignore (our own process tree)',
+				'# PIDs to ignore (our own AmypoCoder process tree)',
 				'$ignorePids = [System.Collections.Generic.HashSet[int]]::new()',
 				'$ignorePids.Add($SelfPid) | Out-Null',
 				'$ignorePids.Add($ParentPid) | Out-Null',
 				'',
-				'# Helper to check for violations',
-				'function Test-Violation($val, $procName) {',
-				'  if (-not $val) { return $false }',
-				'  $v = $val.ToLower()',
-				'  # 1. Direct path match',
-				'  if ($v -like "*$pp*" -or $v -like "*$pp_alt*" -or $v -like "*$wp*" -or $v -like "*$wp_alt*" -or $v -like "*$gp*" -or $v -like "*$gp_alt*" -or $v -like "*$fn*") { return $true }',
-				'  ',
-				'  # 2. Filename match in suspect applications',
-				'  if ($suspects -contains $procName) {',
-				'    foreach ($k in $keywords) {',
-				'      if ($k.Length -gt 3 -and $v -like "*$k*") { return $true }',
-				'    }',
-				'  }',
-				'  return $false',
-				'}',
-				'',
+				'# ✅ Safely close any File Explorer windows viewing the project folder or amypo workspace',
 				'try {',
-				'  $shell = New-Object -ComObject Shell.Application -ErrorAction Stop',
+				'  $shell = New-Object -ComObject Shell.Application',
 				'  foreach ($win in $shell.Windows()) {',
 				'    try {',
 				'      $loc = $win.LocationURL',
 				'      if ($loc) {',
-				'        $decodedLoc = [Uri]::UnescapeDataString($loc)',
-				'        if (Test-Violation $decodedLoc "explorer") {',
-				'          $violations.Add("FILE_EXPLORER|0|File Explorer ($($win.LocationName))")',
+				'        $decoded = [Uri]::UnescapeDataString($loc).ToLower()',
+				'        if ($decoded -like "*$pp*" -or $decoded -like "*$pp_alt*" -or $decoded -like "*amypo*workspace*") {',
+				'          $win.Quit()',
 				'        }',
 				'      }',
 				'    } catch {}',
 				'  }',
 				'} catch {}',
 				'',
+				'$violations = [System.Collections.Generic.List[string]]::new()',
+				'',
+				'# Scan all running processes',
 				'foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {',
 				'  try {',
+				'    # Skip our own process tree',
 				'    if ($ignorePids.Contains($proc.Id)) { continue }',
-				'    $pName = $proc.Name.ToLower()',
-				'    # 🐚 EXCEPTION: Allow common terminals and version control',
-				'    if ($pName -eq "powershell" -or $pName -eq "pwsh" -or $pName -eq "cmd" -or $pName -eq "conhost" -or $pName -eq "git" -or $pName -eq "git-remote-https") { continue }',
-				'    ',
-				'    $title = $proc.MainWindowTitle',
-				'    if ($title -and (Test-Violation $title $pName)) {',
-				'      $violations.Add("$($proc.Name)|$($proc.Id)|$title")',
-				'    }',
+				'',
+				'    $pName = $proc.Name.ToLower() -replace "\\.exe$", ""',
+				'',
+				'    # ✅ Only check blocked editors — skip everything else',
+				'    if ($blockedEditors -notcontains $pName) { continue }',
+				'',
+				'    # ✅ Skip our own AmypoCoder VS Code instance',
+				'    $cmd = ""',
+				'    try {',
+				'      $wmiProc = Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)" -ErrorAction SilentlyContinue',
+				'      $cmd = $wmiProc.CommandLine.ToLower()',
+				'    } catch {}',
+				'',
+				'    if ($cmd -like "*$ar*") { continue }',
+				'',
+				'    # ✅ This is an unauthorized editor — report it',
+				'    $violations.Add("$($proc.Name)|$($proc.Id)|Unauthorized editor running")',
+				'',
 				'  } catch {}',
 				'}',
 				'',
-				'try {',
-				'  foreach ($wp in (Get-WmiObject Win32_Process -ErrorAction SilentlyContinue)) {',
-				'    try {',
-				'      if ($ignorePids.Contains($wp.ProcessId)) { continue }',
-				'      # Also skip processes whose parent is ignored (to catch VS Code renderer/tasks)',
-				'      if ($ignorePids.Contains($wp.ParentProcessId)) { continue }',
-				'      ',
-				'      $cmd = $wp.CommandLine',
-				'      if (-not $cmd) { continue }',
-				'      $cmdL = $cmd.ToLower()',
-				'      ',
-				'      $nameKey = $wp.Name.ToLower() -replace "\\.exe$",""',
-				'      # 🐚 EXCEPTION: Allow common terminals and version control',
-				'      if ($nameKey -eq "powershell" -or $nameKey -eq "pwsh" -or $nameKey -eq "cmd" -or $nameKey -eq "conhost" -or $nameKey -eq "git" -or $nameKey -eq "git-remote-https") { continue }',
-				'',
-				'      # 🛡️ PROTECT: Skip our own VS Code instance helper processes',
-				'      if ($cmdL -like "*$ar*" -or $cmdL -like "*$ar_alt*") {',
-				'          # We skip it if it is a known helper process of our own app instance',
-				'          if ($cmdL -like "*extensionhost*" -or $cmdL -like "*watcher*" -or $cmdL -like "*crashreporter*") { continue }',
-				'      }',
-				'      ',
-				'      # ✅ EXCEPTION: Allow java/node/compiler processes',
-				'      if ($nameKey -eq "java" -or $nameKey -eq "javaw" -or $nameKey -eq "node" -or $nameKey -eq "mvn" -or $nameKey -eq "javac") { continue }',
-				'',
-				'      if (Test-Violation $cmd $nameKey) {',
-				'          $violations.Add("$($wp.Name)|$($wp.ProcessId)|Access Violation")',
-				'      }',
-				'    } catch {}',
-				'  }',
-				'} catch {}',
 				'if ($violations.Count -gt 0) { $violations | ConvertTo-Json -Compress }',
 			].join('\r\n');
 
@@ -787,13 +757,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		const runMonitorTick = async () => {
-			if (_warningActive) { return; }
 			try {
 				let violations: string[] = [];
 
 				if (process.platform === 'win32') {
 					if (!_monitorScriptPath) { return; }
-					const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${_monitorScriptPath}" -ProjectPath "${projectPath}" -ParentPath "${parentPath}" -GrandparentPath "${grandparentPath}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid} -ParentPid ${parentPid} -ProjectFiles "${projectFiles}"`;
+					const cmd = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${_monitorScriptPath}" -ProjectPath "${projectPath}" -AppRoot "${appRootNorm}" -SelfPid ${currentPid} -ParentPid ${parentPid}`;
 					const { stdout, stderr } = await execAsync(cmd, { timeout: 12000 });
 
 					if (stderr) { console.warn('[Amypo Security] Monitor stderr:', stderr.substring(0, 200)); }
@@ -813,9 +782,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					const appRootLower = vscode.env.appRoot.toLowerCase();
 
 					const suspects = [
-						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider", 
-						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja", 
-						"thunar", "pcmanfm", "chrome", "firefox", "brave", "opera", "chromium", "antigravity", "customvscode", "exe"
+						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
+						"thunar", "pcmanfm", "spyder", "antigravity", "customvscode", "exe"
 					];
 
 					const ignoredProcessNames = [
@@ -898,6 +867,17 @@ export async function activate(context: vscode.ExtensionContext) {
 							continue;
 						}
 
+						// Block unauthorized editors unconditionally
+						const isBlockedEditor = [
+							"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder"
+						].some(editor => processName.includes(editor));
+
+						if (isBlockedEditor) {
+							violations.push(`${processName}|${pid}|Unauthorized editor running`);
+							continue;
+						}
+
 						const isSuspect = suspects.some(suspect => processName.includes(suspect));
 
 						// 1. Direct command line match
@@ -957,46 +937,24 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				console.warn(`[Amypo Security] Assessment folder exposed in: ${offenderNames}`);
 
-				_warningActive = true;
-
-				// 1. Start a live-updating Notification that shows the 10, 9, 8... countdown
-				vscode.window.withProgress({
-					location: vscode.ProgressLocation.Notification,
-					title: `Security Violation!`,
-					cancellable: false
-				}, async (progress) => {
-					for (let i = 10; i > 0; i--) {
-						progress.report({ message: `Auto-exiting in ${i} seconds...` });
-						await new Promise(resolve => setTimeout(resolve, 1000));
+				// Kill immediately
+				for (const offender of offenders) {
+					if (offender.pid > 0) {
+						await killProcess(offender.pid);
 					}
-					progress.report({ message: 'Saving and exiting now...' });
-				});
-
-				// 🚀 Small delay to ensure the notification "pops up" in the corner before the modal blocks the screen
-				await new Promise(resolve => setTimeout(resolve, 500));
-
-				// 2. Show the large Modal Popup (Blocks the screen)
-				const modalPromise = vscode.window.showErrorMessage(
-					`Security Violation! Unauthorized application "${offenderNames}" accessed the folder.\n\nYour code is being saved. Please watch the countdown notification in the corner.`,
-					{ modal: true },
-					'Save & Exit Now'
-				);
-
-				// Wait 10 seconds OR until the user interacts with the modal
-				await Promise.race([
-					modalPromise,
-					new Promise(resolve => setTimeout(resolve, 10000))
-				]);
-
-				// Trigger the exact same functionality as the Exit button
-				try {
-					await doExitAndSave();
-				} catch (err) {
-					console.error('[Amypo Security] Error during auto-exit:', err);
 				}
 
-				// Ensure the application quits
-				await vscode.commands.executeCommand('workbench.action.quit');
+				// Show warning to student and close AmypoCoder
+				vscode.window.showWarningMessage(
+					`⚠️ "${offenderNames}" is not allowed during assessment. AmypoCoder is closing to protect exam integrity.`,
+					{ modal: false }
+				);
+
+				// Log it silently
+				console.log(`[Amypo Security] Blocked and killed: ${offenderNames}. Exiting AmypoCoder...`);
+
+				// Exit and save progress
+				await doExitAndSave();
 
 			} catch (err: any) {
 				console.warn('[Amypo Security] Monitor tick error:', err?.message?.substring(0, 100));
@@ -1433,18 +1391,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// 🔒 Security: Intercept VS Code commands that reveal files in File Explorer
-	const blockExternalReveal = () => {
-		vscode.window.showWarningMessage(
-			'⚠️ Opening files in external applications is not allowed during the assessment.',
-			{ modal: false }
-		);
-	};
-	context.subscriptions.push(
-		vscode.commands.registerCommand('revealFileInOS', blockExternalReveal),
-		vscode.commands.registerCommand('workbench.action.files.revealActiveFileInWindows', blockExternalReveal),
-		vscode.commands.registerCommand('openInTerminal', blockExternalReveal),
-	);
+
 
 	// Helper to ignore library/build folders based on project type
 	const isIgnoredFile = (filePath: string): boolean => {
@@ -1504,6 +1451,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 		context.subscriptions.push(watcher);
+	};
+
+	const startAssessmentLockdown = async (projectPath: string): Promise<void> => {
+		console.log('[Amypo Security] Assessment lockdown started.');
+		startFolderAccessMonitor(projectPath);
+		startExternalWatcher(projectPath);
+		console.log('[Amypo Security] All lockdown layers active.');
+	};
+
+	const stopAssessmentLockdown = async (): Promise<void> => {
+		console.log('[Amypo Security] Lockdown released.');
 	};
 
 	const CodeLogAnalysis = async (workingDir: string): Promise<string | null> => {
@@ -1949,8 +1907,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// 🔒 Security: restart the folder access monitor now that we know the project path
 		if (currentProjectPath) {
-			startFolderAccessMonitor(currentProjectPath);
-			startExternalWatcher(currentProjectPath);
+			await startAssessmentLockdown(currentProjectPath);
 		}
 
 		// ✅ Restore langId and token to storage for extensions panel
@@ -2212,6 +2169,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 
 				progress.report({ message: 'Cleaning session state...' });
+				await stopAssessmentLockdown();
 				callMurugaExit();
 
 				// Clear persistent state
