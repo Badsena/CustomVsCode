@@ -1402,14 +1402,17 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		}
 
 		const forbidden = [
-			 'tree',
+			'tree',
 			'copy', 'cp', 'move', 'mv',
 			'explorer', 'notepad', 
 			'code', 'cursor', 'windsurf',
 			'pwd', 'gl', 'Get-Location',
 			'curl', 'wget',
 			'powershell', 'pwsh', 'cmd', 'wsl', 'Remove-Item', 'Get-ChildItem',
-			'Copy-Item', 'Move-Item'
+			'Copy-Item', 'Move-Item',
+			'anthropic', 'aider', 'aider-chat', 'gemini', 'opencode', 'open-code',
+			'copilot', 'supermaven', 'claude', 'gpt', 'chatgpt',
+			'cody', 'tabnine', 'codeium', 'interpreter', 'mentat', 'swe-agent'
 		];
 
 		// ✅ Improve CMD/PowerShell prompt handling

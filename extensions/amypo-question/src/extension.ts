@@ -244,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '372133|FprhIL03S3TCBGNCmXb0vhZmllWfaCu3SeTYeS7P82c26a09';
+	const STATIC_TOKEN = '372606|IAqt0N8mBD66oMTpErue0lQBUpoyjVoDPgqTkqD966c6c27a';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
@@ -259,6 +259,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	let lastVerificationResult: any = null;
 	let activeAllocation: any = context.globalState.get<any>('amypo.testDetails')?.allocation ?? null;
 	let testStartTime = Date.now();
+	let isExiting = false;
 
 	//  Exit
 	const callMurugaExit = () => {
@@ -659,13 +660,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Security: Monitor for File Explorer or other editors accessing the project folder
 	let _monitorInterval: ReturnType<typeof setInterval> | null = null;
-	let _lastWarningTime = 0;
-	const WARNING_COOLDOWN_MS = 30000; // warn max once per 30 seconds
 	let _monitorScriptPath: string | null = null;
 
 
 	const startFolderAccessMonitor = (projectPath: string): void => {
-		if (process.platform !== 'win32' && process.platform !== 'linux') { return; }
+		if (process.platform !== 'win32' && process.platform !== 'linux' && process.platform !== 'darwin') { return; }
 		if (_monitorInterval) { clearInterval(_monitorInterval); }
 
 		const folderName = path.basename(projectPath);
@@ -686,7 +685,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				'  "notepad", "notepad++", "wordpad", "write", "textpad", "ultraedit",',
 				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
-				'  "winscp", "filezilla", "totalcmd", "spyder"',
+				'  "winscp", "filezilla", "totalcmd", "spyder",',
+				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",',
+				'  "obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",',
+				'  "snippingtool", "screensketch"',
 				')',
 				'',
 				'# Normalize project path',
@@ -757,6 +759,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		const runMonitorTick = async () => {
+			if (isExiting) { return; }
 			try {
 				let violations: string[] = [];
 
@@ -784,7 +787,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					const suspects = [
 						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
-						"thunar", "pcmanfm", "spyder", "antigravity", "customvscode", "exe"
+						"thunar", "pcmanfm", "spyder", "antigravity", "customvscode", "exe",
+						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
 					const ignoredProcessNames = [
@@ -867,10 +873,13 @@ export async function activate(context: vscode.ExtensionContext) {
 							continue;
 						}
 
-						// Block unauthorized editors unconditionally
+						// Block unauthorized editors/assistants unconditionally
 						const isBlockedEditor = [
 							"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
-							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder"
+							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
+							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+							"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+							"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName.includes(editor));
 
 						if (isBlockedEditor) {
@@ -925,6 +934,110 @@ export async function activate(context: vscode.ExtensionContext) {
 								} catch { }
 							}
 						} catch { }
+					}
+				} else if (process.platform === 'darwin') {
+					// 🍏 macOS Native Scanner
+					const selfPid = process.pid;
+					const parentPid = process.ppid;
+					const projectPathLower = projectPath.toLowerCase();
+					const parentPathLower = parentPath.toLowerCase();
+					const grandparentPathLower = grandparentPath.toLowerCase();
+
+					const suspects = [
+						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder", "antigravity", "customvscode",
+						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
+						"macvim", "textmate"
+					];
+
+					const ignoredProcessNames = [
+						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang"
+					];
+
+					try {
+						const { stdout } = await execAsync('ps -ax -o pid,ppid,comm,command');
+						if (stdout) {
+							const lines = stdout.split('\n');
+							const ppidMap = new Map<number, number>();
+							const processInfo: { pid: number; processName: string; cmdline: string }[] = [];
+							const ancestors = new Set<number>([selfPid, parentPid]);
+
+							for (let i = 1; i < lines.length; i++) {
+								const line = lines[i].trim();
+								if (!line) { continue; }
+								const match = line.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/);
+								if (match) {
+									const pid = parseInt(match[1], 10);
+									const ppid = parseInt(match[2], 10);
+									const comm = match[3];
+									const command = match[4];
+
+									if (!isNaN(pid) && !isNaN(ppid)) {
+										ppidMap.set(pid, ppid);
+										const processName = path.basename(comm).toLowerCase();
+										processInfo.push({
+											pid,
+											processName,
+											cmdline: command
+										});
+									}
+								}
+							}
+
+							let addedAny = true;
+							while (addedAny) {
+								addedAny = false;
+								for (const info of processInfo) {
+									if (ancestors.has(info.pid)) { continue; }
+									const ppid = ppidMap.get(info.pid);
+									if (ppid && ancestors.has(ppid)) {
+										ancestors.add(info.pid);
+										addedAny = true;
+									}
+								}
+							}
+
+							const isVsCodeProcessTree = (pid: number): boolean => {
+								return ancestors.has(pid);
+							};
+
+							for (const info of processInfo) {
+								if (isVsCodeProcessTree(info.pid)) { continue; }
+								if (info.pid <= 0) { continue; }
+
+								const { pid, processName, cmdline } = info;
+								const cmdlineLower = cmdline.toLowerCase();
+
+								if (ignoredProcessNames.some(name => processName.includes(name))) {
+									continue;
+								}
+
+								const isBlockedEditor = [
+									"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
+									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+									"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+									"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
+									"macvim", "textmate"
+								].some(editor => processName.includes(editor));
+
+								if (isBlockedEditor) {
+									violations.push(`${processName}|${pid}|Unauthorized editor running`);
+									continue;
+								}
+
+								const isSuspect = suspects.some(suspect => processName.includes(suspect));
+								const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
+								if (hasPathInCmd && isSuspect) {
+									violations.push(`${processName}|${pid}|Command line access`);
+									continue;
+								}
+							}
+						}
+					} catch (e) {
+						console.warn('[Amypo Security] macOS ps execution failed:', e);
 					}
 				}
 
@@ -1427,18 +1540,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		watcher.onDidChange(async (uri) => {
 			const filePath = uri.fsPath;
-			// 🛡️ STRICT EXCLUSION: Ignore git noise and library folders
 			if (isIgnoredFile(filePath)) {
 				return;
 			}
-
-			const activeEditor = vscode.window.activeTextEditor;
-			if (!activeEditor || activeEditor.document.uri.fsPath !== filePath) {
-				const now = new Date();
-				const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-				const msg = `⚠️ [EXTERNAL] Modification: ${dateStr} | ${path.basename(filePath)}`;
-				console.log('[Amypo Security Log]', msg);
-			}
+			// Silent — normal file activity is not logged
 		});
 
 		watcher.onDidCreate((uri) => {
@@ -1446,8 +1551,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (isIgnoredFile(filePath)) {
 				return;
 			}
-			const msg = `⚠️ [EXTERNAL] New File: ${path.basename(filePath)}`;
-			console.log('[Amypo Security Log]', msg);
+			// Silent — normal file creation is not logged
 		});
 
 		context.subscriptions.push(watcher);
@@ -1463,6 +1567,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	const stopAssessmentLockdown = async (): Promise<void> => {
 		console.log('[Amypo Security] Lockdown released.');
 	};
+
+	// Blocked VS Code Commands
+	const BLOCKED_COMMANDS = [
+
+		'workbench.action.files.revealActiveFileInWindows',
+		'explorer.openToSide',
+	];
+
+	BLOCKED_COMMANDS.forEach(cmd => {
+
+		context.subscriptions.push(
+			vscode.commands.registerCommand(cmd, () => {
+				vscode.window.showWarningMessage(
+					'⚠️ This action is not allowed during assessment.',
+					{ modal: false }
+				);
+			})
+		);
+	});
 
 	const CodeLogAnalysis = async (workingDir: string): Promise<string | null> => {
 		try {
@@ -2101,6 +2224,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 
 	async function doExitAndSave() {
+		if (isExiting) {
+			return;
+		}
+		isExiting = true;
+
+		if (_monitorInterval) {
+			clearInterval(_monitorInterval);
+			_monitorInterval = null;
+		}
+
 		await vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Amypo: Performing final save...',
