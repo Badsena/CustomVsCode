@@ -687,9 +687,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
 				'  "winscp", "filezilla", "totalcmd", "spyder",',
-				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",',
-				'  "obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",',
-				'  "snippingtool", "screensketch"',
+				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent"',
 				')',
 				'',
 				'# Normalize project path',
@@ -790,8 +788,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
 						"thunar", "pcmanfm", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
-						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
+						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
 					const ignoredProcessNames = [
@@ -879,8 +876,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-							"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
-							"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
+							"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName.includes(editor));
 
 						if (isBlockedEditor) {
@@ -948,8 +944,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
-						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
+						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
 						"macvim", "textmate"
 					];
 
@@ -1079,8 +1074,7 @@ export async function activate(context: vscode.ExtensionContext) {
 									"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-									"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
-									"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
+									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
 									"macvim", "textmate"
 								].some(editor => processName.includes(editor));
 
