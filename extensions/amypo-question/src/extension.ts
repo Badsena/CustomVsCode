@@ -156,7 +156,8 @@ const killProcess = async (pid: number): Promise<void> => {
 	try {
 		if (process.platform === 'win32') {
 			await execAsync(`taskkill /F /PID ${pid}`);
-		} else if (process.platform === 'linux') {
+		} else {
+			// Support both Linux and macOS (darwin)
 			await execAsync(`kill -9 ${pid}`);
 		}
 		console.log(`[Amypo Security] Killed unauthorized process PID: ${pid}`);
@@ -687,7 +688,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
 				'  "winscp", "filezilla", "totalcmd", "spyder",',
 				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",',
-				'  "obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",',
+				'  "obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",',
 				'  "snippingtool", "screensketch"',
 				')',
 				'',
@@ -789,7 +790,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
 						"thunar", "pcmanfm", "spyder", "antigravity", "customvscode", "exe",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
@@ -878,7 +879,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-							"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+							"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 							"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName.includes(editor));
 
@@ -947,17 +948,32 @@ export async function activate(context: vscode.ExtensionContext) {
 						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder", "antigravity", "customvscode",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
-						"macvim", "textmate"
+						"macvim", "textmate", "finder"
 					];
 
 					const ignoredProcessNames = [
 						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang"
 					];
 
+					// Close Finder windows cleanly via AppleScript
 					try {
-						const { stdout } = await execAsync('ps -ax -o pid,ppid,comm,command');
+						const closeFinderAppleScript = `
+							tell application "Finder"
+								try
+									close (every window whose target is (POSIX file "${projectPath}" as alias))
+								end try
+								try
+									close (every window whose target is (POSIX file "${parentPath}" as alias))
+								end try
+							end tell
+						`;
+						await execAsync(`osascript -e '${closeFinderAppleScript.replace(/\n/g, ' ')}'`);
+					} catch (e) { }
+
+					try {
+						const { stdout } = await execAsync('ps -ax -o pid,ppid,comm,args');
 						if (stdout) {
 							const lines = stdout.split('\n');
 							const ppidMap = new Map<number, number>();
@@ -967,20 +983,22 @@ export async function activate(context: vscode.ExtensionContext) {
 							for (let i = 1; i < lines.length; i++) {
 								const line = lines[i].trim();
 								if (!line) { continue; }
-								const match = line.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/);
+								const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
 								if (match) {
 									const pid = parseInt(match[1], 10);
 									const ppid = parseInt(match[2], 10);
-									const comm = match[3];
-									const command = match[4];
+									const rest = match[3].trim();
+
+									const tokens = rest.split(/\s+/);
+									const comm = tokens[0] || '';
+									const processName = path.basename(comm).toLowerCase();
 
 									if (!isNaN(pid) && !isNaN(ppid)) {
 										ppidMap.set(pid, ppid);
-										const processName = path.basename(comm).toLowerCase();
 										processInfo.push({
 											pid,
 											processName,
-											cmdline: command
+											cmdline: rest
 										});
 									}
 								}
@@ -1003,6 +1021,20 @@ export async function activate(context: vscode.ExtensionContext) {
 								return ancestors.has(pid);
 							};
 
+							// Check open files in project folder via lsof (recursive)
+							let lsofPids: number[] = [];
+							try {
+								const { stdout: lsofOut } = await execAsync(`lsof -t +D "${projectPath}"`);
+								if (lsofOut) {
+									lsofPids = lsofOut.split('\n')
+										.map(p => parseInt(p.trim(), 10))
+										.filter(p => !isNaN(p) && p > 0);
+								}
+							} catch (e) {
+								// lsof exits with 1 if no matches are found
+							}
+							const lsofPidSet = new Set(lsofPids);
+
 							for (const info of processInfo) {
 								if (isVsCodeProcessTree(info.pid)) { continue; }
 								if (info.pid <= 0) { continue; }
@@ -1018,7 +1050,7 @@ export async function activate(context: vscode.ExtensionContext) {
 									"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-									"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor", "gamebar", "gamebarft", "bcastdvr",
+									"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 									"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
 									"macvim", "textmate"
 								].some(editor => processName.includes(editor));
@@ -1030,6 +1062,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
 								const isSuspect = suspects.some(suspect => processName.includes(suspect));
 								const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
+								const hasLsofAccess = lsofPidSet.has(pid);
+
+								if (hasLsofAccess && (isSuspect || !ignoredProcessNames.some(name => processName.includes(name)))) {
+									violations.push(`${processName}|${pid}|Access via open file/folder (lsof)`);
+									continue;
+								}
+
 								if (hasPathInCmd && isSuspect) {
 									violations.push(`${processName}|${pid}|Command line access`);
 									continue;
@@ -1037,7 +1076,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							}
 						}
 					} catch (e) {
-						console.warn('[Amypo Security] macOS ps execution failed:', e);
+						console.warn('[Amypo Security] macOS ps/lsof execution failed:', e);
 					}
 				}
 
@@ -1053,6 +1092,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Kill immediately
 				for (const offender of offenders) {
 					if (offender.pid > 0) {
+						if (offender.name.toLowerCase().includes('finder')) {
+							continue;
+						}
 						await killProcess(offender.pid);
 					}
 				}
