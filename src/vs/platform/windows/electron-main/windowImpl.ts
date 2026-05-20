@@ -15,6 +15,7 @@ import { isTahoeOrNewer, isLinux, isMacintosh, isWindows, INodeProcess } from '.
 import { URI } from '../../../base/common/uri.js';
 import { localize } from '../../../nls.js';
 import { release } from 'os';
+import * as cp from 'child_process';
 import { ISerializableCommandAction } from '../../action/common/action.js';
 import { IBackupMainService } from '../../backup/electron-main/backup.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../configuration/common/configuration.js';
@@ -171,12 +172,25 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		this._register(Event.fromNodeEventEmitter(win, 'closed')(() => {
 			this._onDidClose.fire();
 
+			if (isLinux) {
+				this.unregisterLinuxScreenshotBlock();
+			}
+
 			this.dispose();
 		}));
 		this._register(Event.fromNodeEventEmitter(win, 'focus')(() => {
 			this.clearNotifyFocus();
 
 			this._lastFocusTime = Date.now();
+
+			if (isLinux) {
+				this.registerLinuxScreenshotBlock();
+			}
+		}));
+		this._register(Event.fromNodeEventEmitter(win, 'blur')(() => {
+			if (isLinux) {
+				this.unregisterLinuxScreenshotBlock();
+			}
 		}));
 		this._register(Event.fromNodeEventEmitter(this._win, 'enter-full-screen')(() => this._onDidEnterFullScreen.fire()));
 		this._register(Event.fromNodeEventEmitter(this._win, 'leave-full-screen')(() => this._onDidLeaveFullScreen.fire()));
@@ -249,8 +263,20 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 				if (input.key === 'F11' || (input.key === 'Enter' && input.alt)) {
 					event.preventDefault();
 				}
+				if (isLinux && (input.key === 'PrintScreen' || input.key === 'Print')) {
+					event.preventDefault();
+					try {
+						electron.clipboard.clear();
+					} catch (e) {
+						// Ignore
+					}
+				}
 			}
 		});
+
+		if (isLinux && win.isFocused()) {
+			this.registerLinuxScreenshotBlock();
+		}
 	}
 
 	private onDisplayAdded(display: Display): void {
@@ -577,17 +603,149 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		if (win?.isFullScreen()) {
 			this.doSetNativeFullScreen(false, false);
 		}
-
 		win?.setSimpleFullScreen(fullscreen);
 		win?.webContents.focus(); // workaround issue where focus is not going into window
 	}
 
 	//#endregion
 
+	private linuxClipboardInterval: any = null;
+	private linuxGSettingsBackups: { schema: string; key: string; originalValue: string }[] = [];
+	private linuxXmodmapBackup: string | null = null;
+
+	private registerLinuxScreenshotBlock(): void {
+		if (!isLinux) {
+			return;
+		}
+
+		// 1. Block PrintScreen keys using Electron globalShortcut
+		const keysToBlock = ['PrintScreen', 'Alt+PrintScreen', 'Shift+PrintScreen', 'Ctrl+PrintScreen', 'Meta+PrintScreen'];
+		for (const key of keysToBlock) {
+			try {
+				if (!electron.globalShortcut.isRegistered(key)) {
+					electron.globalShortcut.register(key, () => {
+						try {
+							electron.clipboard.clear();
+						} catch (e) {
+							// Ignore
+						}
+					});
+				}
+			} catch (e) {
+				// Ignore
+			}
+		}
+
+		// 2. Start a clipboard monitor to detect and clear images (screenshots) in clipboard
+		if (!this.linuxClipboardInterval) {
+			this.linuxClipboardInterval = setInterval(() => {
+				try {
+					const image = electron.clipboard.readImage();
+					if (image && !image.isEmpty()) {
+						electron.clipboard.clear();
+					}
+				} catch (e) {
+					// Ignore
+				}
+			}, 250);
+		}
+
+		// 3. Disable GNOME Shell & media-keys screenshot shortcuts via gsettings
+		const gsettingsTargets = [
+			{ schema: 'org.gnome.shell.keybindings', keys: ['show-screenshot-ui', 'screenshot', 'screenshot-window'] },
+			{ schema: 'org.gnome.settings-daemon.plugins.media-keys', keys: ['screenshot', 'window-screenshot', 'area-screenshot', 'screenshot-clip', 'window-screenshot-clip', 'area-screenshot-clip'] }
+		];
+
+		for (const target of gsettingsTargets) {
+			for (const key of target.keys) {
+				try {
+					// Backup the current value if not already backed up
+					const alreadyBackedUp = this.linuxGSettingsBackups.some(b => b.schema === target.schema && b.key === key);
+					if (!alreadyBackedUp) {
+						const currentVal = cp.execSync(`gsettings get ${target.schema} ${key}`).toString().trim();
+						this.linuxGSettingsBackups.push({
+							schema: target.schema,
+							key,
+							originalValue: currentVal
+						});
+					}
+					// Set to ['disabled']
+					cp.execSync(`gsettings set ${target.schema} ${key} "['disabled']"`);
+				} catch (e) {
+					// Ignore if gsettings is not available or schema/key doesn't exist
+				}
+			}
+		}
+
+		// 4. Disable PrintScreen key mapping via xmodmap (X11)
+		try {
+			const xmodmapOutput = cp.execSync('xmodmap -pke').toString();
+			const match = xmodmapOutput.match(/keycode\s+107\s+=\s+(.+)/);
+			if (match && match[1]) {
+				if (!this.linuxXmodmapBackup) {
+					this.linuxXmodmapBackup = match[1].trim();
+				}
+				cp.execSync('xmodmap -e "keycode 107 ="');
+			}
+		} catch (e) {
+			// Ignore if xmodmap is not available
+		}
+	}
+
+	private unregisterLinuxScreenshotBlock(): void {
+		if (!isLinux) {
+			return;
+		}
+
+		// 1. Unregister blocked keys
+		const keysToBlock = ['PrintScreen', 'Alt+PrintScreen', 'Shift+PrintScreen', 'Ctrl+PrintScreen', 'Meta+PrintScreen'];
+		for (const key of keysToBlock) {
+			try {
+				if (electron.globalShortcut.isRegistered(key)) {
+					electron.globalShortcut.unregister(key);
+				}
+			} catch (e) {
+				// Ignore
+			}
+		}
+
+		// 2. Stop clipboard interval
+		if (this.linuxClipboardInterval) {
+			clearInterval(this.linuxClipboardInterval);
+			this.linuxClipboardInterval = null;
+		}
+
+		// 3. Restore GNOME settings shortcuts
+		while (this.linuxGSettingsBackups.length > 0) {
+			const backup = this.linuxGSettingsBackups.pop();
+			if (backup) {
+				try {
+					cp.execSync(`gsettings set ${backup.schema} ${backup.key} "${backup.originalValue}"`);
+				} catch (e) {
+					// Ignore
+				}
+			}
+		}
+
+		// 4. Restore PrintScreen key mapping via xmodmap
+		if (this.linuxXmodmapBackup) {
+			try {
+				cp.execSync(`xmodmap -e "keycode 107 = ${this.linuxXmodmapBackup}"`);
+				this.linuxXmodmapBackup = null;
+			} catch (e) {
+				// Ignore
+			}
+		}
+	}
+
 	abstract matches(webContents: electron.WebContents): boolean;
 
 	override dispose(): void {
 		super.dispose();
+
+		if (isLinux) {
+			this.unregisterLinuxScreenshotBlock();
+		}
 
 		this._win = null!; // Important to dereference the window object to allow for GC
 	}
