@@ -328,6 +328,16 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		this._win?.maximize();
 		this.setFullScreen(true, true);
 		this._win?.show();
+
+		// 🍏 macOS Core Fix: Deferred fullscreen check to handle Electron/macOS native transition issue on hidden windows
+		if (isMacintosh) {
+			setTimeout(() => {
+				if (this._win && !this.isFullScreen) {
+					this.logService.info('window: macOS core retry for fullscreen');
+					this.setFullScreen(true, false);
+				}
+			}, 1500);
+		}
 	}
 
 	private representedFilename: string | undefined;

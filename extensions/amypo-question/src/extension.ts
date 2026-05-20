@@ -192,7 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.window.registerUriHandler({
-			handleUri(uri: vscode.Uri) {
+			async handleUri(uri: vscode.Uri) {
 				console.log('========================================');
 				console.log('[Amypo] Deep link received!');
 				console.log('[Amypo] Full URI:', uri.toString());
@@ -236,6 +236,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				try {
 					vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar');
 					vscode.commands.executeCommand(`${EduViewProvider.viewType}.focus`);
+					// 🍏 macOS: Enter full screen by default when test starts
+					if (process.platform === 'darwin') {
+						const config = vscode.workspace.getConfiguration('window');
+						const originalDimensions = config.inspect('newWindowDimensions')?.globalValue;
+						await context.globalState.update('amypo.originalDimensions', originalDimensions);
+						await config.update('newWindowDimensions', 'fullscreen', vscode.ConfigurationTarget.Global);
+						vscode.commands.executeCommand('workbench.action.enterFullScreen');
+					}
 				} catch { }
 
 				getTestDetails(allocation_id, test_type, token, module_id);
@@ -902,7 +910,7 @@ export async function activate(context: vscode.ExtensionContext) {
 							const matchesParent = cwdLinkLower === parentPathLower || cwdLinkLower.startsWith(parentPathLower + '/');
 							const matchesGrandparent = cwdLinkLower === grandparentPathLower || cwdLinkLower.startsWith(grandparentPathLower + '/');
 							if (matchesProject || matchesParent || matchesGrandparent) {
-								if (isSuspect || !ignoredProcessNames.some(name => processName.includes(name))) {
+								if (isSuspect) {
 									violations.push(`${processName}|${pid}|Access via current working directory`);
 									continue;
 								}
@@ -922,8 +930,8 @@ export async function activate(context: vscode.ExtensionContext) {
 									const matchesParent = linkTargetLower === parentPathLower || linkTargetLower.startsWith(parentPathLower + '/');
 									const matchesGrandparent = linkTargetLower === grandparentPathLower || linkTargetLower.startsWith(grandparentPathLower + '/');
 									if (matchesProject || matchesParent || matchesGrandparent) {
-										// Flag non-system suspect processes or generic unauthorized tools
-										if (isSuspect || !ignoredProcessNames.some(name => processName.includes(name))) {
+										// Flag suspect processes
+										if (isSuspect) {
 											violations.push(`${processName}|${pid}|Access via open file descriptor`);
 											break;
 										}
@@ -958,15 +966,18 @@ export async function activate(context: vscode.ExtensionContext) {
 					try {
 						const closeFinderAppleScript = `
 							tell application "Finder"
-								try
-									close (every window whose target is (POSIX file "${projectPath}" as alias))
-								end try
-								try
-									close (every window whose target is (POSIX file "${parentPath}" as alias))
-								end try
+								set theWindows to every window
+								repeat with win in theWindows
+									try
+										set winPath to POSIX path of (target of win as alias)
+										if winPath contains "${projectPath}" or winPath contains "${parentPath}" then
+											close win
+										end if
+									end try
+								end repeat
 							end tell
 						`;
-						await execAsync(`osascript -e '${closeFinderAppleScript.replace(/\n/g, ' ')}'`);
+						await execAsync(`osascript -e '${closeFinderAppleScript.replace(/'/g, "'\\''")}'`);
 					} catch (e) { }
 
 					try {
@@ -1095,7 +1106,8 @@ export async function activate(context: vscode.ExtensionContext) {
 								const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
 								const hasLsofAccess = lsofPidSet.has(pid);
 
-								if (hasLsofAccess && (isSuspect || !ignoredProcessNames.some(name => processName.includes(name)))) {
+								// Only flag if it's explicitly a suspect process
+								if (hasLsofAccess && isSuspect) {
 									violations.push(`${processName}|${pid}|Access via open file/folder (lsof)`);
 									continue;
 								}
@@ -2102,6 +2114,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (shouldRestore) {
 		console.log('[Amypo] Re-activation detected (testStarted=' + testAlreadyStarted + ', insideProject=' + isInsideAmypoProject + '). Restoring session…');
 
+		// 🍏 macOS: Ensure the restored/reloaded window enters fullscreen
+		if (process.platform === 'darwin') {
+			setTimeout(() => {
+				try {
+					vscode.commands.executeCommand('workbench.action.enterFullScreen');
+				} catch { }
+			}, 1500);
+		}
+
 		// Ensure project exists during restoration
 		const savedPath = context.globalState.get<string>('amypo.projectPath');
 
@@ -2390,6 +2411,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				progress.report({ message: 'Cleaning session state...' });
 				await stopAssessmentLockdown();
 				callMurugaExit();
+
+				// Restore original dimensions setting on macOS
+				if (process.platform === 'darwin') {
+					try {
+						const originalDimensions = context.globalState.get('amypo.originalDimensions');
+						await vscode.workspace.getConfiguration('window').update('newWindowDimensions', originalDimensions, vscode.ConfigurationTarget.Global);
+					} catch { }
+				}
 
 				// Clear persistent state
 				await context.globalState.update('amypo.testStarted', false);
