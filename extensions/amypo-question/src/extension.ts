@@ -245,7 +245,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const STATIC_ALLOCATION_ID = 6593;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '372606|IAqt0N8mBD66oMTpErue0lQBUpoyjVoDPgqTkqD966c6c27a';
+	const STATIC_TOKEN = '373135|kGNLAAJVZhfvwQDKnl3ASwTPd6ngqcNgvHGIXXUk67721916';
 	const STATIC_MODULE_ID = 1978;
 	//  State
 	let currentAllocationData: any = null;
@@ -788,7 +788,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const suspects = [
 						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
-						"thunar", "pcmanfm", "spyder", "antigravity", "customvscode", "exe",
+						"thunar", "pcmanfm", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
@@ -946,15 +946,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
 					const suspects = [
 						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
-						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder", "antigravity", "customvscode",
+						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 						"obs", "obs64", "obs32", "sharex", "snagit", "snagiteditor",
 						"snippingtool", "screensketch", "flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
-						"macvim", "textmate", "finder"
+						"macvim", "textmate"
 					];
 
 					const ignoredProcessNames = [
-						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang"
+						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang",
+						// macOS system security daemons — safe to ignore
+						"codesigninghelper", "codesign", "securityd", "trustd"
 					];
 
 					// Close Finder windows cleanly via AppleScript
@@ -973,32 +975,58 @@ export async function activate(context: vscode.ExtensionContext) {
 					} catch (e) { }
 
 					try {
-						const { stdout } = await execAsync('ps -ax -o pid,ppid,comm,args');
+						// Use -ww for unlimited width to prevent path truncation
+						const { stdout } = await execAsync('ps -axww -o pid=,ppid=,args=');
 						if (stdout) {
 							const lines = stdout.split('\n');
 							const ppidMap = new Map<number, number>();
 							const processInfo: { pid: number; processName: string; cmdline: string }[] = [];
 							const ancestors = new Set<number>([selfPid, parentPid]);
 
-							for (let i = 1; i < lines.length; i++) {
-								const line = lines[i].trim();
-								if (!line) { continue; }
-								const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
+							// macOS app bundle patterns for blocked editors
+							// These match the .app directory name in the full command path
+							const blockedAppBundles = [
+								"visual studio code", "cursor", "sublime text", "atom",
+								"intellij idea", "webstorm", "pycharm", "rider",
+								"macvim", "textmate", "bbedit", "nova",
+								"cody", "tabnine", "codeium",
+								"obs", "snagit"
+							];
+
+							for (const line of lines) {
+								const trimmed = line.trim();
+								if (!trimmed) { continue; }
+								const match = trimmed.match(/^(\d+)\s+(\d+)\s+(.*)$/);
 								if (match) {
 									const pid = parseInt(match[1], 10);
 									const ppid = parseInt(match[2], 10);
-									const rest = match[3].trim();
+									const cmdline = match[3].trim();
 
-									const tokens = rest.split(/\s+/);
-									const comm = tokens[0] || '';
-									const processName = path.basename(comm).toLowerCase();
+									// Extract process name from the full executable path
+									// Handle macOS .app bundles: /Applications/App Name.app/.../Binary Name
+									// Find the .app bundle name first, then fall back to last path component before args
+									let processName = '';
+									const appMatch = cmdline.match(/\/([^/]+)\.app\//i);
+									if (appMatch) {
+										processName = appMatch[1].toLowerCase();
+									} else {
+										// For non-.app executables, extract the first path argument
+										// Match a path starting with / up to the first space that's followed by a dash or end
+										const pathMatch = cmdline.match(/^(\/\S+)/);
+										if (pathMatch) {
+											processName = path.basename(pathMatch[1]).toLowerCase();
+										} else {
+											const tokens = cmdline.split(/\s+/);
+											processName = path.basename(tokens[0] || '').toLowerCase();
+										}
+									}
 
 									if (!isNaN(pid) && !isNaN(ppid)) {
 										ppidMap.set(pid, ppid);
 										processInfo.push({
 											pid,
 											processName,
-											cmdline: rest
+											cmdline
 										});
 									}
 								}
@@ -1046,7 +1074,8 @@ export async function activate(context: vscode.ExtensionContext) {
 									continue;
 								}
 
-								const isBlockedEditor = [
+								// Check 1: blocked by process name (basename of executable)
+								const isBlockedByName = [
 									"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
@@ -1055,7 +1084,15 @@ export async function activate(context: vscode.ExtensionContext) {
 									"macvim", "textmate"
 								].some(editor => processName.includes(editor));
 
-								if (isBlockedEditor) {
+								// Check 2: blocked by macOS .app bundle name in full command line
+								const isBlockedByAppBundle = blockedAppBundles.some(bundle => cmdlineLower.includes(bundle));
+
+								// Skip our own Amypo Coder instance by checking appRoot in cmdline
+								if ((isBlockedByName || isBlockedByAppBundle) && cmdlineLower.includes(appRootNorm)) {
+									continue;
+								}
+
+								if (isBlockedByName || isBlockedByAppBundle) {
 									violations.push(`${processName}|${pid}|Unauthorized editor running`);
 									continue;
 								}
@@ -1134,6 +1171,19 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// API Calls
 
+	const getNormalizedOS = (): string => {
+		switch (process.platform) {
+			case 'darwin':
+				return 'macOs';
+			case 'win32':
+				return 'win32';
+			case 'linux':
+				return 'linux';
+			default:
+				return process.platform;
+		}
+	};
+
 	const checkStoreInitialData = async (
 		allocation_id: number,
 		test_type: number,
@@ -1147,7 +1197,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				test_type,
 				module_id: moduleId ?? 0,
 				ip: '',
-				os: process.platform,
+				os: getNormalizedOS(),
 				device: 'desktop',
 				loc: '',
 				browser: 'vscode',
