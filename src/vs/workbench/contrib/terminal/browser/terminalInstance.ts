@@ -1375,9 +1375,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		const extensionIdLower = 'amypo.amypo-question';
 
 		const stateStr = this._storageService.get(extensionId, StorageScope.PROFILE) ||
-						this._storageService.get(extensionIdLower, StorageScope.PROFILE) ||
-						this._storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
-						this._storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
+			this._storageService.get(extensionIdLower, StorageScope.PROFILE) ||
+			this._storageService.get('extension.globalState.' + extensionId, StorageScope.PROFILE) ||
+			this._storageService.get('extension.globalState.' + extensionIdLower, StorageScope.PROFILE);
 
 		if (stateStr) {
 			console.log('[Amypo Security] ℹ️ Found extension state in storage');
@@ -1404,7 +1404,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		const forbidden = [
 			'tree',
 			'copy', 'cp', 'move', 'mv',
-			'explorer', 'notepad', 
+			'explorer', 'notepad',
 			'code', 'cursor', 'windsurf',
 			'pwd', 'gl', 'Get-Location',
 			'curl', 'wget',
@@ -1412,7 +1412,13 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			'Copy-Item', 'Move-Item',
 			'anthropic', 'aider', 'aider-chat', 'gemini', 'opencode', 'open-code',
 			'copilot', 'supermaven', 'claude', 'gpt', 'chatgpt',
-			'cody', 'tabnine', 'codeium', 'interpreter', 'mentat', 'swe-agent'
+			'cody', 'tabnine', 'codeium', 'interpreter', 'mentat', 'swe-agent',
+			// Linux screenshot & screen recording tools
+			'scrot', 'maim', 'flameshot', 'gnome-screenshot', 'xfce4-screenshooter',
+			'spectacle', 'ksnip', 'shutter', 'kazam', 'peek',
+			'simplescreenrecorder', 'recordmydesktop', 'obs',
+			// macOS screenshot tools
+			'screencapture'
 		];
 
 		// ✅ Improve CMD/PowerShell prompt handling

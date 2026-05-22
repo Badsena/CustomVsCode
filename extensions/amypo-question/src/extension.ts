@@ -664,7 +664,6 @@ export async function activate(context: vscode.ExtensionContext) {
 				'',
 				'# ✅ ONLY these editor process names are blocked',
 				'$blockedEditors = @(',
-				'  "notepad", "notepad++", "wordpad", "write", "textpad", "ultraedit",',
 				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
 				'  "winscp", "filezilla", "totalcmd", "spyder",',
@@ -765,8 +764,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					const appRootLower = vscode.env.appRoot.toLowerCase();
 
 					const suspects = [
-						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
-						"gedit", "kate", "vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
+						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+						"vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
 						"thunar", "pcmanfm", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
@@ -855,8 +854,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 						// Block unauthorized editors/assistants unconditionally
 						const isBlockedEditor = [
-							"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
-							"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
+							"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+							"vim", "nvim", "emacs", "nano", "spyder",
 							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 							"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName.includes(editor));
@@ -923,11 +922,10 @@ export async function activate(context: vscode.ExtensionContext) {
 					const grandparentPathLower = grandparentPath.toLowerCase();
 
 					const suspects = [
-						"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
-						"macvim", "textmate"
+						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
 					const ignoredProcessNames = [
@@ -1058,11 +1056,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 								// Check 1: blocked by process name (basename of executable)
 								const isBlockedByName = [
-									"code", "cursor", "notepad", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+									"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
-									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip",
-									"macvim", "textmate"
+									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 								].some(editor => processName.includes(editor));
 
 								// Check 2: blocked by macOS .app bundle name in full command line
