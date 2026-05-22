@@ -22,28 +22,8 @@ let API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https:
 let GITHUB_TOKEN = '';
 let GIT_URL = '';
 
-// Layer 2 — Secret Key from product.json
-function readSecretKey(): string | null {
-	try {
-		const productJsonPath = path.join(vscode.env.appRoot, 'product.json');
-		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
-		const secretKey = productJson.amypoSecretKey;
-
-		if (!secretKey || typeof secretKey !== 'string') {
-			console.error('[Amypo Security] Layer 2 FAILED: Missing amypoSecretKey in product.json');
-			return null;
-		}
-
-		console.log('[Amypo Security] Layer 2 PASSED: Secret key found.');
-		return secretKey;
-	} catch (error) {
-		console.error('[Amypo Security] Layer 2 FAILED: Cannot read product.json:', error);
-		return null;
-	}
-}
-
 // Auto-Update
-async function checkForExtensionUpdate(secretKey: string, context: vscode.ExtensionContext): Promise<boolean> {
+async function checkForExtensionUpdate(context: vscode.ExtensionContext): Promise<boolean> {
 	// Skip auto-update if running in development mode to prevent overwriting local code
 	if (vscode.env.appRoot.toLowerCase().includes('customvscode') || vscode.env.machineId === 'some-dev-id') {
 		console.log('[Amypo Update] Development mode detected: Skipping auto-update check.');
@@ -170,16 +150,9 @@ const killProcess = async (pid: number): Promise<void> => {
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
 
-	//  Security Layer 2 — Secret Key
-	const secretKey = readSecretKey();
-	if (!secretKey) {
-		vscode.window.showErrorMessage('Amypo Question: Security validation failed.');
-		return;
-	}
-
 	//  Auto-Update Check (blocking)
 	try {
-		const isUpdated = await checkForExtensionUpdate(secretKey, context);
+		const isUpdated = await checkForExtensionUpdate(context);
 		if (isUpdated) {
 			console.log('[Amypo] Extension successfully updated, halting initialization.');
 			return;
@@ -2327,7 +2300,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		console.log('Get test details called');
 
 		// For development: you can uncomment the line below to test with static details
-		getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
+		// getTestDetails(STATIC_ALLOCATION_ID, STATIC_TEST_TYPE, STATIC_TOKEN, STATIC_MODULE_ID);
 	}
 
 	async function doExitAndSave() {

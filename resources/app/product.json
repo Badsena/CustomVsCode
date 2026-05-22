@@ -90,8 +90,6 @@
 		"extensions.autoUpdate": true,
 		"extensions.autoCheckUpdates": true
 	},
-	"amypoSecretKey": "AMY-X9K2-2026-SECURE",
-	"amypoGithubToken": "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",
 	"extensionEnabledApiProposals": {
 		"AMYPO.amypo-browser": [
 			"terminalDataWriteEvent"
