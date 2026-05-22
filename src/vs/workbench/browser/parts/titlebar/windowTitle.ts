@@ -43,7 +43,7 @@ const enum WindowSettingNames {
 // as they expose absolute file system paths in the title bar.
 export const defaultWindowTitle = (() => {
 	if (isMacintosh && isNative) {
-		return '${activeEditorShort}${separator}${rootName}${separator}${profileName}'; // macOS has native dirty indicator
+		return ''; // ✅ Amypo Coder: Keep window title empty
 	}
 
 	const base = '${dirty}${activeEditorShort}${separator}${rootName}${separator}${profileName}${separator}${appName}';
@@ -221,7 +221,12 @@ export class WindowTitle extends Disposable {
 	private getFullWindowTitle(): string {
 		const { prefix, suffix } = this.getTitleDecorations();
 
-		let title = this.getWindowTitle() || this.productService.nameLong;
+		let title = this.getWindowTitle();
+		if (!title && isMacintosh && isNative) {
+			return '';
+		}
+
+		title = title || this.productService.nameLong;
 		if (prefix) {
 			title = `${prefix} ${title}`;
 		}

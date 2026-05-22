@@ -216,7 +216,12 @@ export class TerminalProcess extends Disposable implements ITerminalChildProcess
 				for (const f of injection.filesToCopy) {
 					try {
 						await fs.promises.mkdir(path.dirname(f.dest), { recursive: true });
-						await fs.promises.copyFile(f.source, f.dest);
+						if (isMacintosh || isLinux) {
+							const content = await fs.promises.readFile(f.source, 'utf8');
+							await fs.promises.writeFile(f.dest, content.replace(/\r/g, ''), 'utf8');
+						} else {
+							await fs.promises.copyFile(f.source, f.dest);
+						}
 					} catch {
 						// Swallow error, this should only happen when multiple users are on the same
 						// machine. Since the shell integration scripts rarely change, plus the other user
