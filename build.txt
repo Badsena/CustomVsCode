@@ -65,3 +65,18 @@ sudo dpkg -i .build/linux/deb/amd64/deb/amypocoder_1.113.4-1776064143_amd64.deb
 # clear cache
 
 rm -rf out out-build .build out-vscode out-vscode-min ../VSCode-linux-x64 && ls -d out out-build .build out-vscode out-vscode-min ../VSCode-linux-x64 2>/dev/null || echo "Cleaned successfully"
+
+
+mac:
+
+# Install dependencies
+npm install
+
+# Compile the project
+npm run compile
+
+# Build the application
+npm run gulp vscode-darwin-arm64
+
+mkdir -p dmg-out
+VSCODE_ARCH=arm64 VSCODE_QUALITY=stable npx ts-node build/darwin/create-dmg.ts .. ./dmg-out

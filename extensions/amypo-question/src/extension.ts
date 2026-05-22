@@ -773,7 +773,8 @@ export async function activate(context: vscode.ExtensionContext) {
 					];
 
 					const ignoredProcessNames = [
-						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang"
+						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang",
+						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd"
 					];
 
 					const pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
@@ -932,7 +933,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					const ignoredProcessNames = [
 						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang",
 						// macOS system security daemons — safe to ignore
-						"codesigninghelper", "codesign", "securityd", "trustd"
+						"codesigninghelper", "codesign", "securityd", "trustd",
+						// macOS False positives due to keywords "cursor" and "code"
+						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd"
 					];
 
 					// Close Finder windows cleanly via AppleScript

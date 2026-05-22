@@ -599,6 +599,9 @@ export class CodeApplication extends Disposable {
 			return true;
 		}
 
+		if (isMacintosh) {
+			return true;
+		}
 		// ── BLOCKED ──
 		console.log('[AmypoGuard] BLOCKED. Proceeding to show popup...');
 
