@@ -6,7 +6,8 @@
 import { app, BrowserWindow, Details, GPUFeatureStatus, powerMonitor, protocol, session, Session, systemPreferences, WebFrameMain } from 'electron';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from '../../base/node/unc.js';
 import { validatedIpcMain } from '../../base/parts/ipc/electron-main/ipcMain.js';
-import { hostname, release } from 'os';
+import { hostname, release, tmpdir } from 'os';
+import * as fs from 'fs';
 import { initWindowsVersionInfo } from '../../base/node/windowsVersion.js';
 import { VSBuffer } from '../../base/common/buffer.js';
 import { toErrorMessage } from '../../base/common/errorMessage.js';
@@ -553,8 +554,8 @@ export class CodeApplication extends Disposable {
 		// validatedIpcMain.on('vscode:toggleDevTools', event => { /* blocked */ });
 		// validatedIpcMain.on('vscode:openDevTools', event => { /* blocked */ });
 
-		validatedIpcMain.on('vscode:toggleDevTools', event => {event.sender.toggleDevTools(); });
-		validatedIpcMain.on('vscode:openDevTools', event => {event.sender.openDevTools(); });
+		validatedIpcMain.on('vscode:toggleDevTools', event => { event.sender.toggleDevTools(); });
+		validatedIpcMain.on('vscode:openDevTools', event => { event.sender.openDevTools(); });
 
 		validatedIpcMain.on('vscode:reloadWindow', event => event.sender.reload());
 
@@ -600,7 +601,30 @@ export class CodeApplication extends Disposable {
 		}
 
 		if (isMacintosh) {
-			return true;
+			// CRITICAL: macOS Apple Events (open-url) are fired during the app launch lifecycle.
+			// If we check peekOpenUrls() too early, it will be empty! We must wait for the app to be ready.
+			await app.whenReady();
+			
+			const openUrls = (globalThis as any).peekOpenUrls ? (globalThis as any).peekOpenUrls() : [];
+			const hasMacPortalUrl = openUrls.some((url: string) => url.startsWith('amypocoder://'));
+			if (hasMacPortalUrl) {
+				console.log('[AmypoGuard] macOS Portal URL detected via Apple Event — allowed');
+				return true;
+			}
+
+			const lockFilePath = join(tmpdir(), 'amypocoder_mac.lock');
+			if (fs.existsSync(lockFilePath)) {
+				console.log('[AmypoGuard] macOS Lockfile exists! Launch restricted.');
+				// Fall through to showAmypoBlockPopup() below
+			} else {
+				console.log('[AmypoGuard] First macOS launch detected. Creating lockfile.');
+				try {
+					fs.writeFileSync(lockFilePath, 'locked');
+				} catch (e) {
+					console.error('[AmypoGuard] Failed to write lockfile:', e);
+				}
+				return true;
+			}
 		}
 		// ── BLOCKED ──
 		console.log('[AmypoGuard] BLOCKED. Proceeding to show popup...');

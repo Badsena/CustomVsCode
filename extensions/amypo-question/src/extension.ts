@@ -654,7 +654,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const grandparentPath = path.dirname(parentPath); // amypo
 		const currentPid = process.pid;
 		const parentPid = process.ppid;
-		const appRootNorm = vscode.env.appRoot.toLowerCase();
+		const appRootNorm = vscode.env.appRoot.toLowerCase().replace(/[\\/]resources[\\/]app$/i, '');
 
 		if (process.platform === 'win32') {
 			// Write the PS script to a temp file — avoids ALL quoting/newline bugs
@@ -709,7 +709,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				'    # ✅ Only check blocked editors — skip everything else',
 				'    if ($blockedEditors -notcontains $pName) { continue }',
 				'',
-				'    # ✅ Skip our own AmypoCoder VS Code instance',
+				'    # ✅ Skip our own AmypoCoder instance explicitly',
+				'    if ($pName -like "*amypocoder*") { continue }',
+				'',
 				'    $cmd = ""',
 				'    try {',
 				'      $wmiProc = Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)" -ErrorAction SilentlyContinue',
@@ -761,7 +763,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const projectPathLower = projectPath.toLowerCase();
 					const parentPathLower = parentPath.toLowerCase();
 					const grandparentPathLower = grandparentPath.toLowerCase();
-					const appRootLower = vscode.env.appRoot.toLowerCase();
+					const appRootLower = vscode.env.appRoot.toLowerCase().replace(/[\\/]resources[\\/]app$/i, '');
 
 					const suspects = [
 						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
@@ -1049,6 +1051,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 								const { pid, processName, cmdline } = info;
 								const cmdlineLower = cmdline.toLowerCase();
+
+								// Force skip our own process trees
+								if (processName.includes('amypocoder')) {
+									continue;
+								}
 
 								if (ignoredProcessNames.some(name => processName.includes(name))) {
 									continue;

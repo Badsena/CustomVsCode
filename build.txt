@@ -80,3 +80,10 @@ npm run gulp vscode-darwin-arm64
 
 mkdir -p dmg-out
 VSCODE_ARCH=arm64 VSCODE_QUALITY=stable npx ts-node build/darwin/create-dmg.ts .. ./dmg-out
+open ../VSCode-darwin-arm64/AmypoCoder.app
+open ../VSCode-darwin-arm64/AmypoCoder.app
+rm -f /var/folders/3q/vwpjxj355719x_tlkl8s03_w0000gq/T/amypocoder_mac.lock
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -dump | grep -B 2 -A 5 "amypocoder:"
+	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u /Users/dev/Documents/Amypo/projects/CustomVsCode/.build/electron/AmypoCoder.app
+for production
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u /Users/dev/Documents/Amypo/projects/VSCode-darwin-arm64/AmypoCoder.app

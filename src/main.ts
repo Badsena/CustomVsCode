@@ -613,6 +613,10 @@ function registerListeners(): void {
 		app.on('open-url', onOpenUrl);
 	});
 
+	(globalThis as { peekOpenUrls?: () => string[] }).peekOpenUrls = function () {
+		return openUrls;
+	};
+
 	(globalThis as { getOpenUrls?: () => string[] }).getOpenUrls = function () {
 		app.removeListener('open-url', onOpenUrl);
 

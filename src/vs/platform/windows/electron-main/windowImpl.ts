@@ -884,6 +884,9 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			// Create the browser window
 			mark('code/willCreateCodeBrowserWindow');
 			this._win = new electron.BrowserWindow(options);
+			if (isMacintosh) {
+				this._win.setWindowButtonVisibility(false);
+			}
 			mark('code/didCreateCodeBrowserWindow');
 
 			// ✅ Amypo Security: Prevent OS-level screenshots and screen recording
