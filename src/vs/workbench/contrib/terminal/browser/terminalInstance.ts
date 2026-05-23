@@ -1418,7 +1418,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			'spectacle', 'ksnip', 'shutter', 'kazam', 'peek',
 			'simplescreenrecorder', 'recordmydesktop', 'obs',
 			// macOS screenshot tools
-			'screencapture'
+			'screencapture',
+			// Terminal browsers
+			'lynx', 'w3m', 'links', 'elinks',
+			// Open in external app
+			'xdg-open', 'open'
 		];
 
 		// ✅ Improve CMD/PowerShell prompt handling
