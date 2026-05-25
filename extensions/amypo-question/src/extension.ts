@@ -775,7 +775,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 					const ignoredProcessNames = [
 						"java", "javaw", "mvn", "javac", "make", "gcc", "g++", "clang",
-						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd"
+						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd",
+						// macOS system daemons containing "code" in their name (e.g. passcode → code)
+						"passcodesettingssubscriber", "passcodesubscriber",
+						"codeassist", "codecoverageextractor"
 					];
 
 					const pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
@@ -856,18 +859,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 						// Block unauthorized editors/assistants unconditionally
 						const isBlockedEditor = [
-							"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+							"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 							"vim", "nvim", "emacs", "nano", "spyder",
 							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 							"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
-						].some(editor => processName.includes(editor));
+						].some(editor => processName === editor);
 
 						if (isBlockedEditor) {
 							violations.push(`${processName}|${pid}|Unauthorized editor running`);
 							continue;
 						}
 
-						const isSuspect = suspects.some(suspect => processName.includes(suspect));
+						const isSuspect = suspects.some(suspect => processName === suspect);
 
 						// 1. Direct command line match
 						const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
@@ -935,7 +938,10 @@ export async function activate(context: vscode.ExtensionContext) {
 						// macOS system security daemons — safe to ignore
 						"codesigninghelper", "codesign", "securityd", "trustd",
 						// macOS False positives due to keywords "cursor" and "code"
-						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd"
+						"cursoruiviewservice", "xcode", "fileproviderd", "nanoregistryd",
+						// macOS system daemons containing "code" in their name (e.g. passcode → code)
+						"passcodesettingssubscriber", "passcodesubscriber",
+						"codeassist", "codecoverageextractor"
 					];
 
 					// Close Finder windows cleanly via AppleScript
@@ -1063,11 +1069,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 								// Check 1: blocked by process name (basename of executable)
 								const isBlockedByName = [
-									"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
+									"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
 									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
 									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
-								].some(editor => processName.includes(editor));
+								].some(editor => processName === editor);
 
 								// Check 2: blocked by macOS .app bundle name in full command line
 								const isBlockedByAppBundle = blockedAppBundles.some(bundle => cmdlineLower.includes(bundle));
@@ -1082,7 +1088,7 @@ export async function activate(context: vscode.ExtensionContext) {
 									continue;
 								}
 
-								const isSuspect = suspects.some(suspect => processName.includes(suspect));
+								const isSuspect = suspects.some(suspect => processName === suspect);
 								const hasPathInCmd = cmdlineLower.includes(projectPathLower) || cmdlineLower.includes(parentPathLower) || cmdlineLower.includes(grandparentPathLower);
 								const hasLsofAccess = lsofPidSet.has(pid);
 
@@ -2414,8 +2420,17 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Virtual drive unmapping removed as it's no longer used
 				// await unmapVirtualDrive();
 
-				// Final exit
-				vscode.commands.executeCommand('workbench.action.closeWindow');
+				// Final exit — use quit on macOS to fully terminate the app
+				// (closeWindow only closes the window but leaves the app in the dock)
+				if (process.platform === 'darwin') {
+					// Suppress the built-in quit confirmation since we already confirmed above
+					try {
+						await vscode.workspace.getConfiguration('window').update('confirmBeforeClose', 'never', vscode.ConfigurationTarget.Global);
+					} catch { }
+					vscode.commands.executeCommand('workbench.action.quit');
+				} else {
+					vscode.commands.executeCommand('workbench.action.closeWindow');
+				}
 			} catch (error) {
 				vscode.window.showErrorMessage('Failed to save progress on exit. Please try manual save first.');
 			}
