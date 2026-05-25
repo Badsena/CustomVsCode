@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import axios from 'axios';
+import * as https from 'https';
 export interface ICourseInfo {
     course_name: string;
     topic_name?: string;
@@ -90,7 +92,32 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     if (this._onConfirm) {
                         this._onConfirm();
                     }
-                    break;}
+                    break;
+                case 'fetchPdf':
+                    const pdfUrl = message.url;
+                    if (pdfUrl) {
+                        const agent = new https.Agent({ rejectUnauthorized: false });
+                        axios.get(pdfUrl, {
+                            responseType: 'arraybuffer',
+                            httpsAgent: agent
+                        })
+                            .then(response => {
+                                const base64 = Buffer.from(response.data).toString('base64');
+                                webviewView.webview.postMessage({
+                                    command: 'pdfData',
+                                    data: base64
+                                });
+                            })
+                            .catch(err => {
+                                console.error('[Amypo] Error downloading PDF:', err);
+                                webviewView.webview.postMessage({
+                                    command: 'pdfDataError',
+                                    error: err.message || 'Failed to download PDF'
+                                });
+                            });
+                    }
+                    break;
+            }
         });
 
         // ✅ Always set HTML immediately
@@ -174,7 +201,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; frame-src https://1102amy21.amypo.ai https://endpoint.amypo.ai https://docs.google.com https://drive.google.com https://mozilla.github.io; object-src 'none';">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; script-src 'nonce-${nonce}' https://cdnjs.cloudflare.com; worker-src https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; frame-src https://1102amy21.amypo.ai https://endpoint.amypo.ai https://docs.google.com https://drive.google.com https://mozilla.github.io blob: data:; object-src 'none';">
+            <script nonce="${nonce}" src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
             <style>
                 html, body {
                     margin: 0;
@@ -347,8 +375,72 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                 .report-btn:hover { background-color: var(--vscode-list-hoverBackground, #ffeaa7); }
 
                 .question-body { padding: 24px; flex: 1; overflow-y: auto; color: var(--vscode-editor-foreground); user-select: none; -webkit-user-select: none; }
-                #src-view { flex: 1; display: none; overflow: hidden; background: #fff; position: relative; user-select: none; -webkit-user-select: none; }
-                #src-iframe { width: 100%; height: 100%; border: none; }
+                #src-view { flex: 1; display: none; overflow: hidden; background: var(--vscode-editor-background); position: relative; user-select: none; -webkit-user-select: none; }
+                .srs-toolbar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 8px 16px;
+                    background: var(--vscode-editorWidget-background, #2d2d2d);
+                    border-bottom: 1px solid var(--vscode-widget-border, #3c3c3c);
+                    position: relative;
+                    z-index: 100;
+                    gap: 16px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                }
+                .srs-toolbar-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .srs-btn {
+                    background: var(--vscode-button-secondaryBackground, #3a3a3a);
+                    color: var(--vscode-button-secondaryForeground, #ffffff);
+                    border: 1px solid var(--vscode-widget-border, #555555);
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 28px;
+                    height: 28px;
+                    box-sizing: border-box;
+                    transition: background 0.2s;
+                }
+                .srs-btn:hover {
+                    background: var(--vscode-button-secondaryHoverBackground, #4a4a4a);
+                }
+                .srs-zoom-val {
+                    font-size: 12px;
+                    font-weight: 700;
+                    min-width: 48px;
+                    text-align: center;
+                    color: var(--vscode-foreground, #cccccc);
+                }
+                .srs-search-input {
+                    background: var(--vscode-input-background, #1e1e1e);
+                    color: var(--vscode-input-foreground, #cccccc);
+                    border: 1px solid var(--vscode-input-border, #3c3c3c);
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 12px;
+                    height: 28px;
+                    width: 140px;
+                    box-sizing: border-box;
+                    outline: none;
+                }
+                .srs-search-input:focus {
+                    border-color: var(--vscode-focusBorder, #00b894);
+                }
+                .srs-search-results {
+                    font-size: 11px;
+                    color: var(--vscode-descriptionForeground, #888888);
+                    min-width: 70px;
+                    text-align: center;
+                }
                 .q-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; }
                 .q-description { font-size: 15px; line-height: 1.6; margin-bottom: 32px; overflow-wrap: break-word; }
                 .q-description *, .q-title * { color: var(--vscode-editor-foreground) !important; }
@@ -622,7 +714,24 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                             <!-- SRC View -->
                             <div id="src-view" style="height: 100%; display: none; flex-direction: column; position: relative;" oncontextmenu="return false;">
-                                <iframe id="src-iframe" title="PDF Viewer" style="flex: 1; border: none; width: 100%; height: 100%;"></iframe>
+                                <div class="srs-toolbar" id="srs-toolbar-bar" style="display: none;">
+                                    <div class="srs-toolbar-group">
+                                        <button class="srs-btn" id="srs-zoom-out" title="Zoom Out">➖</button>
+                                        <span class="srs-zoom-val" id="srs-zoom-val">100%</span>
+                                        <button class="srs-btn" id="srs-zoom-in" title="Zoom In">➕</button>
+                                    </div>
+                                    <div class="srs-toolbar-group">
+                                        <input type="text" class="srs-search-input" id="srs-search-input" placeholder="Find in SRS..." />
+                                        <span class="srs-search-results" id="srs-search-results">0 matches</span>
+                                        <button class="srs-btn" id="srs-search-prev" title="Previous match">▲</button>
+                                        <button class="srs-btn" id="srs-search-next" title="Next match">▼</button>
+                                    </div>
+                                </div>
+                                <div id="src-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--vscode-descriptionForeground, #636e72); position: absolute; inset: 0; background: var(--vscode-editor-background); z-index: 10;">
+                                    <div class="spinner"></div>
+                                    <div style="font-weight: 500;">Loading SRS document...</div>
+                                </div>
+                                <div id="pdf-container" style="flex: 1; overflow: auto; padding: 20px; background: var(--vscode-editor-background); display: none; flex-direction: column;"></div>
                             </div>
                         </div>
                     </div>
@@ -768,7 +877,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     const tabSrc = document.getElementById('tab-src');
                     const viewQ = document.getElementById('data-view');
                     const viewSrc = document.getElementById('src-view');
-                    const iframe = document.getElementById('src-iframe');
+                    const pdfContainer = document.getElementById('pdf-container');
 
                     if (tab === 'Q') {
                         tabQ.classList.add('active');
@@ -779,7 +888,17 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                         tabQ.classList.remove('active');
                         tabSrc.classList.add('active');
                         viewQ.style.display = 'none';
-                        viewSrc.style.display = 'block';
+                        viewSrc.style.display = 'flex';
+
+                        // CACHE CHECK: If PDF is already rendered in DOM, show instantly and return
+                        if (pdfContainer && pdfContainer.children.length > 0) {
+                            const srcLoader = document.getElementById('src-loader');
+                            if (srcLoader) srcLoader.style.display = 'none';
+                            pdfContainer.style.display = 'flex';
+                            const srsBar = document.getElementById('srs-toolbar-bar');
+                            if (srsBar) srsBar.style.display = 'flex';
+                            return;
+                        }
 
                         if (currentQData && currentQData.testcases) {
                             try {
@@ -795,14 +914,35 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                     const cleanPath = pdfPath.startsWith('/') ? pdfPath : '/' + pdfPath;
                                     const fullUrl = baseUrl + cleanPath + pdfFile;
 
-                                    console.log('[Amypo] Loading PDF:', fullUrl);
+                                    console.log('[Amypo] Requesting PDF from extension host:', fullUrl);
 
-                                    // Use Google's older gview endpoint, which bypasses CORS and avoids viewerng 401 errors
-                                    const viewerUrl = 'https://docs.google.com/gview?embedded=true&url=' + encodeURIComponent(fullUrl);
-                                
-                                    if (iframe.src !== viewerUrl) {
-                                        iframe.src = viewerUrl;
+                                    // Show the loader and hide the iframe initially
+                                    const srcLoader = document.getElementById('src-loader');
+                                    if (srcLoader) {
+                                        srcLoader.style.display = 'flex';
+                                        const loaderText = srcLoader.querySelector('div:nth-child(2)');
+                                        if (loaderText) {
+                                            loaderText.innerText = 'Loading SRS document...';
+                                            loaderText.style.color = 'var(--vscode-descriptionForeground, #636e72)';
+                                        }
+                                        const spinner = srcLoader.querySelector('.spinner');
+                                        if (spinner) {
+                                            spinner.style.display = 'block';
+                                        }
                                     }
+                                    if (pdfContainer) {
+                                        pdfContainer.style.display = 'none';
+                                        pdfContainer.innerHTML = '';
+                                    }
+                                    const srsBar = document.getElementById('srs-toolbar-bar');
+                                    if (srsBar) srsBar.style.display = 'none';
+                                    const sSearch = document.getElementById('srs-search-input');
+                                    if (sSearch) sSearch.value = '';
+                                    const sResults = document.getElementById('srs-search-results');
+                                    if (sResults) sResults.innerText = '0 matches';
+
+                                    // Send message to extension host to download PDF and convert to base64
+                                    vscode.postMessage({ command: 'fetchPdf', url: fullUrl });
                                 }
                             } catch (e) {
                                 console.error('[Amypo] Error parsing testcases for PDF:', e);
@@ -949,6 +1089,306 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     const wrapper = document.getElementById('modal-wrapper');
                     const qUi = document.getElementById('question-ui');
 
+                    if (message.command === 'pdfData') {
+                        const base64 = message.data;
+                        const bin = atob(base64);
+                        const len = bin.length;
+                        const arr = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            arr[i] = bin.charCodeAt(i);
+                        }
+
+                        const container = document.getElementById('pdf-container');
+                        if (container) {
+                            container.innerHTML = '';
+                        }
+
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+                        const loadingTask = pdfjsLib.getDocument({ data: arr });
+                        loadingTask.promise.then(function(pdf) {
+                            console.log('[Amypo] PDF loaded, pages:', pdf.numPages);
+
+                            let renderedCount = 0;
+                            const totalPages = pdf.numPages;
+
+                            // Text Indexing and Context mapping
+                            const pdfTextContent = [];
+                            for (let i = 0; i < totalPages; i++) {
+                                pdfTextContent.push(null);
+                            }
+
+                            // Initialize canvases
+                            const canvases = [];
+                            for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                                // Create page wrapper
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'pdf-page-wrapper';
+                                wrapper.style.position = 'relative';
+                                wrapper.style.margin = '0 auto 20px auto';
+                                wrapper.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+                                wrapper.style.borderRadius = '4px';
+                                wrapper.style.width = '100%';
+                                wrapper.style.maxWidth = 'none'; // Essential: remove maxWidth to allow zoom past 100%
+                                wrapper.style.background = '#ffffff';
+                                wrapper.style.transition = 'outline 0.3s ease';
+
+                                // Create page render canvas
+                                const canvas = document.createElement('canvas');
+                                canvas.style.display = 'block';
+                                canvas.style.width = '100%';
+                                canvas.style.height = 'auto';
+                                wrapper.appendChild(canvas);
+
+                                // Create highlight overlay canvas
+                                const hlCanvas = document.createElement('canvas');
+                                hlCanvas.style.position = 'absolute';
+                                hlCanvas.style.top = '0';
+                                hlCanvas.style.left = '0';
+                                hlCanvas.style.width = '100%';
+                                hlCanvas.style.height = '100%';
+                                hlCanvas.style.pointerEvents = 'none';
+                                wrapper.appendChild(hlCanvas);
+
+                                if (container) container.appendChild(wrapper);
+                                canvases.push({ pageNum, wrapper, canvas, hlCanvas, viewport: null });
+
+                                // Fetch text context asynchronously for indexing
+                                pdf.getPage(pageNum).then(function(page) {
+                                    page.getTextContent().then(function(textContent) {
+                                        pdfTextContent[pageNum - 1] = textContent;
+                                    });
+                                });
+                            }
+
+                            // Zoom Controls Logic
+                            let currentZoom = 1.0;
+                            const zoomValEl = document.getElementById('srs-zoom-val');
+                            if (zoomValEl) zoomValEl.innerText = '100%';
+
+                            function updateZoom(delta) {
+                                currentZoom = Math.min(Math.max(currentZoom + delta, 0.5), 2.5);
+                                if (zoomValEl) {
+                                    zoomValEl.innerText = Math.round(currentZoom * 100) + '%';
+                                }
+                                canvases.forEach(item => {
+                                    item.wrapper.style.width = (currentZoom * 100) + '%';
+                                });
+                            }
+
+                            document.getElementById('srs-zoom-out').onclick = () => updateZoom(-0.1);
+                            document.getElementById('srs-zoom-in').onclick = () => updateZoom(0.1);
+
+                            // Find / Search Logic
+                            let searchMatches = [];
+                            let currentMatchIndex = -1;
+
+                            const searchInput = document.getElementById('srs-search-input');
+                            const searchResults = document.getElementById('srs-search-results');
+                            const searchPrev = document.getElementById('srs-search-prev');
+                            const searchNext = document.getElementById('srs-search-next');
+
+                            function runSearch() {
+                                const query = searchInput.value.trim().toLowerCase();
+                                searchMatches = [];
+                                currentMatchIndex = -1;
+
+                                if (!query) {
+                                    searchResults.innerText = '0 matches';
+                                    drawHighlights();
+                                    return;
+                                }
+
+                                pdfTextContent.forEach((textContent, pageIdx) => {
+                                    if (!textContent) return;
+                                    textContent.items.forEach(textItem => {
+                                        const str = textItem.str.toLowerCase();
+                                        let pos = str.indexOf(query);
+                                        while (pos !== -1) {
+                                            searchMatches.push({
+                                                pageNum: pageIdx + 1,
+                                                pageIdx: pageIdx,
+                                                textItem: textItem,
+                                                charPos: pos
+                                            });
+                                            pos = str.indexOf(query, pos + 1);
+                                        }
+                                    });
+                                });
+
+                                if (searchMatches.length > 0) {
+                                    currentMatchIndex = 0;
+                                    updateSearchDisplay();
+                                    drawHighlights();
+                                    navigateToMatch();
+                                } else {
+                                    searchResults.innerText = '0 matches';
+                                    drawHighlights();
+                                }
+                            }
+
+                            function drawHighlights() {
+                                const query = searchInput.value.trim().toLowerCase();
+                                canvases.forEach(item => {
+                                    const ctx = item.hlCanvas.getContext('2d');
+                                    ctx.clearRect(0, 0, item.hlCanvas.width, item.hlCanvas.height);
+                                });
+
+                                if (searchMatches.length === 0 || !query) return;
+
+                                searchMatches.forEach((match, idx) => {
+                                    const canvasItem = canvases[match.pageIdx];
+                                    const ctx = canvasItem.hlCanvas.getContext('2d');
+                                    const viewport = canvasItem.viewport;
+                                    if (!viewport) return;
+
+                                    const tx = match.textItem.transform;
+                                    const x = tx[4];
+                                    const y = tx[5];
+                                    const totalWidth = match.textItem.width;
+                                    const totalLen = match.textItem.str.length || 1;
+
+                                    // Linear interpolation of the substring position within the textItem
+                                    const charWidth = totalWidth / totalLen;
+                                    const subX = x + (match.charPos * charWidth);
+                                    const subWidth = query.length * charWidth;
+
+                                    const itemHeight = match.textItem.height || Math.abs(tx[3] || 12);
+
+                                    const [vx, vy] = viewport.convertToViewportPoint(subX, y);
+                                    const [vxEnd, vyEnd] = viewport.convertToViewportPoint(subX + subWidth, y + itemHeight);
+
+                                    const rectX = vx;
+                                    const rectY = vyEnd;
+                                    const rectW = Math.abs(vxEnd - vx);
+                                    const rectH = Math.abs(vy - vyEnd);
+
+                                    if (idx === currentMatchIndex) {
+                                        ctx.fillStyle = 'rgba(255, 87, 34, 0.55)'; // Focused: Orange
+                                        ctx.fillRect(rectX, rectY, rectW, rectH);
+                                        ctx.strokeStyle = 'rgba(230, 74, 25, 0.9)';
+                                        ctx.lineWidth = 1.5;
+                                        ctx.strokeRect(rectX, rectY, rectW, rectH);
+                                    } else {
+                                        ctx.fillStyle = 'rgba(255, 235, 59, 0.45)'; // Standard: Yellow
+                                        ctx.fillRect(rectX, rectY, rectW, rectH);
+                                        ctx.strokeStyle = 'rgba(255, 152, 0, 0.7)';
+                                        ctx.lineWidth = 1;
+                                        ctx.strokeRect(rectX, rectY, rectW, rectH);
+                                    }
+                                });
+                            }
+
+                            function updateSearchDisplay() {
+                                searchResults.innerText = (currentMatchIndex + 1) + ' of ' + searchMatches.length;
+                            }
+
+                            function navigateToMatch() {
+                                if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
+                                const match = searchMatches[currentMatchIndex];
+                                const targetWrapper = canvases[match.pageIdx]?.wrapper;
+                                if (targetWrapper) {
+                                    targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    targetWrapper.style.outline = '4px solid var(--vscode-focusBorder, #00b894)';
+                                    setTimeout(() => {
+                                        targetWrapper.style.outline = 'none';
+                                    }, 1500);
+                                }
+                            }
+
+                            searchInput.oninput = () => runSearch();
+                            searchInput.onkeydown = (e) => {
+                                if (e.key === 'Enter') {
+                                    if (searchMatches.length > 0) {
+                                        currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+                                        updateSearchDisplay();
+                                        drawHighlights();
+                                        navigateToMatch();
+                                    }
+                                }
+                            };
+
+                            searchNext.onclick = () => {
+                                if (searchMatches.length > 0) {
+                                    currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+                                    updateSearchDisplay();
+                                    drawHighlights();
+                                    navigateToMatch();
+                                }
+                            };
+
+                            searchPrev.onclick = () => {
+                                if (searchMatches.length > 0) {
+                                    currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+                                    updateSearchDisplay();
+                                    drawHighlights();
+                                    navigateToMatch();
+                                }
+                            };
+
+                            // Render page by page
+                            canvases.forEach(item => {
+                                pdf.getPage(item.pageNum).then(function(page) {
+                                    const viewport = page.getViewport({ scale: 1.5 });
+                                    item.viewport = viewport;
+
+                                    const context = item.canvas.getContext('2d');
+                                    item.canvas.height = viewport.height;
+                                    item.canvas.width = viewport.width;
+
+                                    item.hlCanvas.height = viewport.height;
+                                    item.hlCanvas.width = viewport.width;
+
+                                    const renderContext = {
+                                        canvasContext: context,
+                                        viewport: viewport
+                                    };
+                                    page.render(renderContext).promise.then(function() {
+                                        renderedCount++;
+                                        if (renderedCount === totalPages) {
+                                            const srcLoader = document.getElementById('src-loader');
+                                            if (srcLoader) srcLoader.style.display = 'none';
+                                            if (container) container.style.display = 'flex';
+                                            const srsBar = document.getElementById('srs-toolbar-bar');
+                                            if (srsBar) srsBar.style.display = 'flex';
+                                        }
+                                    });
+                                });
+                            });
+                        }).catch(function(err) {
+                            console.error('[Amypo] PDFJS loading error:', err);
+                            const srcLoader = document.getElementById('src-loader');
+                            if (srcLoader) {
+                                const loaderText = srcLoader.querySelector('div:nth-child(2)');
+                                if (loaderText) {
+                                    loaderText.innerText = 'Failed to load PDF pages: ' + err.message;
+                                    loaderText.style.color = '#ff5e5e';
+                                }
+                                const spinner = srcLoader.querySelector('.spinner');
+                                if (spinner) {
+                                    spinner.style.display = 'none';
+                                }
+                            }
+                        });
+                        return;
+                    }
+
+                    if (message.command === 'pdfDataError') {
+                        const srcLoader = document.getElementById('src-loader');
+                        if (srcLoader) {
+                            const loaderText = srcLoader.querySelector('div:nth-child(2)');
+                            if (loaderText) {
+                                loaderText.innerText = 'Failed to load SRS document: ' + message.error;
+                                loaderText.style.color = '#ff5e5e';
+                            }
+                            const spinner = srcLoader.querySelector('.spinner');
+                            if (spinner) {
+                                spinner.style.display = 'none';
+                            }
+                        }
+                        return;
+                    }
+
                     if (message.state) {
                         wrapper.style.display = 'none';
                         qUi.style.display = 'flex';
@@ -987,7 +1427,11 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
 
                                 // Always reset to Question tab on load
                                 switchTab('Q');
-                                document.getElementById('src-iframe').src = '';
+                                const pContainer = document.getElementById('pdf-container');
+                                if (pContainer) {
+                                    pContainer.innerHTML = '';
+                                    pContainer.style.display = 'none';
+                                }
 
                                 document.getElementById('q-title').innerText = qdata?.question_name || qdata?.title || 'Question 1';
                                 document.getElementById('q-desc').innerHTML = qdata?.description || qdata?.question || 'Empty Question Description';
