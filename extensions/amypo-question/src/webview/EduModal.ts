@@ -900,6 +900,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             return;
                         }
 
+                        let hasSrs = false;
                         if (currentQData && currentQData.testcases) {
                             try {
                                 const tc = typeof currentQData.testcases === 'string'
@@ -907,6 +908,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                     : currentQData.testcases;
 
                                 if (tc.src && tc.src.length > 0 && tc.path) {
+                                    hasSrs = true;
                                     const pdfFile = tc.src[0];
                                     let pdfPath = tc.path;
 
@@ -946,6 +948,28 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                                 }
                             } catch (e) {
                                 console.error('[Amypo] Error parsing testcases for PDF:', e);
+                            }
+                        }
+
+                        if (!hasSrs) {
+                            const srcLoader = document.getElementById('src-loader');
+                            if (srcLoader) {
+                                srcLoader.style.display = 'flex';
+                                const loaderText = srcLoader.querySelector('div:nth-child(2)');
+                                if (loaderText) {
+                                    loaderText.innerText = 'SRS document is not available for this project.';
+                                    loaderText.style.color = 'var(--vscode-descriptionForeground, #636e72)';
+                                }
+                                const spinner = srcLoader.querySelector('.spinner');
+                                if (spinner) {
+                                    spinner.style.display = 'none';
+                                }
+                            }
+                            const srsBar = document.getElementById('srs-toolbar-bar');
+                            if (srsBar) srsBar.style.display = 'none';
+                            if (pdfContainer) {
+                                pdfContainer.style.display = 'none';
+                                pdfContainer.innerHTML = '';
                             }
                         }
                     }
@@ -1419,10 +1443,8 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                             if (qdata) {
                                 // Show/Hide SRC tab based on testcases availability
                                 const tabSrc = document.getElementById('tab-src');
-                                if (qdata.testcases) {
+                                if (tabSrc) {
                                     tabSrc.style.display = 'flex';
-                                } else {
-                                    tabSrc.style.display = 'none';
                                 }
 
                                 // Always reset to Question tab on load
