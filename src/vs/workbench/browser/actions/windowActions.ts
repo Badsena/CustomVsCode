@@ -8,8 +8,8 @@ import { IWindowOpenable } from '../../../platform/window/common/window.js';
 import { IDialogService } from '../../../platform/dialogs/common/dialogs.js';
 import { MenuRegistry, MenuId, Action2, registerAction2 } from '../../../platform/actions/common/actions.js';
 import { KeyCode, KeyMod } from '../../../base/common/keyCodes.js';
-import { IsMainWindowFullscreenContext } from '../../common/contextkeys.js';
-import { IsMacNativeContext, IsDevelopmentContext, IsWebContext, IsIOSContext } from '../../../platform/contextkey/common/contextkeys.js';
+// import { IsMainWindowFullscreenContext } from '../../common/contextkeys.js';
+import { IsMacNativeContext, IsDevelopmentContext, IsWebContext } from '../../../platform/contextkey/common/contextkeys.js';
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IQuickInputButton, IQuickInputService, IQuickPickSeparator, IKeyMods, IQuickPickItem } from '../../../platform/quickinput/common/quickInput.js';
@@ -324,6 +324,7 @@ class QuickPickRecentAction extends BaseOpenRecentAction {
 	}
 }
 
+/*
 class ToggleFullScreenAction extends Action2 {
 
 	constructor() {
@@ -358,6 +359,7 @@ class ToggleFullScreenAction extends Action2 {
 		return hostService.toggleFullScreen(getActiveWindow());
 	}
 }
+*/
 
 export class ReloadWindowAction extends Action2 {
 
@@ -481,7 +483,7 @@ class BlurAction extends Action2 {
 // --- Actions Registration
 
 // registerAction2(NewWindowAction);
-registerAction2(ToggleFullScreenAction);
+// registerAction2(ToggleFullScreenAction);
 registerAction2(QuickPickRecentAction);
 registerAction2(OpenRecentAction);
 registerAction2(ReloadWindowAction);
