@@ -13,7 +13,7 @@ import axios from 'axios';
 
 import { EduViewProvider, ICourseInfo } from './webview/EduModal';
 import { submitData, jsonsubmitData, fetchData } from './services/axios/submissions';
-import { verifySpringBoot, verifyReact, verifyFullStack, verifySelenium } from './services/verificationService';
+import { verifySpringBoot, verifyReact, verifyReactSpring, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
 let server_type = 'prod';
@@ -232,7 +232,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
 	let currentRepoUrl: string | null = null;
-	let currentProjectType: 'react' | 'fullstack' | 'spring' | 'selenium' = 'spring';
+	let currentProjectType: 'react' | 'reactspring' | 'spring' | 'selenium' = 'spring';
 	// Test state for API synchronization
 	let activeTestType: number = 0;
 	let activeModuleId: number = 0;
@@ -472,7 +472,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (langId === 1002) {
 			currentProjectType = 'react';
 		} else if (langId === 1004) {
-			currentProjectType = 'fullstack';
+			currentProjectType = 'reactspring';
 		} else if (langId === 1005) {
 			currentProjectType = 'selenium';
 		} else {
@@ -1603,7 +1603,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			ignoredFolders = ['node_modules', 'build', 'dist', '.next', '.cache'];
 		} else if (currentProjectType === 'spring') {
 			ignoredFolders = ['target', '.m2', 'bin', 'out', '.gradle'];
-		} else if (currentProjectType === 'fullstack') {
+		} else if (currentProjectType === 'reactspring') {
 			ignoredFolders = ['node_modules', 'build', 'dist', '.next', '.cache', 'target', '.m2', 'bin', 'out', '.gradle'];
 		} else if (currentProjectType === 'selenium') {
 			ignoredFolders = ['target', '.m2', 'bin', 'out', '.gradle', 'drivers', 'test-output', 'screenshots'];
@@ -1753,7 +1753,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			let subpath = '';
 			if (currentProjectType === 'react') {
 				subpath = 'reactapp';
-			} else if (currentProjectType === 'fullstack') {
+			} else if (currentProjectType === 'reactspring') {
 				subpath = '';
 			} else {
 				subpath = 'demo';
@@ -1911,7 +1911,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						total_testcases = parseInt(test_count?.spring, 10) || 0;
 					} else if (currentProjectType === 'selenium') {
 						total_testcases = parseInt(test_count?.selenium, 10) || 0;
-					} else if (currentProjectType === 'fullstack') {
+					} else if (currentProjectType === 'reactspring') {
 						total_testcases = (parseInt(test_count?.backend, 10) || 0) + (parseInt(test_count?.frontend, 10) || 0);
 					}
 				} catch (e) { }
@@ -1934,9 +1934,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				console.log('springboot result', result);
 			} else if (currentProjectType === 'react') {
 				result = await verifyReact(request);
-			} else if (currentProjectType === 'fullstack') {
-				result = await verifyFullStack(request);
-				console.log('fullstack result', result);
+			} else if (currentProjectType === 'reactspring') {
+				result = await verifyReactSpring(request);
+				console.log('reactspring result', result);
 			} else if (currentProjectType === 'selenium') {
 				result = await verifySelenium(request);
 				console.log('selenium result', result);
@@ -2116,7 +2116,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		currentAllocationData = context.globalState.get('amypo.allocationData') ?? null;
 		currentProjectPath = context.globalState.get<string>('amypo.projectPath') ?? null;
 		currentRepoUrl = context.globalState.get<string>('amypo.repoUrl') ?? null;
-		currentProjectType = context.globalState.get<'react' | 'fullstack' | 'spring' | 'selenium'>('amypo.projectType') ?? 'spring';
+		currentProjectType = context.globalState.get<'react' | 'reactspring' | 'spring' | 'selenium'>('amypo.projectType') ?? 'spring';
 		activeToken = context.globalState.get<string>('amypo.token') ?? '';
 		server_type = context.globalState.get<string>('amypo.serverType') ?? 'prod';
 		API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';

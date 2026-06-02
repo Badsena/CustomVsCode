@@ -414,7 +414,7 @@ export async function verifyReact(request: VerificationRequest) {
 	}
 }
 
-export async function verifyFullStack(request: VerificationRequest) {
+export async function verifyReactSpring(request: VerificationRequest) {
 	let token = 'AmypoToken'
 	const { project_path, question_id, qb_name, backend_url } = request;
 	const springDeletePath = path.join(project_path, 'backend', 'src', 'test');
