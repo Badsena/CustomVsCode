@@ -2,7 +2,7 @@
   "name": "amypo-browser",
   "displayName": "Amypo Browser",
   "description": "High-performance Dev Server Manager with Integrated Toggle Preview & Pin Browsing.",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "enabledApiProposals": [
     "terminalDataWriteEvent"
   ],
