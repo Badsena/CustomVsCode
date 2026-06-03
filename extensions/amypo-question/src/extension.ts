@@ -667,7 +667,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
 				'  "winscp", "filezilla", "totalcmd", "spyder",',
-				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent"',
+				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide"',
 				')',
 				'',
 				'# Normalize project path',
@@ -769,7 +769,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
 						"thunar", "pcmanfm", "spyder",
-						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
@@ -861,7 +861,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						const isBlockedEditor = [
 							"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 							"vim", "nvim", "emacs", "nano", "spyder",
-							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 							"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName === editor);
 
@@ -929,7 +929,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const suspects = [
 						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
-						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
@@ -977,7 +977,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								"visual studio code", "cursor", "sublime text", "atom",
 								"intellij idea", "webstorm", "pycharm", "rider",
 								"macvim", "textmate", "bbedit", "nova",
-								"cody", "tabnine", "codeium",
+								"cody", "tabnine", "codeium", "antigravity", "antigravity ide", "antigravity-ide",
 								"obs", "snagit"
 							];
 
@@ -1071,7 +1071,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								const isBlockedByName = [
 									"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
-									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent",
+									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 								].some(editor => processName === editor);
 
