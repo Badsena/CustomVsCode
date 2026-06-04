@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AmypoCoder | Installation & User Manual</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg-color: #f1f5f9;
@@ -258,28 +260,35 @@
     @media print {
       @page {
         size: A4;
-        margin: 0; /* Hides default browser header (date) and footer (URL) */
+        margin: 0;
+        /* Hides default browser header (date) and footer (URL) */
       }
+
       body {
         background-color: #ffffff;
-        padding: 15mm 15mm; /* Creates the actual page margin inside the print area */
+        padding: 15mm 15mm;
+        /* Creates the actual page margin inside the print area */
         margin: 0;
       }
+
       .container {
         max-width: 100%;
         gap: 15px;
       }
+
       .card {
         border: none;
         box-shadow: none;
         padding: 15px;
       }
+
       .download-btn {
         display: none;
       }
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <!-- Main Card -->
@@ -287,8 +296,9 @@
       <div class="card-header">
         <h1 class="title">Installation & User Manual</h1>
         <button class="download-btn" onclick="window.print()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
           </svg>
           Download PDF
         </button>
@@ -297,14 +307,17 @@
       <!-- Pre-Installation Section -->
       <div class="section">
         <h2 class="section-title green">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           Pre-Installation Requirements
         </h2>
         <ul class="step-list">
-          <li>Ensure that <strong>Git</strong> is installed on your local computer prior to initiating installation.</li>
-          <li>Git serves as the core engine for automatic background synchronization, version control, and cloud backups of your tests.</li>
+          <li>Ensure that <strong>Git</strong> is installed on your local computer prior to initiating installation.
+          </li>
+          <li>Git serves as the core engine for automatic background synchronization, version control, and cloud backups
+            of your tests.</li>
         </ul>
       </div>
 
@@ -312,17 +325,22 @@
       <div class="section">
         <h2 class="section-title green">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M0 3.449L9.75 2.1v9.45H0V3.449zM0 12.45h9.75v9.45L0 20.551v-8.1zM10.95 1.95L24 0v11.55H10.95V1.95zM10.95 12.45H24v11.55l-13.05-1.95v-9.6z"/>
+            <path
+              d="M0 3.449L9.75 2.1v9.45H0V3.449zM0 12.45h9.75v9.45L0 20.551v-8.1zM10.95 1.95L24 0v11.55H10.95V1.95zM10.95 12.45H24v11.55l-13.05-1.95v-9.6z" />
           </svg>
           Windows Installation
         </h2>
         <ul class="step-list">
-          <li>Download the Windows executable installer (<code>.exe</code>) from the official secure coordinator link.</li>
-          <li>Right-click the executable and select '<strong>Run as Administrator</strong>' (click Yes on the system UAC prompt).</li>
+          <li>Download the Windows executable installer (<code>.exe</code>) from the official secure coordinator link.
+          </li>
+          <li>Right-click the executable and select '<strong>Run as Administrator</strong>' (click Yes on the system UAC
+            prompt).</li>
           <li>Accept the License Agreement and click Next.</li>
           <li>Retain the default destination path: <code>C:\Program Files\AmypoCoder</code></li>
-          <li>Keep all additional tasks enabled (Desktop/Start Menu shortcuts, file associations) and click <strong>Install</strong>.</li>
-          <li>Check the **"Launch AmypoCoder"** box and click **Finish**.</li>
+          <li>Keep all additional tasks enabled (Desktop/Start Menu shortcuts, file associations) and click
+            <strong>Install</strong>.
+          </li>
+          <li>Check the <strong>"Launch AmypoCoder"</strong> box and click <strong>Finish</strong>.</li>
         </ul>
       </div>
 
@@ -330,21 +348,27 @@
       <div class="section">
         <h2 class="section-title green">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12.2 1.8c.8-1 1.8-1.7 2.9-1.8.1 1.1-.3 2.2-1 3-1 1.1-2.1 1.7-3.1 1.6-.1-1.1.4-2.1 1.2-2.8zm3.2 4.1c-1.3 0-2.4.7-3 .7-.7 0-1.6-.6-2.6-.6C7.5 6 5.5 7.8 4.4 9.7c-2.2 3.8-.6 9.4 1.5 12.5 1 1.5 2.2 3.1 3.8 3 1.6-.1 2.2-1 4-1 1.8 0 2.4 1 4 1s2.7-1.4 3.7-3c1.2-1.7 1.7-3.4 1.7-3.5-.1 0-3.2-1.2-3.2-4.8 0-3 2.5-4.5 2.6-4.6-1.4-2.1-3.7-2.3-4.5-2.4z"/>
+            <path
+              d="M12.2 1.8c.8-1 1.8-1.7 2.9-1.8.1 1.1-.3 2.2-1 3-1 1.1-2.1 1.7-3.1 1.6-.1-1.1.4-2.1 1.2-2.8zm3.2 4.1c-1.3 0-2.4.7-3 .7-.7 0-1.6-.6-2.6-.6C7.5 6 5.5 7.8 4.4 9.7c-2.2 3.8-.6 9.4 1.5 12.5 1 1.5 2.2 3.1 3.8 3 1.6-.1 2.2-1 4-1 1.8 0 2.4 1 4 1s2.7-1.4 3.7-3c1.2-1.7 1.7-3.4 1.7-3.5-.1 0-3.2-1.2-3.2-4.8 0-3 2.5-4.5 2.6-4.6-1.4-2.1-3.7-2.3-4.5-2.4z" />
           </svg>
           macOS Installation
         </h2>
         <ul class="step-list">
           <li>Download the certified disk image file (<code>.dmg</code>) from your system coordinator.</li>
-          <li>Double-click the <code>.dmg</code> file to mount it, and drag the **AmypoCoder** icon into your **Applications** folder.</li>
+          <li>Double-click the <code>.dmg</code> file to mount it, and drag the <strong>AmypoCoder</strong> icon into
+            your
+            <strong>Applications</strong> folder.
+          </li>
           <li>
             <strong>If blocked or unrecognized (Gatekeeper quarantine):</strong>
             <ul class="nested-list">
-              <li>Open Terminal and run: <code>xattr -dr com.apple.quarantine /Applications/AmypoCoder.app</code></li>
-              <li>Or go to **System Settings &rarr; Privacy & Security &rarr; Open Anyway**.</li>
+              <li>Open Terminal and run:</li>
+              <li><code>xattr -dr com.apple.quarantine /Applications/AmypoCoder.app</code></li>
+              <li><code>open -a "AmypoCoder"</code></li>
             </ul>
           </li>
-          <li>Grant permissions for **Accessibility, Screen Recording, and Input Monitoring** when requested.</li>
+          <li>Grant permissions for <strong>Accessibility</strong>, <strong>Screen Recording</strong>, and <strong>Input
+              Monitoring</strong> when requested.</li>
           <li>Restart the application after granting system privileges.</li>
         </ul>
       </div>
@@ -352,31 +376,42 @@
       <!-- Linux Section -->
       <div class="section">
         <h2 class="section-title green">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 3h12M12 3v11M9 14h6M5 21h14c1.1 0 1.6-1.3.8-2l-4.8-7V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5l-4.8 7c-.8.7-.3 2 .8 2z"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M6 3h12M12 3v11M9 14h6M5 21h14c1.1 0 1.6-1.3.8-2l-4.8-7V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5l-4.8 7c-.8.7-.3 2 .8 2z" />
           </svg>
           Linux Installation
         </h2>
         <ul class="step-list">
-          <li>If .deb: Use '<code>sudo dpkg -i filename.deb</code>'.</li>
-          <li>To uninstall '<code>sudo dpkg --purge amypocoder</code>'.</li>
+          <li>Download the certified disk image file (<code>.deb</code>) from your system coordinator.</li>
+          <li>Open Terminal and redirect to application download folder then run:
+            <code>sudo dpkg -i AmypoEditor.deb</code> to instal application
+          </li>
         </ul>
       </div>
 
       <!-- Troubleshooting Section -->
+      <br>
+      <br>
       <div class="section">
         <h2 class="section-title red">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
           </svg>
           Common Issues & Troubleshooting
         </h2>
         <ul class="step-list">
-          <li><strong>Windows SmartScreen Warning:</strong> Safe to bypass. Click '<strong>More Info</strong>' &rarr; '<strong>Run Anyway</strong>' to resume setup.</li>
-          <li>"<strong>Close Restricted Applications</strong>": Ensure software like Skype, Discord, TeamViewer, or VM tools are closed before launching.</li>
-          <li><strong>Internet Connection Error:</strong> Verify network status. A stable connection is required to sync test modules.</li>
-          <li><strong>Webcam/Mic Access:</strong> Grant camera and microphone permissions when browser/app asks for exam proctoring.</li>
+          <li><strong>Windows SmartScreen Warning:</strong> Safe to bypass. Click '<strong>More Info</strong>' &rarr;
+            '<strong>Run Anyway</strong>' to resume setup.</li>
+          <li>"<strong>Close Restricted Applications</strong>": Ensure software like Skype, Discord, TeamViewer, or VM
+            tools are closed before launching.</li>
+          <li><strong>Internet Connection Error:</strong> Verify network status. A stable connection is required to sync
+            test modules.</li>
+          <li><strong>Webcam/Mic Access:</strong> Grant camera and microphone permissions when browser/app asks for exam
+            proctoring.</li>
         </ul>
       </div>
     </div>
@@ -389,10 +424,11 @@
         <div class="req-col">
           <div class="req-header">
             <div class="req-icon-container">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                <line x1="8" y1="21" x2="16" y2="21"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
             </div>
             Operating System
@@ -400,19 +436,22 @@
           <ul class="req-list">
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               Windows 10/11 (64-bit)
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               macOS 11.0 (Big Sur) or later
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               Linux (64-bit) &mdash; Ubuntu 20.04+
             </li>
@@ -423,17 +462,18 @@
         <div class="req-col">
           <div class="req-header">
             <div class="req-icon-container">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
-                <rect x="9" y="9" width="6" height="6"/>
-                <line x1="9" y1="1" x2="9" y2="4"/>
-                <line x1="15" y1="1" x2="15" y2="4"/>
-                <line x1="9" y1="20" x2="9" y2="23"/>
-                <line x1="15" y1="20" x2="15" y2="23"/>
-                <line x1="20" y1="9" x2="23" y2="9"/>
-                <line x1="20" y1="15" x2="23" y2="15"/>
-                <line x1="1" y1="9" x2="4" y2="9"/>
-                <line x1="1" y1="15" x2="4" y2="15"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                <rect x="9" y="9" width="6" height="6" />
+                <line x1="9" y1="1" x2="9" y2="4" />
+                <line x1="15" y1="1" x2="15" y2="4" />
+                <line x1="9" y1="20" x2="9" y2="23" />
+                <line x1="15" y1="20" x2="15" y2="23" />
+                <line x1="20" y1="9" x2="23" y2="9" />
+                <line x1="20" y1="15" x2="23" y2="15" />
+                <line x1="1" y1="9" x2="4" y2="9" />
+                <line x1="1" y1="15" x2="4" y2="15" />
               </svg>
             </div>
             Hardware
@@ -441,19 +481,22 @@
           <ul class="req-list">
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               2 GHz processor or faster
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               6 GB RAM (8 GB recommended)
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               500 MB free disk space
             </li>
@@ -464,10 +507,11 @@
         <div class="req-col">
           <div class="req-header">
             <div class="req-icon-container">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="2" y1="12" x2="22" y2="12"/>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
               </svg>
             </div>
             Network
@@ -475,19 +519,22 @@
           <ul class="req-list">
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               Stable internet connection
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               HTTP / HTTPS access to exam portal
             </li>
             <li>
               <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z"/>
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1.25 17.25l-4.5-4.5 1.414-1.414 3.086 3.086 7.086-7.086 1.414 1.414-8.5 8.5z" />
               </svg>
               No VPN restrictions
             </li>
@@ -497,4 +544,5 @@
     </div>
   </div>
 </body>
+
 </html>
