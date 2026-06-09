@@ -384,7 +384,7 @@ export class EduViewProvider implements vscode.WebviewViewProvider {
                     background: var(--vscode-editorWidget-background, #2d2d2d);
                     border-bottom: 1px solid var(--vscode-widget-border, #3c3c3c);
                     position: relative;
-                    z-index: 100;
+                    z-index: 70;
                     gap: 16px;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
                 }
