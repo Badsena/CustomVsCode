@@ -178,7 +178,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 				const allocation_id = parseInt(params.get('allocation_id') ?? '0');
 				const test_type = parseInt(params.get('test_type') ?? '0');
-				const module_id = parseInt(params.get('module_id') ?? '0');
+				let module_id = parseInt(params.get('module_id') ?? '0');
 				const token = params.get('token') ?? '';
 				server_type = params.get('server_type') ?? 'prod';
 
@@ -224,10 +224,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	const STATIC_ALLOCATION_ID = 6593;
+	const STATIC_ALLOCATION_ID = 6726;
 	const STATIC_TEST_TYPE = 0;
-	const STATIC_TOKEN = '373135|kGNLAAJVZhfvwQDKnl3ASwTPd6ngqcNgvHGIXXUk67721916';
-	const STATIC_MODULE_ID = 1978;
+	const STATIC_TOKEN = '391478|J0DpauUvcNY5wsRTfwMweiUBkzsirSArwZS8OM8M05035818';
+	const STATIC_MODULE_ID = 2124;
+
 	//  State
 	let currentAllocationData: any = null;
 	let currentProjectPath: string | null = null;
@@ -667,7 +668,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				'  "code", "cursor", "sublime_text", "atom", "brackets", "bluefish", "emacs",',
 				'  "idea64", "webstorm64", "pycharm64", "rider64", "eclipse", "devenv",',
 				'  "winscp", "filezilla", "totalcmd", "spyder",',
-				'  "cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide"',
+				'  "cody", "codex", "windsurf", "devin", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide"',
 				')',
 				'',
 				'# Normalize project path',
@@ -769,7 +770,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"vim", "nvim", "emacs", "nano", "nautilus", "dolphin", "nemo", "caja",
 						"thunar", "pcmanfm", "spyder",
-						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
+						"cody", "codex", "windsurf", "devin", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
@@ -861,7 +862,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						const isBlockedEditor = [
 							"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 							"vim", "nvim", "emacs", "nano", "spyder",
-							"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
+							"cody", "codex", "windsurf", "devin", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 							"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 						].some(editor => processName === editor);
 
@@ -929,7 +930,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					const suspects = [
 						"code", "cursor", "sublime", "atom", "idea", "webstorm", "pycharm", "rider",
 						"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
-						"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
+						"cody", "codex", "windsurf", "devin", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 						"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 					];
 
@@ -977,7 +978,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								"visual studio code", "cursor", "sublime text", "atom",
 								"intellij idea", "webstorm", "pycharm", "rider",
 								"macvim", "textmate", "bbedit", "nova",
-								"cody", "tabnine", "codeium", "antigravity", "antigravity ide", "antigravity-ide",
+								"cody", "codex", "windsurf", "devin", "tabnine", "codeium", "antigravity", "antigravity ide", "antigravity-ide",
 								"obs", "snagit"
 							];
 
@@ -1071,7 +1072,7 @@ export async function activate(context: vscode.ExtensionContext) {
 								const isBlockedByName = [
 									"code", "cursor", "sublime", "sublime_text", "subl", "atom", "idea", "webstorm", "pycharm", "rider",
 									"gedit", "kate", "vim", "nvim", "emacs", "nano", "spyder",
-									"cody", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
+									"cody", "codex", "windsurf", "devin", "tabnine", "codeium", "interpreter", "mentat", "swe-agent", "antigravity", "antigravity ide", "antigravity-ide",
 									"flameshot", "spectacle", "gnome-screenshot", "xfce4-screenshooter", "ksnip"
 								].some(editor => processName === editor);
 
@@ -1196,9 +1197,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				image_url: '',
 			};
 
+
+
 			const endpoint = test_type === 2
 				? `${API_URL}/sandbox/check_store_initial_link_test_data`
 				: `${API_URL}/sandbox/check_store_initial_data`;
+			console.log('payload', payload, endpoint);
 
 			const resp = await submitData(payload, endpoint, 0, token);
 			console.log('[Amypo EduTech] checkStoreInitialData response:', resp);
@@ -1354,6 +1358,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			const course_details = resp.data.couse_details ?? {};
 			const topic_details = resp.data.topic_details ?? {};
 
+			if (test_type == 1) {
+				moduleId = test?.test_modules?.[0]?.id;
+			}
+
 			// Fetch user details separately if not in response
 			let user_details = resp.data.user_details;
 			if (!user_details) {
@@ -1437,11 +1445,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			let languageNames: string[] = [];
 			let allLangDetails: any[] = [];
 
-			if (test_type === 0 && course_details?.language) {
+			if (course_details?.language) {
 				try {
 					const langIds = JSON.parse(course_details.language);
+					console.log('langIds', langIds);
 					if (Array.isArray(langIds)) {
 						allLangDetails = await getLanguageDetails(langIds, token);
+						console.log('allLangDetails', allLangDetails);
+
 						languageNames = allLangDetails.map(l => l.language_name ?? 'Unknown');
 					}
 				} catch (e) {
@@ -1536,6 +1547,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				try {
 					const matchedLang = allLangDetails.find(l => l.id === qData?.l_id);
 					primaryLanguageId = matchedLang?.language_id;
+					console.log('qData?.l_id', qData?.l_id, allLangDetails);
+
 					console.log('[Amypo] Matched primary language ID:', primaryLanguageId);
 				} catch { /* non-critical */ }
 
