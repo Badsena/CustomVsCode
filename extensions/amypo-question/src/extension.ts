@@ -146,9 +146,68 @@ const killProcess = async (pid: number): Promise<void> => {
 	}
 };
 
+// ── Fallback Git PATH discovery for Windows
+async function ensureGitInPath(): Promise<void> {
+	try {
+		await execAsync('git --version');
+		console.log('[Amypo] Git is already accessible in PATH.');
+		return;
+	} catch {
+		console.log('[Amypo] Git not found on PATH. Attempting to locate Git in standard locations...');
+	}
+
+	if (process.platform !== 'win32') {
+		return;
+	}
+
+	const possibleGitPaths = [
+		process.env['ProgramW6432'] ? path.join(process.env['ProgramW6432'], 'Git', 'cmd', 'git.exe') : null,
+		process.env['ProgramW6432'] ? path.join(process.env['ProgramW6432'], 'Git', 'bin', 'git.exe') : null,
+		process.env['ProgramFiles'] ? path.join(process.env['ProgramFiles'], 'Git', 'cmd', 'git.exe') : null,
+		process.env['ProgramFiles'] ? path.join(process.env['ProgramFiles'], 'Git', 'bin', 'git.exe') : null,
+		process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'Git', 'cmd', 'git.exe') : null,
+		process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'Git', 'bin', 'git.exe') : null,
+		process.env['LocalAppData'] ? path.join(process.env['LocalAppData'], 'Programs', 'Git', 'cmd', 'git.exe') : null,
+		process.env['LocalAppData'] ? path.join(process.env['LocalAppData'], 'Programs', 'Git', 'bin', 'git.exe') : null,
+		'C:\\Program Files\\Git\\cmd\\git.exe',
+		'C:\\Program Files\\Git\\bin\\git.exe',
+		'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+		'C:\\Program Files (x86)\\Git\\bin\\git.exe'
+	].filter((p): p is string => !!p);
+
+	for (const gitPath of possibleGitPaths) {
+		try {
+			if (fs.existsSync(gitPath)) {
+				const gitDir = path.dirname(gitPath);
+				await execAsync(`"${gitPath}" --version`);
+				console.log(`[Amypo] Found Git at: ${gitPath}. Adding to PATH.`);
+
+				const pathEnvKey = Object.keys(process.env).find(k => k.toLowerCase() === 'path') || 'PATH';
+				const separator = ';';
+				const currentPath = process.env[pathEnvKey] || '';
+				process.env[pathEnvKey] = `${gitDir}${separator}${currentPath}`;
+
+				await execAsync('git --version');
+				console.log('[Amypo] Git successfully added and verified in PATH.');
+				return;
+			}
+		} catch (err) {
+			console.warn(`[Amypo] Found Git at ${gitPath} but validation failed:`, err);
+		}
+	}
+	console.error('[Amypo] Git could not be located in standard paths.');
+}
+
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
+
+	// Try to find Git and fix PATH if missing
+	try {
+		await ensureGitInPath();
+	} catch (gitErr) {
+		console.error('[Amypo] Error during Git PATH detection:', gitErr);
+	}
 
 	//  Auto-Update Check (blocking)
 	try {
