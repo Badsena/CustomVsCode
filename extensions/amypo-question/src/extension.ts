@@ -503,8 +503,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		try {
 			await execAsync('git --version');
-		} catch {
-			vscode.window.showErrorMessage('Amypo: Git is not installed. Please install Git and try again.');
+		} catch (error) {
+			vscode.window.showErrorMessage(`Amypo: Git is not installed. Please install Git and try again. ${error}`);
 			return;
 		}
 
