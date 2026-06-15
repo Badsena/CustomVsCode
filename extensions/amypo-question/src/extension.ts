@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
 
@@ -16,6 +16,7 @@ import { submitData, jsonsubmitData, fetchData } from './services/axios/submissi
 import { verifySpringBoot, verifyReact, verifyReactSpring, verifySelenium } from './services/verificationService';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 let server_type = 'prod';
 let API_URL = server_type === 'dev' ? 'https://1102amy21.amypo.ai/api' : 'https://endpoint.amypo.ai/api';
 
@@ -146,10 +147,178 @@ const killProcess = async (pid: number): Promise<void> => {
 	}
 };
 
+// ── Fallback live PATH discovery from Registry on Windows (to prevent stale environment variables via protocol handlers)
+async function refreshWindowsPathFromRegistry(): Promise<string | null> {
+	if (process.platform !== 'win32') {
+		return null;
+	}
+	try {
+		// Resolve the absolute path to reg.exe to bypass the stripped PATH lookup issue
+		const systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+		const regExe = path.join(systemRoot, 'System32', 'reg.exe');
+
+		// Standard system paths as a base safety net (always injected)
+		const standardPaths = [
+			path.join(systemRoot, 'System32'),
+			systemRoot,
+			path.join(systemRoot, 'System32', 'Wbem'),
+			path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0'),
+			path.join(systemRoot, 'System32', 'OpenSSH')
+		];
+
+		let machinePath = '';
+		let userPath = '';
+
+		// *** KEY FIX: Use execFileAsync, NOT execAsync ***
+		// execAsync (child_process.exec) needs to find cmd.exe via PATH to spawn a shell.
+		// When PATH is stripped (protocol handler launch), cmd.exe can't be found → silent failure.
+		// execFileAsync (child_process.execFile) runs the binary DIRECTLY — no shell needed.
+		if (fs.existsSync(regExe)) {
+			const [machineRes, userRes] = await Promise.all([
+				execFileAsync(regExe, ['query', 'HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment', '/v', 'Path']).catch(() => ({ stdout: '' })),
+				execFileAsync(regExe, ['query', 'HKCU\\Environment', '/v', 'Path']).catch(() => ({ stdout: '' }))
+			]);
+
+			const parseRegPath = (output: string | Buffer) => {
+				const text = typeof output === 'string' ? output : output.toString();
+				if (!text) return '';
+				const lines = text.split('\n');
+				for (const line of lines) {
+					if (line.includes('REG_EXPAND_SZ') || line.includes('REG_SZ')) {
+						const parts = line.split(/REG_EXPAND_SZ|REG_SZ/);
+						if (parts.length > 1) {
+							return parts[1].trim();
+						}
+					}
+				}
+				return '';
+			};
+
+			const expandEnvVars = (str: string) => {
+				return str.replace(/%([^%]+)%/g, (_, name) => {
+					const key = Object.keys(process.env).find(k => k.toLowerCase() === name.toLowerCase());
+					return key ? process.env[key] || '' : `%${name}%`;
+				});
+			};
+
+			machinePath = expandEnvVars(parseRegPath(machineRes.stdout));
+			userPath = expandEnvVars(parseRegPath(userRes.stdout));
+			console.log('[Amypo] Registry query succeeded via execFile (no shell).');
+		} else {
+			console.warn('[Amypo] reg.exe not found at standard path:', regExe);
+		}
+
+		// Dynamically discover tool install paths — works for ANY version/location
+		const commonToolDirs: string[] = [];
+
+		// --- Git: standard install locations ---
+		commonToolDirs.push(
+			'C:\\Program Files\\Git\\cmd',
+			'C:\\Program Files\\Git\\bin',
+			'C:\\Program Files (x86)\\Git\\cmd'
+		);
+
+		// --- Node.js: standard + user-level installs ---
+		commonToolDirs.push(
+			'C:\\Program Files\\nodejs',
+			'C:\\Program Files (x86)\\nodejs'
+		);
+
+		// --- Java: scan ALL JDK versions dynamically ---
+		const javaDirs = ['C:\\Program Files\\Java', 'C:\\Program Files (x86)\\Java'];
+		for (const javaBase of javaDirs) {
+			try {
+				if (fs.existsSync(javaBase)) {
+					const entries = fs.readdirSync(javaBase);
+					for (const entry of entries) {
+						const binDir = path.join(javaBase, entry, 'bin');
+						if (fs.existsSync(binDir)) {
+							commonToolDirs.push(binDir);
+						}
+					}
+				}
+			} catch { /* skip if can't read */ }
+		}
+
+		// --- Maven: scan ALL Maven versions dynamically ---
+		const mavenSearchDirs = [
+			'C:\\Program Files',
+			'C:\\Program Files (x86)',
+			'C:\\tools',
+			'C:\\dev',
+			'C:\\',
+		];
+		for (const searchDir of mavenSearchDirs) {
+			try {
+				if (fs.existsSync(searchDir)) {
+					const entries = fs.readdirSync(searchDir);
+					for (const entry of entries) {
+						if (entry.toLowerCase().includes('maven')) {
+							const binDir = path.join(searchDir, entry, 'bin');
+							if (fs.existsSync(binDir)) {
+								commonToolDirs.push(binDir);
+							}
+						}
+					}
+				}
+			} catch { /* skip */ }
+		}
+
+		// --- User-level installs (LocalAppData, AppData, nvm, etc.) ---
+		if (process.env.LOCALAPPDATA) {
+			commonToolDirs.push(
+				path.join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'cmd'),
+				path.join(process.env.LOCALAPPDATA, 'Programs', 'nodejs')
+			);
+		}
+		if (process.env.APPDATA) {
+			commonToolDirs.push(
+				path.join(process.env.APPDATA, 'npm'),
+				path.join(process.env.APPDATA, 'nvm')  // nvm-windows
+			);
+		}
+		// Chocolatey installs
+		const chocoPath = process.env.ChocolateyInstall || 'C:\\ProgramData\\chocolatey';
+		commonToolDirs.push(path.join(chocoPath, 'bin'));
+
+		// JAVA_HOME / MAVEN_HOME / M2_HOME environment variables (if set)
+		if (process.env.JAVA_HOME) { commonToolDirs.push(path.join(process.env.JAVA_HOME, 'bin')); }
+		if (process.env.MAVEN_HOME) { commonToolDirs.push(path.join(process.env.MAVEN_HOME, 'bin')); }
+		if (process.env.M2_HOME) { commonToolDirs.push(path.join(process.env.M2_HOME, 'bin')); }
+
+		const existingToolDirs = commonToolDirs.filter(dir => {
+			try { return fs.existsSync(dir); } catch { return false; }
+		});
+
+		// Merge everything: standard system paths + registry paths + hardcoded tool paths
+		const allPaths = [...standardPaths, ...machinePath.split(';'), ...userPath.split(';'), ...existingToolDirs]
+			.filter(dir => dir.trim() !== '');
+
+		if (allPaths.length > 0) {
+			const pathEnvKey = Object.keys(process.env).find(k => k.toLowerCase() === 'path') || 'PATH';
+			const currentPath = process.env[pathEnvKey] || '';
+			const currentPathDirs = currentPath.split(';');
+
+			// Deduplicate: registry + tool paths first, then existing
+			const uniqueDirs = Array.from(new Set([...allPaths, ...currentPathDirs]))
+				.filter(dir => dir.trim() !== '');
+
+			const finalPath = uniqueDirs.join(';');
+			process.env[pathEnvKey] = finalPath;
+			console.log('[Amypo] Process PATH refreshed. Total dirs:', uniqueDirs.length);
+			return finalPath;
+		}
+	} catch (err) {
+		console.warn('[Amypo] Failed to refresh PATH from Registry:', err);
+	}
+	return null;
+}
+
 // ── Fallback Git PATH discovery for Windows
 async function ensureGitInPath(): Promise<void> {
 	try {
-		await execAsync('git --version');
+		// Use execFileAsync to verify git — no shell needed
+		await execFileAsync('git', ['--version']);
 		console.log('[Amypo] Git is already accessible in PATH.');
 		return;
 	} catch {
@@ -179,7 +348,8 @@ async function ensureGitInPath(): Promise<void> {
 		try {
 			if (fs.existsSync(gitPath)) {
 				const gitDir = path.dirname(gitPath);
-				await execAsync(`"${gitPath}" --version`);
+				// Use execFileAsync — runs git.exe directly, no shell
+				await execFileAsync(gitPath, ['--version']);
 				console.log(`[Amypo] Found Git at: ${gitPath}. Adding to PATH.`);
 
 				const pathEnvKey = Object.keys(process.env).find(k => k.toLowerCase() === 'path') || 'PATH';
@@ -187,8 +357,7 @@ async function ensureGitInPath(): Promise<void> {
 				const currentPath = process.env[pathEnvKey] || '';
 				process.env[pathEnvKey] = `${gitDir}${separator}${currentPath}`;
 
-				await execAsync('git --version');
-				console.log('[Amypo] Git successfully added and verified in PATH.');
+				console.log('[Amypo] Git successfully added to PATH.');
 				return;
 			}
 		} catch (err) {
@@ -201,6 +370,16 @@ async function ensureGitInPath(): Promise<void> {
 //  Activate
 export async function activate(context: vscode.ExtensionContext) {
 	console.log('[Amypo Question] Activating…');
+
+	// Refresh Windows PATH from Registry to resolve stale environment from protocol handler launch
+	try {
+		const registryPath = await refreshWindowsPathFromRegistry();
+		if (registryPath) {
+			context.environmentVariableCollection.prepend('PATH', registryPath + ';');
+		}
+	} catch (pathErr) {
+		console.error('[Amypo] Error refreshing Windows PATH:', pathErr);
+	}
 
 	// Try to find Git and fix PATH if missing
 	try {
