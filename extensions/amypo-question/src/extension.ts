@@ -376,6 +376,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		const registryPath = await refreshWindowsPathFromRegistry();
 		if (registryPath) {
 			context.environmentVariableCollection.prepend('PATH', registryPath + ';');
+			context.environmentVariableCollection.prepend('Path', registryPath + ';');
+			context.environmentVariableCollection.prepend('path', registryPath + ';');
 		}
 	} catch (pathErr) {
 		console.error('[Amypo] Error refreshing Windows PATH:', pathErr);
